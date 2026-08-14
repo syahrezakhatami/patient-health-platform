@@ -1,0 +1,76 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: php_admin
+      POSTGRES_PASSWORD: php_admin_dev_only
+      POSTGRES_DB: php_dev
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-roles.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U php_admin -d php_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio_dev_access
+      MINIO_ROOT_PASSWORD: minio_dev_secret
+    ports:
+      - "9101:9000"
+      - "9002:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 5 bash -c ':> /dev/tcp/127.0.0.1/9000' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      DATABASE_URL: postgresql+asyncpg://app_dml:app_dml_dev_only@postgres:5432/php_dev
+      DATABASE_MIGRATION_URL: postgresql+asyncpg://php_admin:php_admin_dev_only@postgres:5432/php_dev
+      REDIS_URL: redis://redis:6379/0
+      OBJECT_STORAGE_ENDPOINT: http://minio:9000
+      OBJECT_STORAGE_BUCKET: php-dev-private
+      OBJECT_STORAGE_ACCESS_KEY: minio_dev_access
+      OBJECT_STORAGE_SECRET_KEY: minio_dev_secret
+      AUTH_ISSUER: http://localhost:8080/realms/php-dev
+      AUTH_AUDIENCE: php-api
+      AUTH_DEV_HS256_SECRET: dev-only-not-for-production-change-me-32b
+    ports:
+      - "9100:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+volumes:
+  postgres_data:
+  minio_data:

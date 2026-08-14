@@ -1,0 +1,52 @@
+from enum import StrEnum
+
+
+class EncounterClass(StrEnum):
+    EMER = "EMER"
+    IMP = "IMP"
+    AMB = "AMB"
+    VR = "VR"
+    HH = "HH"
+
+
+class EncounterStatus(StrEnum):
+    PLANNED = "PLANNED"
+    IN_PROGRESS = "IN_PROGRESS"
+    FINISHED = "FINISHED"
+    CANCELLED = "CANCELLED"
+    ENTERED_IN_ERROR = "ENTERED_IN_ERROR"
+
+
+class ClinicalRecordStatus(StrEnum):
+    DRAFT = "DRAFT"
+    FINAL = "FINAL"
+    ENTERED_IN_ERROR = "ENTERED_IN_ERROR"
+
+
+class ClinicalNoteType(StrEnum):
+    PROGRESS = "PROGRESS"
+    ADMISSION = "ADMISSION"
+    ED = "ED"
+    DISCHARGE = "DISCHARGE"
+    OTHER = "OTHER"
+
+
+class ParticipationType(StrEnum):
+    ATTENDING = "ATTENDING"
+    ADMITTING = "ADMITTING"
+    CONSULTANT = "CONSULTANT"
+    OTHER = "OTHER"
+
+
+class ClinicalProvenanceSubjectType(StrEnum):
+    ENCOUNTER = "ENCOUNTER"
+    CLINICAL_NOTE = "CLINICAL_NOTE"
+
+
+class ClinicalAuditAction(StrEnum):
+    ENCOUNTER_CREATED = "ENCOUNTER_CREATED"
+    ENCOUNTER_STATUS_CHANGED = "ENCOUNTER_STATUS_CHANGED"
+    CLINICAL_NOTE_CREATED = "CLINICAL_NOTE_CREATED"
+    CLINICAL_NOTE_UPDATED = "CLINICAL_NOTE_UPDATED"
+    CLINICAL_NOTE_FINALIZED = "CLINICAL_NOTE_FINALIZED"
+    CLINICAL_NOTE_ENTERED_IN_ERROR = "CLINICAL_NOTE_ENTERED_IN_ERROR"

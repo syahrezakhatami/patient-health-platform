@@ -1,0 +1,110 @@
+from enum import StrEnum
+
+
+class IdentityLifecycle(StrEnum):
+    ANONYMOUS = "ANONYMOUS"
+    ACTIVE = "ACTIVE"
+    MERGED = "MERGED"
+    RETIRED = "RETIRED"
+
+
+class IdentityKind(StrEnum):
+    STANDARD = "STANDARD"
+    ANONYMOUS = "ANONYMOUS"
+    TEMPORARY = "TEMPORARY"
+
+
+class IdentifierType(StrEnum):
+    NIK = "NIK"
+    BPJS = "BPJS"
+    PASSPORT = "PASSPORT"
+    DRIVERS_LICENSE = "DRIVERS_LICENSE"
+    NATIONAL_ID = "NATIONAL_ID"
+    MRN = "MRN"
+    EXTERNAL = "EXTERNAL"
+    PHONE = "PHONE"
+    EMAIL = "EMAIL"
+    OTHER = "OTHER"
+
+
+class IdentifierVerificationStatus(StrEnum):
+    UNVERIFIED = "UNVERIFIED"
+    VERIFIED = "VERIFIED"
+    REJECTED = "REJECTED"
+    EXPIRED = "EXPIRED"
+
+
+class IdentifierSystem(StrEnum):
+    NIK = "id.nik"
+    BPJS = "id.bpjs"
+    PHONE = "phone.e164"
+    EMAIL = "email"
+
+
+class MatchDecision(StrEnum):
+    NO_MATCH = "NO_MATCH"
+    POSSIBLE_MATCH = "POSSIBLE_MATCH"
+    PROBABLE_MATCH = "PROBABLE_MATCH"
+    CONFIRMED_MATCH = "CONFIRMED_MATCH"
+    REQUIRES_REVIEW = "REQUIRES_REVIEW"
+
+
+class MatchCandidateStatus(StrEnum):
+    OPEN = "OPEN"
+    REVIEWED = "REVIEWED"
+    SUPERSEDED = "SUPERSEDED"
+
+
+class MatchProbeStatus(StrEnum):
+    PROBE_ONLY = "PROBE_ONLY"
+    MATCHED_CANDIDATE = "MATCHED_CANDIDATE"
+
+
+class MergeOperationType(StrEnum):
+    MERGE = "MERGE"
+    UNMERGE = "UNMERGE"
+
+
+class MergeOperationStatus(StrEnum):
+    COMPLETED = "COMPLETED"
+    REJECTED = "REJECTED"
+
+
+class ClusterMembershipStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+    MERGED_IN = "MERGED_IN"
+    UNMERGED = "UNMERGED"
+
+
+class ClusterStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+    RETIRED = "RETIRED"
+
+
+class AdministrativeSex(StrEnum):
+    MALE = "MALE"
+    FEMALE = "FEMALE"
+    OTHER = "OTHER"
+    UNKNOWN = "UNKNOWN"
+
+
+class ProvenanceSubjectType(StrEnum):
+    PATIENT_IDENTITY = "PATIENT_IDENTITY"
+    IDENTIFIER = "IDENTIFIER"
+    MATCH_CANDIDATE = "MATCH_CANDIDATE"
+    MERGE_OPERATION = "MERGE_OPERATION"
+    IDENTITY_RESOLUTION = "IDENTITY_RESOLUTION"
+
+
+class AuditAction(StrEnum):
+    PATIENT_IDENTITY_CREATED = "PATIENT_IDENTITY_CREATED"
+    ANONYMOUS_IDENTITY_CREATED = "ANONYMOUS_IDENTITY_CREATED"
+    IDENTIFIER_ADDED = "IDENTIFIER_ADDED"
+    IDENTIFIER_VERIFIED = "IDENTIFIER_VERIFIED"
+    IDENTIFIER_REJECTED = "IDENTIFIER_REJECTED"
+    MATCH_CANDIDATE_CREATED = "MATCH_CANDIDATE_CREATED"
+    MATCH_REVIEWED = "MATCH_REVIEWED"
+    PATIENT_MERGED = "PATIENT_MERGED"
+    PATIENT_UNMERGED = "PATIENT_UNMERGED"
+    IDENTITY_STATUS_CHANGED = "IDENTITY_STATUS_CHANGED"
+    IDENTITY_RESOLUTION_COMPLETED = "IDENTITY_RESOLUTION_COMPLETED"

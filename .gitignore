@@ -1,0 +1,38 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage/
+dist/
+build/
+*.log
+
+# Tooling
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Local data
+data/
+*.pem
+*.key
+id_rsa*
+
+# Docker volumes / local objects
+.minio-data/
