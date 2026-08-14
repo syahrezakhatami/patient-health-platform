@@ -114,3 +114,49 @@ class ClinicalProvenanceModel(UUIDPrimaryKeyMixin, Base):
     verification_method: Mapped[str | None] = mapped_column(String(64), nullable=True)
     authorship_kind: Mapped[str] = mapped_column(String(32), nullable=False)
     information_source: Mapped[str] = mapped_column(String(32), nullable=False)
+
+
+class ConditionModel(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "conditions"
+    __table_args__ = (
+        Index("ix_conditions_patient_identity_id", "patient_identity_id"),
+        Index("ix_conditions_encounter_id", "encounter_id"),
+        Index("ix_conditions_organization_id", "organization_id"),
+        Index("ix_conditions_recorded_at", "recorded_at"),
+    )
+
+    patient_identity_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("patient_identities.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    encounter_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("encounters.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    organization_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    facility_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("facilities.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    category: Mapped[str] = mapped_column(String(32), nullable=False)
+    code_system: Mapped[str] = mapped_column(String(128), nullable=False)
+    code: Mapped[str] = mapped_column(String(64), nullable=False)
+    code_display: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    clinical_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    verification_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    onset_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    abatement_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    recorder_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
+    provenance_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("clinical_provenances.id", ondelete="RESTRICT"),
+        nullable=True,
+    )

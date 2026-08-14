@@ -27,6 +27,7 @@ _REDACT_KEYS = frozenset(
         "note_text",
         "clinical_note",
         "body_text",
+        "code_display",
         "document_bytes",
     }
 )

@@ -6,6 +6,9 @@ from pydantic import BaseModel, Field
 from app.modules.clinical.domain.enums import (
     ClinicalNoteType,
     ClinicalRecordStatus,
+    ConditionCategory,
+    ConditionClinicalStatus,
+    ConditionVerificationStatus,
     EncounterClass,
     EncounterStatus,
 )
@@ -219,6 +222,37 @@ class ClinicalNoteResponse(BaseModel):
     version: int
     authored_at: datetime
     finalized_at: datetime | None
+
+
+class CreateConditionRequest(BaseModel):
+    patient_identity_id: UUID
+    encounter_id: UUID | None = None
+    category: ConditionCategory
+    code: CodeableConceptRequest
+    clinical_status: ConditionClinicalStatus = ConditionClinicalStatus.ACTIVE
+    verification_status: ConditionVerificationStatus = ConditionVerificationStatus.CONFIRMED
+    onset_at: datetime | None = None
+    abatement_at: datetime | None = None
+
+
+class ChangeConditionStatusRequest(BaseModel):
+    clinical_status: ConditionClinicalStatus | None = None
+    verification_status: ConditionVerificationStatus | None = None
+
+
+class ConditionResponse(BaseModel):
+    id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    category: ConditionCategory
+    code: CodeableConceptRequest
+    clinical_status: ConditionClinicalStatus
+    verification_status: ConditionVerificationStatus
+    onset_at: datetime | None
+    abatement_at: datetime | None
+    recorded_at: datetime
 
 
 class MergeOperationResponse(BaseModel):

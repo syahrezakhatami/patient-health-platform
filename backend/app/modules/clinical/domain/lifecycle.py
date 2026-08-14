@@ -1,5 +1,10 @@
 from app.core.errors import AppError
-from app.modules.clinical.domain.enums import ClinicalRecordStatus, EncounterStatus
+from app.modules.clinical.domain.enums import (
+    ClinicalRecordStatus,
+    ConditionClinicalStatus,
+    ConditionVerificationStatus,
+    EncounterStatus,
+)
 
 ENCOUNTER_TRANSITIONS: dict[EncounterStatus, frozenset[EncounterStatus]] = {
     EncounterStatus.PLANNED: frozenset(
@@ -54,5 +59,118 @@ def assert_note_can_mark_error(status: ClinicalRecordStatus) -> None:
         raise AppError(
             "note_already_entered_in_error",
             "Clinical note is already entered in error",
+            status_code=409,
+        )
+
+
+CONDITION_CLINICAL_TRANSITIONS: dict[
+    ConditionClinicalStatus, frozenset[ConditionClinicalStatus]
+] = {
+    ConditionClinicalStatus.ACTIVE: frozenset(
+        {
+            ConditionClinicalStatus.RECURRENCE,
+            ConditionClinicalStatus.RELAPSE,
+            ConditionClinicalStatus.INACTIVE,
+            ConditionClinicalStatus.REMISSION,
+            ConditionClinicalStatus.RESOLVED,
+        }
+    ),
+    ConditionClinicalStatus.RECURRENCE: frozenset(
+        {
+            ConditionClinicalStatus.ACTIVE,
+            ConditionClinicalStatus.REMISSION,
+            ConditionClinicalStatus.RESOLVED,
+        }
+    ),
+    ConditionClinicalStatus.RELAPSE: frozenset(
+        {
+            ConditionClinicalStatus.ACTIVE,
+            ConditionClinicalStatus.REMISSION,
+            ConditionClinicalStatus.RESOLVED,
+        }
+    ),
+    ConditionClinicalStatus.INACTIVE: frozenset({ConditionClinicalStatus.ACTIVE}),
+    ConditionClinicalStatus.REMISSION: frozenset(
+        {
+            ConditionClinicalStatus.ACTIVE,
+            ConditionClinicalStatus.RELAPSE,
+            ConditionClinicalStatus.RESOLVED,
+        }
+    ),
+    ConditionClinicalStatus.RESOLVED: frozenset(
+        {
+            ConditionClinicalStatus.ACTIVE,
+            ConditionClinicalStatus.RECURRENCE,
+            ConditionClinicalStatus.RELAPSE,
+        }
+    ),
+}
+
+CONDITION_VERIFICATION_TRANSITIONS: dict[
+    ConditionVerificationStatus, frozenset[ConditionVerificationStatus]
+] = {
+    ConditionVerificationStatus.UNCONFIRMED: frozenset(
+        {
+            ConditionVerificationStatus.PROVISIONAL,
+            ConditionVerificationStatus.DIFFERENTIAL,
+            ConditionVerificationStatus.CONFIRMED,
+            ConditionVerificationStatus.REFUTED,
+        }
+    ),
+    ConditionVerificationStatus.PROVISIONAL: frozenset(
+        {
+            ConditionVerificationStatus.UNCONFIRMED,
+            ConditionVerificationStatus.DIFFERENTIAL,
+            ConditionVerificationStatus.CONFIRMED,
+            ConditionVerificationStatus.REFUTED,
+        }
+    ),
+    ConditionVerificationStatus.DIFFERENTIAL: frozenset(
+        {
+            ConditionVerificationStatus.PROVISIONAL,
+            ConditionVerificationStatus.CONFIRMED,
+            ConditionVerificationStatus.REFUTED,
+        }
+    ),
+    ConditionVerificationStatus.CONFIRMED: frozenset({ConditionVerificationStatus.REFUTED}),
+    ConditionVerificationStatus.REFUTED: frozenset(),
+    ConditionVerificationStatus.ENTERED_IN_ERROR: frozenset(),
+}
+
+
+def assert_condition_clinical_transition(
+    current: ConditionClinicalStatus, target: ConditionClinicalStatus
+) -> None:
+    if target is current:
+        return
+    if target not in CONDITION_CLINICAL_TRANSITIONS.get(current, frozenset()):
+        raise AppError(
+            "invalid_condition_clinical_transition",
+            (f"Condition clinical status cannot transition from {current.value} to {target.value}"),
+            status_code=409,
+        )
+
+
+def assert_condition_verification_transition(
+    current: ConditionVerificationStatus, target: ConditionVerificationStatus
+) -> None:
+    if target is current:
+        return
+    if target not in CONDITION_VERIFICATION_TRANSITIONS.get(current, frozenset()):
+        raise AppError(
+            "invalid_condition_verification_transition",
+            (
+                "Condition verification status cannot transition from "
+                f"{current.value} to {target.value}"
+            ),
+            status_code=409,
+        )
+
+
+def assert_condition_mutable(status: ConditionVerificationStatus) -> None:
+    if status is ConditionVerificationStatus.ENTERED_IN_ERROR:
+        raise AppError(
+            "condition_entered_in_error",
+            "An entered-in-error condition is immutable",
             status_code=409,
         )

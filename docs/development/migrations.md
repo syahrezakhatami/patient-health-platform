@@ -45,3 +45,9 @@ Migration `20260813_0003` adds insert-only `identity_match_probes` for auditable
 Migration `20260814_0004` adds `encounters`, `encounter_participants`, `clinical_notes`, and `clinical_provenances`. It does not add diagnosis, medication, laboratory, or FHIR tables. After upgrade, re-run `scripts/grant_dev_privileges.sql` so `app_dml` can use the new tables.
 
 Migration `20260814_0005` hardens Wave 2A history: encounter rows cannot be deleted, encounter `patient_identity_id` is immutable, and FINAL / ENTERED_IN_ERROR clinical notes cannot revert or have author/content rewritten. Do not edit `0001`–`0003`. Do not run destructive downgrade against a populated local database.
+
+## Wave 2B.1 Condition schema
+
+Migration `20260814_0006` adds `conditions` (problem-list item and encounter diagnosis). It does not add observation, medication, laboratory, allergy, or FHIR tables. After upgrade, re-run `scripts/grant_dev_privileges.sql` so `app_dml` can use the new table and so DELETE remains revoked. Do not edit `0001`–`0005`. Do not run destructive downgrade against a populated local database.
+
+Migration `20260814_0007` is additive Condition integrity only: `conditions.provenance_id` → `clinical_provenances.id` `ON DELETE RESTRICT`, and the Condition history trigger also freezes onset, abatement, recorded time, facility, and provenance. It does not change Encounter or clinical-note schema. Do not edit `0001`–`0006`. Do not run destructive downgrade against a populated local database.

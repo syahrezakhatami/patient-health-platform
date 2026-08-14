@@ -19,6 +19,7 @@ from app.modules.iam.infrastructure.models import (
 from app.modules.clinical.infrastructure.models import (
     ClinicalNoteModel,
     ClinicalProvenanceModel,
+    ConditionModel,
     EncounterModel,
     EncounterParticipantModel,
 )
@@ -59,6 +60,7 @@ assert EncounterModel.__tablename__ == "encounters"
 assert EncounterParticipantModel.__tablename__ == "encounter_participants"
 assert ClinicalNoteModel.__tablename__ == "clinical_notes"
 assert ClinicalProvenanceModel.__tablename__ == "clinical_provenances"
+assert ConditionModel.__tablename__ == "conditions"
 
 config = context.config
 if config.config_file_name is not None:

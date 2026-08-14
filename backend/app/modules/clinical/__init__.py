@@ -1,5 +1,7 @@
-"""Wave 2A clinical foundation.
+"""Clinical bounded context.
 
-Owns Encounter and the first authored clinical resource (clinical note).
-Does not own laboratory, medication, diagnosis catalogs, FHIR, or consent.
+Wave 2A: Encounter and clinical note.
+Wave 2B.1: Condition (problem list and encounter diagnosis).
+
+Does not own laboratory, medication, allergy, observation, FHIR, or consent.
 """

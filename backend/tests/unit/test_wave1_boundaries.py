@@ -4,6 +4,7 @@ from app.modules.audit.infrastructure.models import AuditEventModel
 from app.modules.clinical.infrastructure.models import (
     ClinicalNoteModel,
     ClinicalProvenanceModel,
+    ConditionModel,
     EncounterModel,
     EncounterParticipantModel,
 )
@@ -15,7 +16,6 @@ pytestmark = pytest.mark.unit
 
 FORBIDDEN_TABLES = {
     "diagnoses",
-    "conditions",
     "medications",
     "prescriptions",
     "laboratory_results",
@@ -57,6 +57,13 @@ def test_wave2a_metadata_has_foundation_tables_only() -> None:
         "clinical_provenances",
     }
     assert foundation.issubset(tables)
+
+
+def test_wave2b1_metadata_has_conditions_without_later_clinical_domains() -> None:
+    assert ConditionModel.__tablename__ == "conditions"
+    tables = set(Base.metadata.tables)
+    assert "conditions" in tables
+    assert tables.isdisjoint(FORBIDDEN_TABLES)
 
 
 def test_no_fhir_or_ai_modules_imported() -> None:
