@@ -25,11 +25,13 @@ from app.api.v1.schemas import (
     CreateLaboratoryOrderRequest,
     CreateLaboratoryResultRequest,
     CreateLaboratorySpecimenRequest,
+    CreateMedicationRequest,
     CreateObservationRequest,
     EncounterResponse,
     LaboratoryOrderResponse,
     LaboratoryResultResponse,
     LaboratorySpecimenResponse,
+    MedicationResponse,
     ObservationResponse,
     UpdateClinicalNoteRequest,
 )
@@ -43,6 +45,7 @@ from app.modules.clinical.application.services import (
     LaboratoryOrderView,
     LaboratoryResultView,
     LaboratorySpecimenView,
+    MedicationView,
     ObservationView,
 )
 from app.modules.clinical.domain.laboratory_values import (
@@ -1108,3 +1111,154 @@ async def mark_lab_result_entered_in_error(
         correlation_id=correlation_id,
     )
     return _lab_result_response(view)
+
+
+def _medication_response(view: MedicationView) -> MedicationResponse:
+    return MedicationResponse(
+        id=view.id,
+        patient_identity_id=view.patient_identity_id,
+        encounter_id=view.encounter_id,
+        organization_id=view.organization_id,
+        facility_id=view.facility_id,
+        category=view.category,
+        code=_codeable(view.code),
+        status=view.status,
+        dose_numeric=view.dose_numeric,
+        dose_unit=view.dose_unit,
+        route=view.route,
+        started_at=view.started_at,
+        stopped_at=view.stopped_at,
+        recorded_at=view.recorded_at,
+        version=view.version,
+    )
+
+
+@router.post("/medications", response_model=MedicationResponse)
+async def create_medication(
+    body: CreateMedicationRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> MedicationResponse:
+    code = parse_codeable_concept(body.code.model_dump())
+    if code is None:
+        raise AppError(
+            "invalid_codeable_concept",
+            "Codeable concept requires system and code",
+            status_code=422,
+        )
+    view = await _service(session, pdp, audit).create_medication(
+        principal,
+        patient_identity_id=body.patient_identity_id,
+        encounter_id=body.encounter_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        category=body.category,
+        code=code,
+        dose_numeric=body.dose_numeric,
+        dose_unit=body.dose_unit,
+        route=body.route,
+        started_at=body.started_at,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _medication_response(view)
+
+
+@router.get("/medications", response_model=list[MedicationResponse])
+async def list_medications(
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+    patient_identity_id: Annotated[UUID, Query()],
+    encounter_id: Annotated[UUID | None, Query()] = None,
+) -> list[MedicationResponse]:
+    views = await _service(session, pdp, audit).list_medications(
+        principal,
+        patient_identity_id=patient_identity_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        encounter_id=encounter_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return [_medication_response(item) for item in views]
+
+
+@router.get("/medications/{medication_id}", response_model=MedicationResponse)
+async def get_medication(
+    medication_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> MedicationResponse:
+    view = await _service(session, pdp, audit).get_medication(
+        principal,
+        medication_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _medication_response(view)
+
+
+@router.post("/medications/{medication_id}/stop", response_model=MedicationResponse)
+async def stop_medication(
+    medication_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> MedicationResponse:
+    view = await _service(session, pdp, audit).stop_medication(
+        principal,
+        medication_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _medication_response(view)
+
+
+@router.post("/medications/{medication_id}/entered-in-error", response_model=MedicationResponse)
+async def mark_medication_entered_in_error(
+    medication_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> MedicationResponse:
+    view = await _service(session, pdp, audit).mark_medication_entered_in_error(
+        principal,
+        medication_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _medication_response(view)

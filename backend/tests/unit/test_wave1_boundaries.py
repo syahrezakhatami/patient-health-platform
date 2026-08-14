@@ -10,6 +10,7 @@ from app.modules.clinical.infrastructure.models import (
     LaboratoryOrderModel,
     LaboratoryResultModel,
     LaboratorySpecimenModel,
+    MedicationModel,
     ObservationModel,
 )
 from app.modules.iam.infrastructure.models import UserModel
@@ -20,7 +21,6 @@ pytestmark = pytest.mark.unit
 
 FORBIDDEN_TABLES = {
     "diagnoses",
-    "medications",
     "prescriptions",
     "allergies",
     "vital_signs",
@@ -86,6 +86,20 @@ def test_wave2b2b_metadata_has_laboratory_without_later_clinical_domains() -> No
     assert LaboratoryResultModel.__tablename__ == "laboratory_results"
     tables = set(Base.metadata.tables)
     assert {
+        "laboratory_orders",
+        "laboratory_specimens",
+        "laboratory_results",
+        "observations",
+        "conditions",
+    }.issubset(tables)
+    assert tables.isdisjoint(FORBIDDEN_TABLES)
+
+
+def test_wave2b3a_metadata_has_medications_without_later_clinical_domains() -> None:
+    assert MedicationModel.__tablename__ == "medications"
+    tables = set(Base.metadata.tables)
+    assert {
+        "medications",
         "laboratory_orders",
         "laboratory_specimens",
         "laboratory_results",

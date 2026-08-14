@@ -59,3 +59,7 @@ Migration `20260814_0008` adds `observations` (native measurements/findings). It
 ## Wave 2B.2b Laboratory schema
 
 Migration `20260814_0009` adds `laboratory_orders`, `laboratory_specimens`, and `laboratory_results`. It extends `clinical_provenances.subject_type` with laboratory subjects and seeds laboratory permissions. It does not add medication, allergy, consent, or FHIR tables. After upgrade, re-run `scripts/grant_dev_privileges.sql` so `app_dml` can use the new tables and so DELETE remains revoked. Do not edit `0001`–`0008`. Do not run destructive downgrade against a populated local database.
+
+## Wave 2B.3a Medication schema
+
+Migration `20260814_0010` adds `medications`. It extends `clinical_provenances.subject_type` with `MEDICATION` and seeds medication permissions. It does not add allergy, consent, prescription, administration, or FHIR tables. After upgrade, re-run `scripts/grant_dev_privileges.sql` so `app_dml` can use the new table and so DELETE remains revoked. Do not edit `0001`–`0009`. Do not run destructive downgrade against a populated local database.

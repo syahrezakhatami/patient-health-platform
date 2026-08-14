@@ -7,6 +7,7 @@ from app.modules.clinical.domain.enums import (
     LaboratoryOrderStatus,
     LaboratoryResultStatus,
     LaboratorySpecimenStatus,
+    MedicationStatus,
     ObservationStatus,
 )
 
@@ -295,5 +296,33 @@ def assert_lab_result_can_amend(status: LaboratoryResultStatus) -> None:
         raise AppError(
             "lab_result_not_amendable",
             "Only a FINAL or AMENDED laboratory result can be amended",
+            status_code=409,
+        )
+
+
+MEDICATION_TRANSITIONS: dict[MedicationStatus, frozenset[MedicationStatus]] = {
+    MedicationStatus.ACTIVE: frozenset(
+        {MedicationStatus.STOPPED, MedicationStatus.ENTERED_IN_ERROR}
+    ),
+    MedicationStatus.STOPPED: frozenset({MedicationStatus.ENTERED_IN_ERROR}),
+    MedicationStatus.ENTERED_IN_ERROR: frozenset(),
+}
+
+
+def assert_medication_mutable(status: MedicationStatus) -> None:
+    if status is MedicationStatus.ENTERED_IN_ERROR:
+        raise AppError(
+            "medication_entered_in_error",
+            "An entered-in-error medication is immutable",
+            status_code=409,
+        )
+
+
+def assert_medication_can_stop(status: MedicationStatus) -> None:
+    assert_medication_mutable(status)
+    if status is not MedicationStatus.ACTIVE:
+        raise AppError(
+            "medication_not_active",
+            "Only an ACTIVE medication can be stopped",
             status_code=409,
         )

@@ -18,6 +18,9 @@ from app.modules.clinical.domain.enums import (
     LaboratoryResultValueType,
     LaboratorySpecimenStatus,
     LaboratorySpecimenType,
+    MedicationCategory,
+    MedicationRoute,
+    MedicationStatus,
     ObservationCategory,
     ObservationStatus,
     ObservationValueType,
@@ -398,6 +401,35 @@ class LaboratoryResultResponse(BaseModel):
     reference_range_high: Decimal | None
     interpretation: LaboratoryResultInterpretation | None
     effective_at: datetime | None
+    recorded_at: datetime
+    version: int
+
+
+class CreateMedicationRequest(BaseModel):
+    patient_identity_id: UUID
+    encounter_id: UUID | None = None
+    category: MedicationCategory
+    code: CodeableConceptRequest
+    dose_numeric: Decimal | None = None
+    dose_unit: str | None = Field(default=None, max_length=32)
+    route: MedicationRoute | None = None
+    started_at: datetime | None = None
+
+
+class MedicationResponse(BaseModel):
+    id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    category: MedicationCategory
+    code: CodeableConceptRequest
+    status: MedicationStatus
+    dose_numeric: Decimal | None
+    dose_unit: str | None
+    route: MedicationRoute | None
+    started_at: datetime | None
+    stopped_at: datetime | None
     recorded_at: datetime
     version: int
 

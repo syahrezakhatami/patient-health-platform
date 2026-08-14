@@ -13,6 +13,7 @@ from app.modules.clinical.infrastructure.models import (
     LaboratoryOrderModel,
     LaboratoryResultModel,
     LaboratorySpecimenModel,
+    MedicationModel,
     ObservationModel,
 )
 
@@ -244,5 +245,37 @@ class ClinicalRepository:
             )
             .order_by(LaboratoryResultModel.recorded_at.desc())
             .limit(100)
+        )
+        return list(result.scalars().all())
+
+    async def add_medication(self, model: MedicationModel) -> MedicationModel:
+        self._session.add(model)
+        await self._session.flush()
+        return model
+
+    async def get_medication(self, medication_id: UUID) -> MedicationModel | None:
+        return await self._session.get(MedicationModel, medication_id)
+
+    async def get_medication_for_update(self, medication_id: UUID) -> MedicationModel | None:
+        result = await self._session.execute(
+            select(MedicationModel).where(MedicationModel.id == medication_id).with_for_update()
+        )
+        return result.scalar_one_or_none()
+
+    async def list_medications_for_patient(
+        self,
+        patient_identity_id: UUID,
+        organization_id: UUID,
+        *,
+        encounter_id: UUID | None = None,
+    ) -> list[MedicationModel]:
+        query = select(MedicationModel).where(
+            MedicationModel.patient_identity_id == patient_identity_id,
+            MedicationModel.organization_id == organization_id,
+        )
+        if encounter_id is not None:
+            query = query.where(MedicationModel.encounter_id == encounter_id)
+        result = await self._session.execute(
+            query.order_by(MedicationModel.recorded_at.desc()).limit(100)
         )
         return list(result.scalars().all())

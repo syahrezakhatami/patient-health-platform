@@ -38,6 +38,9 @@ _REDACT_KEYS = frozenset(
         "reference_range_low",
         "reference_range_high",
         "document_bytes",
+        "dose_numeric",
+        "dose_unit",
+        "dose",
     }
 )
 

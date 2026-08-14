@@ -28,6 +28,9 @@ from app.modules.clinical.domain.enums import (
     LaboratoryResultValueType,
     LaboratorySpecimenStatus,
     LaboratorySpecimenType,
+    MedicationCategory,
+    MedicationRoute,
+    MedicationStatus,
     ObservationCategory,
     ObservationStatus,
     ObservationValueType,
@@ -48,6 +51,8 @@ from app.modules.clinical.domain.lifecycle import (
     assert_lab_result_mutable,
     assert_lab_specimen_collectable,
     assert_lab_specimen_transition,
+    assert_medication_can_stop,
+    assert_medication_mutable,
     assert_note_can_finalize,
     assert_note_can_mark_error,
     assert_note_is_draft,
@@ -68,6 +73,7 @@ from app.modules.clinical.infrastructure.models import (
     LaboratoryOrderModel,
     LaboratoryResultModel,
     LaboratorySpecimenModel,
+    MedicationModel,
     ObservationModel,
 )
 from app.modules.clinical.infrastructure.repositories import ClinicalRepository, utc_now
@@ -194,6 +200,25 @@ class LaboratoryResultView:
     reference_range_high: Decimal | None
     interpretation: LaboratoryResultInterpretation | None
     effective_at: datetime | None
+    recorded_at: datetime
+    version: int
+
+
+@dataclass(frozen=True, slots=True)
+class MedicationView:
+    id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    category: MedicationCategory
+    code: CodeableConcept
+    status: MedicationStatus
+    dose_numeric: Decimal | None
+    dose_unit: str | None
+    route: MedicationRoute | None
+    started_at: datetime | None
+    stopped_at: datetime | None
     recorded_at: datetime
     version: int
 
@@ -1828,6 +1853,260 @@ class ClinicalService:
         )
         return _lab_result_view(result)
 
+    async def create_medication(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        encounter_id: UUID | None,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        category: MedicationCategory,
+        code: CodeableConcept,
+        dose_numeric: Decimal | None,
+        dose_unit: str | None,
+        route: MedicationRoute | None,
+        started_at: datetime | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> MedicationView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_MEDICATION_CREATE,
+            resource_type="Medication",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        if (
+            IdentityLifecycle(identity.lifecycle_status) is IdentityLifecycle.ANONYMOUS
+            and encounter_id is None
+        ):
+            raise AppError(
+                "anonymous_medication_requires_encounter",
+                "An anonymous identity may receive only an emergency encounter medication",
+                status_code=409,
+            )
+        parsed_dose, parsed_unit = _parse_medication_dose(dose_numeric, dose_unit)
+        encounter = None
+        bound_patient_id = identity.id
+        bound_facility_id = facility_id
+        if encounter_id is not None:
+            encounter = await self._visible_encounter(
+                principal, encounter_id, organization_id, for_update=True
+            )
+            if EncounterStatus(encounter.status) in {
+                EncounterStatus.CANCELLED,
+                EncounterStatus.ENTERED_IN_ERROR,
+            }:
+                raise AppError(
+                    "encounter_not_documentable",
+                    "A cancelled or erroneous encounter cannot receive medications",
+                    status_code=409,
+                )
+            if encounter.patient_identity_id != identity.id:
+                raise AppError(
+                    "medication_patient_mismatch",
+                    "Medication patient must match the encounter patient",
+                    status_code=409,
+                )
+            if (
+                IdentityLifecycle(identity.lifecycle_status) is IdentityLifecycle.ANONYMOUS
+                and EncounterClass(encounter.encounter_class) is not EncounterClass.EMER
+            ):
+                raise AppError(
+                    "anonymous_encounter_not_emergency",
+                    "An anonymous identity may receive only an emergency encounter medication",
+                    status_code=409,
+                )
+            bound_patient_id = encounter.patient_identity_id
+            bound_facility_id = facility_id or encounter.facility_id
+        medication_id = new_id()
+        provenance = await self._record_provenance(
+            subject_type=ClinicalProvenanceSubjectType.MEDICATION,
+            subject_id=medication_id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            actor_id=None if principal is None else principal.user.id,
+        )
+        medication = MedicationModel(
+            id=medication_id,
+            patient_identity_id=bound_patient_id,
+            encounter_id=None if encounter is None else encounter.id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            category=category.value,
+            code_system=code.system,
+            code=code.code,
+            code_display=code.display,
+            status=MedicationStatus.ACTIVE.value,
+            dose_numeric=parsed_dose,
+            dose_unit=parsed_unit,
+            route=None if route is None else route.value,
+            started_at=started_at,
+            stopped_at=None,
+            recorded_at=utc_now(),
+            recorder_id=None if principal is None else principal.user.id,
+            version=1,
+            provenance_id=provenance.id,
+        )
+        await self._clinical.add_medication(medication)
+        await self._audit_success(
+            ClinicalAuditAction.MEDICATION_CREATED,
+            principal,
+            organization_id,
+            medication.facility_id,
+            medication.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=medication.id,
+            metadata={"category": medication.category, "status": medication.status},
+        )
+        return _medication_view(medication)
+
+    async def get_medication(
+        self,
+        principal: Principal | None,
+        medication_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> MedicationView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_MEDICATION_READ,
+            resource_type="Medication",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        medication = await self._visible_medication(principal, medication_id, organization_id)
+        return _medication_view(medication)
+
+    async def list_medications(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        encounter_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> list[MedicationView]:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_MEDICATION_READ,
+            resource_type="Medication",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        rows = await self._clinical.list_medications_for_patient(
+            identity.id, organization_id, encounter_id=encounter_id
+        )
+        return [_medication_view(item) for item in rows]
+
+    async def stop_medication(
+        self,
+        principal: Principal | None,
+        medication_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> MedicationView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_MEDICATION_UPDATE,
+            resource_type="Medication",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        medication = await self._visible_medication(
+            principal, medication_id, organization_id, for_update=True
+        )
+        current_status = MedicationStatus(medication.status)
+        assert_medication_can_stop(current_status)
+        medication.status = MedicationStatus.STOPPED.value
+        medication.stopped_at = utc_now()
+        medication.version = medication.version + 1
+        await self._audit_success(
+            ClinicalAuditAction.MEDICATION_STOPPED,
+            principal,
+            organization_id,
+            medication.facility_id,
+            medication.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=medication.id,
+            metadata={"status": medication.status, "version": str(medication.version)},
+        )
+        return _medication_view(medication)
+
+    async def mark_medication_entered_in_error(
+        self,
+        principal: Principal | None,
+        medication_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> MedicationView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_MEDICATION_ENTERED_IN_ERROR,
+            resource_type="Medication",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        medication = await self._visible_medication(
+            principal, medication_id, organization_id, for_update=True
+        )
+        assert_medication_mutable(MedicationStatus(medication.status))
+        medication.status = MedicationStatus.ENTERED_IN_ERROR.value
+        await self._audit_success(
+            ClinicalAuditAction.MEDICATION_ENTERED_IN_ERROR,
+            principal,
+            organization_id,
+            medication.facility_id,
+            medication.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=medication.id,
+            metadata={"purpose": purpose},
+        )
+        return _medication_view(medication)
+
     async def _require_canonical_identity(
         self,
         principal: Principal | None,
@@ -2073,6 +2352,26 @@ class ClinicalService:
         if result.organization_id != organization_id:
             raise NotFoundError("Laboratory result not found")
         return result
+
+    async def _visible_medication(
+        self,
+        principal: Principal | None,
+        medication_id: UUID,
+        organization_id: UUID,
+        *,
+        for_update: bool = False,
+    ) -> MedicationModel:
+        if for_update:
+            medication = await self._clinical.get_medication_for_update(medication_id)
+        else:
+            medication = await self._clinical.get_medication(medication_id)
+        if medication is None:
+            raise NotFoundError("Medication not found")
+        if principal is not None and principal.has_platform_scope:
+            return medication
+        if medication.organization_id != organization_id:
+            raise NotFoundError("Medication not found")
+        return medication
 
     async def _record_provenance(
         self,
@@ -2378,6 +2677,48 @@ def _lab_result_view(model: LaboratoryResultModel) -> LaboratoryResultView:
         reference_range_high=model.reference_range_high,
         interpretation=interpretation,
         effective_at=model.effective_at,
+        recorded_at=model.recorded_at,
+        version=model.version,
+    )
+
+
+def _parse_medication_dose(
+    dose_numeric: Decimal | None,
+    dose_unit: str | None,
+) -> tuple[Decimal | None, str | None]:
+    unit = None if dose_unit is None else dose_unit.strip()
+    if unit == "":
+        unit = None
+    if dose_numeric is None and unit is None:
+        return None, None
+    if dose_numeric is None or unit is None:
+        raise AppError(
+            "medication_dose_shape",
+            "Medication dose requires both dose_numeric and dose_unit, or neither",
+            status_code=422,
+        )
+    return dose_numeric, unit
+
+
+def _medication_view(model: MedicationModel) -> MedicationView:
+    return MedicationView(
+        id=model.id,
+        patient_identity_id=model.patient_identity_id,
+        encounter_id=model.encounter_id,
+        organization_id=model.organization_id,
+        facility_id=model.facility_id,
+        category=MedicationCategory(model.category),
+        code=CodeableConcept(
+            system=model.code_system,
+            code=model.code,
+            display=model.code_display,
+        ),
+        status=MedicationStatus(model.status),
+        dose_numeric=model.dose_numeric,
+        dose_unit=model.dose_unit,
+        route=None if model.route is None else MedicationRoute(model.route),
+        started_at=model.started_at,
+        stopped_at=model.stopped_at,
         recorded_at=model.recorded_at,
         version=model.version,
     )

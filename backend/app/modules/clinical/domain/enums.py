@@ -119,6 +119,27 @@ class LaboratoryResultInterpretation(StrEnum):
     CRITICAL = "CRITICAL"
 
 
+class MedicationCategory(StrEnum):
+    PRESCRIBED = "PRESCRIBED"
+    REPORTED = "REPORTED"
+
+
+class MedicationStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+    STOPPED = "STOPPED"
+    ENTERED_IN_ERROR = "ENTERED_IN_ERROR"
+
+
+class MedicationRoute(StrEnum):
+    ORAL = "ORAL"
+    IV = "IV"
+    IM = "IM"
+    SC = "SC"
+    TOPICAL = "TOPICAL"
+    INHALED = "INHALED"
+    OTHER = "OTHER"
+
+
 class ClinicalProvenanceSubjectType(StrEnum):
     ENCOUNTER = "ENCOUNTER"
     CLINICAL_NOTE = "CLINICAL_NOTE"
@@ -127,6 +148,7 @@ class ClinicalProvenanceSubjectType(StrEnum):
     LABORATORY_ORDER = "LABORATORY_ORDER"
     LABORATORY_SPECIMEN = "LABORATORY_SPECIMEN"
     LABORATORY_RESULT = "LABORATORY_RESULT"
+    MEDICATION = "MEDICATION"
 
 
 class ClinicalAuditAction(StrEnum):
@@ -152,3 +174,6 @@ class ClinicalAuditAction(StrEnum):
     LAB_RESULT_CREATED = "LAB_RESULT_CREATED"
     LAB_RESULT_AMENDED = "LAB_RESULT_AMENDED"
     LAB_RESULT_ENTERED_IN_ERROR = "LAB_RESULT_ENTERED_IN_ERROR"
+    MEDICATION_CREATED = "MEDICATION_CREATED"
+    MEDICATION_STOPPED = "MEDICATION_STOPPED"
+    MEDICATION_ENTERED_IN_ERROR = "MEDICATION_ENTERED_IN_ERROR"
