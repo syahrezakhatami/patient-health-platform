@@ -88,8 +88,8 @@ async def test_emergency_encounter_and_note_lifecycle(db_client, db_engine) -> N
                 SELECT count(*) FROM information_schema.tables
                 WHERE table_schema = 'public'
                   AND table_name IN (
-                    'diagnoses','medications','observations','laboratory_results',
-                    'fhir_encounters','fhir_patients'
+                        'diagnoses','medications','laboratory_results',
+                        'fhir_encounters','fhir_patients'
                   )
                 """
             )

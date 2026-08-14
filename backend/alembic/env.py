@@ -22,6 +22,7 @@ from app.modules.clinical.infrastructure.models import (
     ConditionModel,
     EncounterModel,
     EncounterParticipantModel,
+    ObservationModel,
 )
 from app.modules.mpi.infrastructure.models import (
     IdentityClusterMemberModel,

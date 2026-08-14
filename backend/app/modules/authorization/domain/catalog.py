@@ -1,8 +1,8 @@
 """Permission catalog.
 
 Authorization is permission-based, not ``if role == doctor``.
-Wave 2A adds encounter and clinical-note permissions.
-Wave 2B.1 adds condition permissions. Observation and medication remain absent.
+Wave 2B.1 adds condition permissions. Wave 2B.2a adds observation permissions.
+Medication, laboratory, allergy, and FHIR remain absent.
 """
 
 from enum import StrEnum
@@ -37,6 +37,10 @@ class Permission(StrEnum):
     CLINICAL_CONDITION_READ = "clinical.condition.read"
     CLINICAL_CONDITION_UPDATE = "clinical.condition.update"
     CLINICAL_CONDITION_ENTERED_IN_ERROR = "clinical.condition.entered_in_error"
+    CLINICAL_OBSERVATION_CREATE = "clinical.observation.create"
+    CLINICAL_OBSERVATION_READ = "clinical.observation.read"
+    CLINICAL_OBSERVATION_UPDATE = "clinical.observation.update"
+    CLINICAL_OBSERVATION_ENTERED_IN_ERROR = "clinical.observation.entered_in_error"
 
 
 class RoleCode(StrEnum):
@@ -67,10 +71,23 @@ WAVE2B1_PERMISSIONS: frozenset[str] = frozenset(
         Permission.CLINICAL_CONDITION_ENTERED_IN_ERROR,
     }
 )
-WAVE1_PERMISSIONS: frozenset[str] = (
-    frozenset(item.value for item in Permission) - WAVE2A_PERMISSIONS - WAVE2B1_PERMISSIONS
+WAVE2B2A_PERMISSIONS: frozenset[str] = frozenset(
+    {
+        Permission.CLINICAL_OBSERVATION_CREATE,
+        Permission.CLINICAL_OBSERVATION_READ,
+        Permission.CLINICAL_OBSERVATION_UPDATE,
+        Permission.CLINICAL_OBSERVATION_ENTERED_IN_ERROR,
+    }
 )
-CATALOG_PERMISSIONS: frozenset[str] = WAVE1_PERMISSIONS | WAVE2A_PERMISSIONS | WAVE2B1_PERMISSIONS
+WAVE1_PERMISSIONS: frozenset[str] = (
+    frozenset(item.value for item in Permission)
+    - WAVE2A_PERMISSIONS
+    - WAVE2B1_PERMISSIONS
+    - WAVE2B2A_PERMISSIONS
+)
+CATALOG_PERMISSIONS: frozenset[str] = (
+    WAVE1_PERMISSIONS | WAVE2A_PERMISSIONS | WAVE2B1_PERMISSIONS | WAVE2B2A_PERMISSIONS
+)
 
 # Canonical permission *definitions* and the seed map used by Alembic.
 # Runtime assignment is read from role_permissions, not this dict.
@@ -88,6 +105,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.CLINICAL_ENCOUNTER_READ,
             Permission.CLINICAL_NOTE_READ,
             Permission.CLINICAL_CONDITION_READ,
+            Permission.CLINICAL_OBSERVATION_READ,
         }
     ),
     RoleCode.REGISTRAR: frozenset(
@@ -127,6 +145,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.CLINICAL_ENCOUNTER_READ,
             Permission.CLINICAL_NOTE_READ,
             Permission.CLINICAL_CONDITION_READ,
+            Permission.CLINICAL_OBSERVATION_READ,
         }
     ),
     RoleCode.CLINICIAN: frozenset(
@@ -146,6 +165,10 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.CLINICAL_CONDITION_READ,
             Permission.CLINICAL_CONDITION_UPDATE,
             Permission.CLINICAL_CONDITION_ENTERED_IN_ERROR,
+            Permission.CLINICAL_OBSERVATION_CREATE,
+            Permission.CLINICAL_OBSERVATION_READ,
+            Permission.CLINICAL_OBSERVATION_UPDATE,
+            Permission.CLINICAL_OBSERVATION_ENTERED_IN_ERROR,
         }
     ),
 }

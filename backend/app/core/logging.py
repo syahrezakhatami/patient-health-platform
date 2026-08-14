@@ -28,6 +28,13 @@ _REDACT_KEYS = frozenset(
         "clinical_note",
         "body_text",
         "code_display",
+        "value_text",
+        "value_numeric",
+        "value_boolean",
+        "value_code",
+        "value_code_system",
+        "value_code_display",
+        "value_coded",
         "document_bytes",
     }
 )

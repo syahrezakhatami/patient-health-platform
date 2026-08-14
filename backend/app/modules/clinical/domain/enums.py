@@ -61,10 +61,30 @@ class ConditionVerificationStatus(StrEnum):
     ENTERED_IN_ERROR = "ENTERED_IN_ERROR"
 
 
+class ObservationCategory(StrEnum):
+    VITAL_SIGNS = "VITAL_SIGNS"
+    EXAM = "EXAM"
+    OTHER = "OTHER"
+
+
+class ObservationValueType(StrEnum):
+    NUMERIC = "NUMERIC"
+    TEXT = "TEXT"
+    BOOLEAN = "BOOLEAN"
+    CODED = "CODED"
+
+
+class ObservationStatus(StrEnum):
+    FINAL = "FINAL"
+    AMENDED = "AMENDED"
+    ENTERED_IN_ERROR = "ENTERED_IN_ERROR"
+
+
 class ClinicalProvenanceSubjectType(StrEnum):
     ENCOUNTER = "ENCOUNTER"
     CLINICAL_NOTE = "CLINICAL_NOTE"
     CONDITION = "CONDITION"
+    OBSERVATION = "OBSERVATION"
 
 
 class ClinicalAuditAction(StrEnum):
@@ -77,3 +97,6 @@ class ClinicalAuditAction(StrEnum):
     CONDITION_CREATED = "CONDITION_CREATED"
     CONDITION_STATUS_CHANGED = "CONDITION_STATUS_CHANGED"
     CONDITION_ENTERED_IN_ERROR = "CONDITION_ENTERED_IN_ERROR"
+    OBSERVATION_CREATED = "OBSERVATION_CREATED"
+    OBSERVATION_AMENDED = "OBSERVATION_AMENDED"
+    OBSERVATION_ENTERED_IN_ERROR = "OBSERVATION_ENTERED_IN_ERROR"

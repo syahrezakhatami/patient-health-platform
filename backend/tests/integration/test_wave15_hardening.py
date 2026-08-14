@@ -187,7 +187,7 @@ async def test_probe_only_match_is_persisted_without_raw_identifiers(db_client, 
                 SELECT count(*)
                 FROM information_schema.tables
                 WHERE table_schema = 'public'
-                  AND table_name IN ('diagnoses','medications','observations')
+                  AND table_name IN ('diagnoses','medications','laboratory_results')
                 """
             )
         )

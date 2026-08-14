@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from hashlib import sha256
 from uuid import UUID
 
@@ -21,6 +22,9 @@ from app.modules.clinical.domain.enums import (
     ConditionVerificationStatus,
     EncounterClass,
     EncounterStatus,
+    ObservationCategory,
+    ObservationStatus,
+    ObservationValueType,
     ParticipationType,
 )
 from app.modules.clinical.domain.lifecycle import (
@@ -31,6 +35,12 @@ from app.modules.clinical.domain.lifecycle import (
     assert_note_can_finalize,
     assert_note_can_mark_error,
     assert_note_is_draft,
+    assert_observation_can_amend,
+    assert_observation_mutable,
+)
+from app.modules.clinical.domain.observation_values import (
+    ObservationValue,
+    observation_values_equal,
 )
 from app.modules.clinical.domain.terminology import CodeableConcept
 from app.modules.clinical.infrastructure.models import (
@@ -39,6 +49,7 @@ from app.modules.clinical.infrastructure.models import (
     ConditionModel,
     EncounterModel,
     EncounterParticipantModel,
+    ObservationModel,
 )
 from app.modules.clinical.infrastructure.repositories import ClinicalRepository, utc_now
 from app.modules.iam.domain.models import Principal
@@ -92,6 +103,29 @@ class ConditionView:
     onset_at: datetime | None
     abatement_at: datetime | None
     recorded_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class ObservationView:
+    id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    category: ObservationCategory
+    code: CodeableConcept
+    status: ObservationStatus
+    value_type: ObservationValueType
+    value_numeric: Decimal | None
+    value_text: str | None
+    value_boolean: bool | None
+    value_coded: CodeableConcept | None
+    unit: str | None
+    reference_range_low: Decimal | None
+    reference_range_high: Decimal | None
+    effective_at: datetime | None
+    recorded_at: datetime
+    version: int
 
 
 class ClinicalService:
@@ -802,6 +836,278 @@ class ClinicalService:
         )
         return _condition_view(condition)
 
+    async def create_observation(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        encounter_id: UUID | None,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        category: ObservationCategory,
+        code: CodeableConcept,
+        value: ObservationValue,
+        effective_at: datetime | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> ObservationView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_OBSERVATION_CREATE,
+            resource_type="Observation",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        if (
+            IdentityLifecycle(identity.lifecycle_status) is IdentityLifecycle.ANONYMOUS
+            and encounter_id is None
+        ):
+            raise AppError(
+                "anonymous_observation_requires_encounter",
+                "An anonymous identity may receive only an emergency encounter observation",
+                status_code=409,
+            )
+        encounter = None
+        bound_patient_id = identity.id
+        bound_facility_id = facility_id
+        if encounter_id is not None:
+            encounter = await self._visible_encounter(
+                principal, encounter_id, organization_id, for_update=True
+            )
+            if EncounterStatus(encounter.status) in {
+                EncounterStatus.CANCELLED,
+                EncounterStatus.ENTERED_IN_ERROR,
+            }:
+                raise AppError(
+                    "encounter_not_documentable",
+                    "A cancelled or erroneous encounter cannot receive observations",
+                    status_code=409,
+                )
+            if encounter.patient_identity_id != identity.id:
+                raise AppError(
+                    "observation_patient_mismatch",
+                    "Observation patient must match the encounter patient",
+                    status_code=409,
+                )
+            if (
+                IdentityLifecycle(identity.lifecycle_status) is IdentityLifecycle.ANONYMOUS
+                and EncounterClass(encounter.encounter_class) is not EncounterClass.EMER
+            ):
+                raise AppError(
+                    "anonymous_encounter_not_emergency",
+                    "An anonymous identity may receive only an emergency encounter observation",
+                    status_code=409,
+                )
+            bound_patient_id = encounter.patient_identity_id
+            bound_facility_id = facility_id or encounter.facility_id
+        observation_id = new_id()
+        provenance = await self._record_provenance(
+            subject_type=ClinicalProvenanceSubjectType.OBSERVATION,
+            subject_id=observation_id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            actor_id=None if principal is None else principal.user.id,
+        )
+        observation = ObservationModel(
+            id=observation_id,
+            patient_identity_id=bound_patient_id,
+            encounter_id=None if encounter is None else encounter.id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            category=category.value,
+            code_system=code.system,
+            code=code.code,
+            code_display=code.display,
+            status=ObservationStatus.FINAL.value,
+            value_type=value.value_type.value,
+            recorded_at=utc_now(),
+            recorder_id=None if principal is None else principal.user.id,
+            version=1,
+            provenance_id=provenance.id,
+            effective_at=effective_at,
+        )
+        _apply_observation_value(observation, value)
+        await self._clinical.add_observation(observation)
+        await self._audit_success(
+            ClinicalAuditAction.OBSERVATION_CREATED,
+            principal,
+            organization_id,
+            observation.facility_id,
+            observation.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=observation.id,
+            metadata={"category": observation.category, "status": observation.status},
+        )
+        return _observation_view(observation)
+
+    async def get_observation(
+        self,
+        principal: Principal | None,
+        observation_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> ObservationView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_OBSERVATION_READ,
+            resource_type="Observation",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        observation = await self._visible_observation(principal, observation_id, organization_id)
+        return _observation_view(observation)
+
+    async def list_observations(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        encounter_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> list[ObservationView]:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_OBSERVATION_READ,
+            resource_type="Observation",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        rows = await self._clinical.list_observations_for_patient(
+            identity.id, organization_id, encounter_id=encounter_id
+        )
+        return [_observation_view(item) for item in rows]
+
+    async def amend_observation(
+        self,
+        principal: Principal | None,
+        observation_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        value: ObservationValue,
+        effective_at: datetime | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> ObservationView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_OBSERVATION_UPDATE,
+            resource_type="Observation",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        observation = await self._visible_observation(
+            principal, observation_id, organization_id, for_update=True
+        )
+        current_status = ObservationStatus(observation.status)
+        assert_observation_can_amend(current_status)
+        current_value = _observation_value_from_model(observation)
+        if value.value_type is not current_value.value_type:
+            raise AppError(
+                "observation_value_type_immutable",
+                "Observation value type cannot change",
+                status_code=422,
+            )
+        next_effective = observation.effective_at if effective_at is None else effective_at
+        value_unchanged = observation_values_equal(current_value, value)
+        if value_unchanged and next_effective == observation.effective_at:
+            raise AppError(
+                "observation_unchanged",
+                "Observation value is already at the requested values",
+                status_code=409,
+            )
+        old_status = observation.status
+        _apply_observation_value(observation, value)
+        observation.effective_at = next_effective
+        observation.status = ObservationStatus.AMENDED.value
+        observation.version = observation.version + 1
+        await self._audit_success(
+            ClinicalAuditAction.OBSERVATION_AMENDED,
+            principal,
+            organization_id,
+            observation.facility_id,
+            observation.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=observation.id,
+            metadata={
+                "old_status": old_status,
+                "new_status": observation.status,
+                "version": str(observation.version),
+            },
+        )
+        return _observation_view(observation)
+
+    async def mark_observation_entered_in_error(
+        self,
+        principal: Principal | None,
+        observation_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> ObservationView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_OBSERVATION_ENTERED_IN_ERROR,
+            resource_type="Observation",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        observation = await self._visible_observation(
+            principal, observation_id, organization_id, for_update=True
+        )
+        assert_observation_mutable(ObservationStatus(observation.status))
+        observation.status = ObservationStatus.ENTERED_IN_ERROR.value
+        await self._audit_success(
+            ClinicalAuditAction.OBSERVATION_ENTERED_IN_ERROR,
+            principal,
+            organization_id,
+            observation.facility_id,
+            observation.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=observation.id,
+            metadata={"purpose": purpose},
+        )
+        return _observation_view(observation)
+
     async def _require_canonical_identity(
         self,
         principal: Principal | None,
@@ -910,6 +1216,26 @@ class ClinicalService:
         if condition.organization_id != organization_id:
             raise NotFoundError("Condition not found")
         return condition
+
+    async def _visible_observation(
+        self,
+        principal: Principal | None,
+        observation_id: UUID,
+        organization_id: UUID,
+        *,
+        for_update: bool = False,
+    ) -> ObservationModel:
+        if for_update:
+            observation = await self._clinical.get_observation_for_update(observation_id)
+        else:
+            observation = await self._clinical.get_observation(observation_id)
+        if observation is None:
+            raise NotFoundError("Observation not found")
+        if principal is not None and principal.has_platform_scope:
+            return observation
+        if observation.organization_id != organization_id:
+            raise NotFoundError("Observation not found")
+        return observation
 
     async def _record_provenance(
         self,
@@ -1042,4 +1368,72 @@ def _condition_view(model: ConditionModel) -> ConditionView:
         onset_at=model.onset_at,
         abatement_at=model.abatement_at,
         recorded_at=model.recorded_at,
+    )
+
+
+def _observation_value_from_model(model: ObservationModel) -> ObservationValue:
+    coded = None
+    if model.value_code_system and model.value_code:
+        coded = CodeableConcept(
+            system=model.value_code_system,
+            code=model.value_code,
+            display=model.value_code_display,
+        )
+    return ObservationValue(
+        value_type=ObservationValueType(model.value_type),
+        numeric=model.value_numeric,
+        text=model.value_text,
+        boolean=model.value_boolean,
+        coded=coded,
+        unit=model.unit,
+        range_low=model.reference_range_low,
+        range_high=model.reference_range_high,
+    )
+
+
+def _apply_observation_value(model: ObservationModel, value: ObservationValue) -> None:
+    model.value_type = value.value_type.value
+    model.value_numeric = value.numeric
+    model.value_text = value.text
+    model.value_boolean = value.boolean
+    model.value_code_system = None if value.coded is None else value.coded.system
+    model.value_code = None if value.coded is None else value.coded.code
+    model.value_code_display = None if value.coded is None else value.coded.display
+    model.unit = value.unit
+    model.reference_range_low = value.range_low
+    model.reference_range_high = value.range_high
+
+
+def _observation_view(model: ObservationModel) -> ObservationView:
+    coded = None
+    if model.value_code_system and model.value_code:
+        coded = CodeableConcept(
+            system=model.value_code_system,
+            code=model.value_code,
+            display=model.value_code_display,
+        )
+    return ObservationView(
+        id=model.id,
+        patient_identity_id=model.patient_identity_id,
+        encounter_id=model.encounter_id,
+        organization_id=model.organization_id,
+        facility_id=model.facility_id,
+        category=ObservationCategory(model.category),
+        code=CodeableConcept(
+            system=model.code_system,
+            code=model.code,
+            display=model.code_display,
+        ),
+        status=ObservationStatus(model.status),
+        value_type=ObservationValueType(model.value_type),
+        value_numeric=model.value_numeric,
+        value_text=model.value_text,
+        value_boolean=model.value_boolean,
+        value_coded=coded,
+        unit=model.unit,
+        reference_range_low=model.reference_range_low,
+        reference_range_high=model.reference_range_high,
+        effective_at=model.effective_at,
+        recorded_at=model.recorded_at,
+        version=model.version,
     )

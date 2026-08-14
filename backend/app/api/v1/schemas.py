@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -11,6 +12,9 @@ from app.modules.clinical.domain.enums import (
     ConditionVerificationStatus,
     EncounterClass,
     EncounterStatus,
+    ObservationCategory,
+    ObservationStatus,
+    ObservationValueType,
 )
 from app.modules.mpi.domain.enums import (
     AdministrativeSex,
@@ -253,6 +257,56 @@ class ConditionResponse(BaseModel):
     onset_at: datetime | None
     abatement_at: datetime | None
     recorded_at: datetime
+
+
+class CreateObservationRequest(BaseModel):
+    patient_identity_id: UUID
+    encounter_id: UUID | None = None
+    category: ObservationCategory
+    code: CodeableConceptRequest
+    value_type: ObservationValueType
+    value_numeric: Decimal | None = None
+    value_text: str | None = Field(default=None, max_length=2000)
+    value_boolean: bool | None = None
+    value_coded: CodeableConceptRequest | None = None
+    unit: str | None = Field(default=None, max_length=32)
+    reference_range_low: Decimal | None = None
+    reference_range_high: Decimal | None = None
+    effective_at: datetime | None = None
+
+
+class AmendObservationRequest(BaseModel):
+    value_type: ObservationValueType
+    value_numeric: Decimal | None = None
+    value_text: str | None = Field(default=None, max_length=2000)
+    value_boolean: bool | None = None
+    value_coded: CodeableConceptRequest | None = None
+    unit: str | None = Field(default=None, max_length=32)
+    reference_range_low: Decimal | None = None
+    reference_range_high: Decimal | None = None
+    effective_at: datetime | None = None
+
+
+class ObservationResponse(BaseModel):
+    id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    category: ObservationCategory
+    code: CodeableConceptRequest
+    status: ObservationStatus
+    value_type: ObservationValueType
+    value_numeric: Decimal | None
+    value_text: str | None
+    value_boolean: bool | None
+    value_coded: CodeableConceptRequest | None
+    unit: str | None
+    reference_range_low: Decimal | None
+    reference_range_high: Decimal | None
+    effective_at: datetime | None
+    recorded_at: datetime
+    version: int
 
 
 class MergeOperationResponse(BaseModel):

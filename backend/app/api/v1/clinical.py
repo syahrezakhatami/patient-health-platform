@@ -12,6 +12,7 @@ from app.api.v1.deps import (
     RequestPurpose,
 )
 from app.api.v1.schemas import (
+    AmendObservationRequest,
     ChangeConditionStatusRequest,
     ChangeEncounterStatusRequest,
     ClinicalNoteResponse,
@@ -20,7 +21,9 @@ from app.api.v1.schemas import (
     CreateClinicalNoteRequest,
     CreateConditionRequest,
     CreateEncounterRequest,
+    CreateObservationRequest,
     EncounterResponse,
+    ObservationResponse,
     UpdateClinicalNoteRequest,
 )
 from app.core.dependencies import CurrentPDP, DbSession
@@ -30,7 +33,9 @@ from app.modules.clinical.application.services import (
     ClinicalService,
     ConditionView,
     EncounterView,
+    ObservationView,
 )
+from app.modules.clinical.domain.observation_values import ObservationValue, parse_observation_value
 from app.modules.clinical.domain.terminology import parse_codeable_concept
 
 router = APIRouter(prefix="/clinical", tags=["clinical"])
@@ -95,6 +100,55 @@ def _condition_response(view: ConditionView) -> ConditionResponse:
         onset_at=view.onset_at,
         abatement_at=view.abatement_at,
         recorded_at=view.recorded_at,
+    )
+
+
+def _observation_response(view: ObservationView) -> ObservationResponse:
+    return ObservationResponse(
+        id=view.id,
+        patient_identity_id=view.patient_identity_id,
+        encounter_id=view.encounter_id,
+        organization_id=view.organization_id,
+        facility_id=view.facility_id,
+        category=view.category,
+        code=CodeableConceptRequest(
+            system=view.code.system,
+            code=view.code.code,
+            display=view.code.display,
+        ),
+        status=view.status,
+        value_type=view.value_type,
+        value_numeric=view.value_numeric,
+        value_text=view.value_text,
+        value_boolean=view.value_boolean,
+        value_coded=None
+        if view.value_coded is None
+        else CodeableConceptRequest(
+            system=view.value_coded.system,
+            code=view.value_coded.code,
+            display=view.value_coded.display,
+        ),
+        unit=view.unit,
+        reference_range_low=view.reference_range_low,
+        reference_range_high=view.reference_range_high,
+        effective_at=view.effective_at,
+        recorded_at=view.recorded_at,
+        version=view.version,
+    )
+
+
+def _parse_observation_value_body(
+    body: CreateObservationRequest | AmendObservationRequest,
+) -> ObservationValue:
+    return parse_observation_value(
+        value_type=body.value_type,
+        value_numeric=body.value_numeric,
+        value_text=body.value_text,
+        value_boolean=body.value_boolean,
+        value_coded=None if body.value_coded is None else body.value_coded.model_dump(),
+        unit=body.unit,
+        range_low=body.reference_range_low,
+        range_high=body.reference_range_high,
     )
 
 
@@ -446,3 +500,135 @@ async def mark_condition_entered_in_error(
         correlation_id=correlation_id,
     )
     return _condition_response(view)
+
+
+@router.post("/observations", response_model=ObservationResponse)
+async def create_observation(
+    body: CreateObservationRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> ObservationResponse:
+    code = parse_codeable_concept(body.code.model_dump())
+    if code is None:
+        raise AppError(
+            "invalid_codeable_concept",
+            "Codeable concept requires system and code",
+            status_code=422,
+        )
+    view = await _service(session, pdp, audit).create_observation(
+        principal,
+        patient_identity_id=body.patient_identity_id,
+        encounter_id=body.encounter_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        category=body.category,
+        code=code,
+        value=_parse_observation_value_body(body),
+        effective_at=body.effective_at,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _observation_response(view)
+
+
+@router.get("/observations", response_model=list[ObservationResponse])
+async def list_observations(
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+    patient_identity_id: Annotated[UUID, Query()],
+    encounter_id: Annotated[UUID | None, Query()] = None,
+) -> list[ObservationResponse]:
+    views = await _service(session, pdp, audit).list_observations(
+        principal,
+        patient_identity_id=patient_identity_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        encounter_id=encounter_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return [_observation_response(item) for item in views]
+
+
+@router.get("/observations/{observation_id}", response_model=ObservationResponse)
+async def get_observation(
+    observation_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> ObservationResponse:
+    view = await _service(session, pdp, audit).get_observation(
+        principal,
+        observation_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _observation_response(view)
+
+
+@router.post("/observations/{observation_id}/amend", response_model=ObservationResponse)
+async def amend_observation(
+    observation_id: UUID,
+    body: AmendObservationRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> ObservationResponse:
+    view = await _service(session, pdp, audit).amend_observation(
+        principal,
+        observation_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        value=_parse_observation_value_body(body),
+        effective_at=body.effective_at,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _observation_response(view)
+
+
+@router.post("/observations/{observation_id}/entered-in-error", response_model=ObservationResponse)
+async def mark_observation_entered_in_error(
+    observation_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> ObservationResponse:
+    view = await _service(session, pdp, audit).mark_observation_entered_in_error(
+        principal,
+        observation_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _observation_response(view)

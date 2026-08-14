@@ -7,6 +7,7 @@ from app.modules.clinical.infrastructure.models import (
     ConditionModel,
     EncounterModel,
     EncounterParticipantModel,
+    ObservationModel,
 )
 from app.modules.iam.infrastructure.models import UserModel
 from app.modules.mpi.infrastructure.models import PatientIdentityModel
@@ -19,7 +20,6 @@ FORBIDDEN_TABLES = {
     "medications",
     "prescriptions",
     "laboratory_results",
-    "observations",
     "allergies",
     "vital_signs",
     "treatments",
@@ -28,6 +28,7 @@ FORBIDDEN_TABLES = {
     "clinical_timelines",
     "fhir_encounters",
     "fhir_patients",
+    "fhir_observations",
 }
 
 
@@ -62,6 +63,14 @@ def test_wave2a_metadata_has_foundation_tables_only() -> None:
 def test_wave2b1_metadata_has_conditions_without_later_clinical_domains() -> None:
     assert ConditionModel.__tablename__ == "conditions"
     tables = set(Base.metadata.tables)
+    assert "conditions" in tables
+    assert tables.isdisjoint(FORBIDDEN_TABLES)
+
+
+def test_wave2b2a_metadata_has_observations_without_later_clinical_domains() -> None:
+    assert ObservationModel.__tablename__ == "observations"
+    tables = set(Base.metadata.tables)
+    assert "observations" in tables
     assert "conditions" in tables
     assert tables.isdisjoint(FORBIDDEN_TABLES)
 

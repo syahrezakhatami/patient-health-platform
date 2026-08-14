@@ -17,6 +17,7 @@ REVOKE DELETE, TRUNCATE ON TABLE encounters FROM app_dml;
 REVOKE DELETE, TRUNCATE ON TABLE clinical_notes FROM app_dml;
 REVOKE DELETE, TRUNCATE ON TABLE encounter_participants FROM app_dml;
 REVOKE DELETE, TRUNCATE ON TABLE conditions FROM app_dml;
+REVOKE DELETE, TRUNCATE ON TABLE observations FROM app_dml;
 GRANT INSERT, SELECT ON TABLE audit_events TO app_dml;
 GRANT INSERT, SELECT ON TABLE identity_merge_operations TO app_dml;
 GRANT INSERT, SELECT ON TABLE identity_provenances TO app_dml;

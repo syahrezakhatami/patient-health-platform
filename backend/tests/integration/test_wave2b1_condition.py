@@ -167,8 +167,8 @@ async def test_condition_lifecycle_identity_and_authorization(db_client, db_engi
                 SELECT count(*) FROM information_schema.tables
                 WHERE table_schema = 'public'
                   AND table_name IN (
-                    'diagnoses','medications','observations','laboratory_results',
-                    'allergies','fhir_conditions'
+                        'diagnoses','medications','laboratory_results',
+                        'allergies','fhir_conditions'
                   )
                 """
             )

@@ -4,6 +4,7 @@ from app.modules.clinical.domain.enums import (
     ConditionClinicalStatus,
     ConditionVerificationStatus,
     EncounterStatus,
+    ObservationStatus,
 )
 
 ENCOUNTER_TRANSITIONS: dict[EncounterStatus, frozenset[EncounterStatus]] = {
@@ -172,5 +173,33 @@ def assert_condition_mutable(status: ConditionVerificationStatus) -> None:
         raise AppError(
             "condition_entered_in_error",
             "An entered-in-error condition is immutable",
+            status_code=409,
+        )
+
+
+OBSERVATION_TRANSITIONS: dict[ObservationStatus, frozenset[ObservationStatus]] = {
+    ObservationStatus.FINAL: frozenset(
+        {ObservationStatus.AMENDED, ObservationStatus.ENTERED_IN_ERROR}
+    ),
+    ObservationStatus.AMENDED: frozenset({ObservationStatus.ENTERED_IN_ERROR}),
+    ObservationStatus.ENTERED_IN_ERROR: frozenset(),
+}
+
+
+def assert_observation_mutable(status: ObservationStatus) -> None:
+    if status is ObservationStatus.ENTERED_IN_ERROR:
+        raise AppError(
+            "observation_entered_in_error",
+            "An entered-in-error observation is immutable",
+            status_code=409,
+        )
+
+
+def assert_observation_can_amend(status: ObservationStatus) -> None:
+    assert_observation_mutable(status)
+    if status not in {ObservationStatus.FINAL, ObservationStatus.AMENDED}:
+        raise AppError(
+            "observation_not_amendable",
+            "Only a FINAL or AMENDED observation can be amended",
             status_code=409,
         )

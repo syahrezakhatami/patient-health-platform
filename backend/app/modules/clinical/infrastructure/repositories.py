@@ -10,6 +10,7 @@ from app.modules.clinical.infrastructure.models import (
     ConditionModel,
     EncounterModel,
     EncounterParticipantModel,
+    ObservationModel,
 )
 
 
@@ -37,6 +38,11 @@ class ClinicalRepository:
         return model
 
     async def add_condition(self, model: ConditionModel) -> ConditionModel:
+        self._session.add(model)
+        await self._session.flush()
+        return model
+
+    async def add_observation(self, model: ObservationModel) -> ObservationModel:
         self._session.add(model)
         await self._session.flush()
         return model
@@ -70,6 +76,15 @@ class ClinicalRepository:
     async def get_condition_for_update(self, condition_id: UUID) -> ConditionModel | None:
         result = await self._session.execute(
             select(ConditionModel).where(ConditionModel.id == condition_id).with_for_update()
+        )
+        return result.scalar_one_or_none()
+
+    async def get_observation(self, observation_id: UUID) -> ObservationModel | None:
+        return await self._session.get(ObservationModel, observation_id)
+
+    async def get_observation_for_update(self, observation_id: UUID) -> ObservationModel | None:
+        result = await self._session.execute(
+            select(ObservationModel).where(ObservationModel.id == observation_id).with_for_update()
         )
         return result.scalar_one_or_none()
 
@@ -116,5 +131,23 @@ class ClinicalRepository:
             query = query.where(ConditionModel.encounter_id == encounter_id)
         result = await self._session.execute(
             query.order_by(ConditionModel.recorded_at.desc()).limit(100)
+        )
+        return list(result.scalars().all())
+
+    async def list_observations_for_patient(
+        self,
+        patient_identity_id: UUID,
+        organization_id: UUID,
+        *,
+        encounter_id: UUID | None = None,
+    ) -> list[ObservationModel]:
+        query = select(ObservationModel).where(
+            ObservationModel.patient_identity_id == patient_identity_id,
+            ObservationModel.organization_id == organization_id,
+        )
+        if encounter_id is not None:
+            query = query.where(ObservationModel.encounter_id == encounter_id)
+        result = await self._session.execute(
+            query.order_by(ObservationModel.recorded_at.desc()).limit(100)
         )
         return list(result.scalars().all())
