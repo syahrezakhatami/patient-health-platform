@@ -45,7 +45,13 @@ The backend is a single FastAPI process with explicit bounded-context packages u
 |---|---|
 | `clinical` | Adds native Observation (measurements/findings). Not a laboratory domain and not a FHIR Observation store. |
 
-Medication, laboratory, allergy, timeline, FHIR clinical APIs, and AI remain out of scope.
+## Wave 2B.2b modules
+
+| Module | Why it exists now |
+|---|---|
+| `clinical` | Adds native Laboratory (order, specimen, result). Not a FHIR DiagnosticReport / ServiceRequest / Specimen store. |
+
+Medication, allergy, timeline, FHIR clinical APIs, and AI remain out of scope.
 
 ## Async strategy
 

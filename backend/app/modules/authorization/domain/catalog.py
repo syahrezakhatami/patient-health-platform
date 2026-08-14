@@ -1,8 +1,8 @@
 """Permission catalog.
 
 Authorization is permission-based, not ``if role == doctor``.
-Wave 2B.1 adds condition permissions. Wave 2B.2a adds observation permissions.
-Medication, laboratory, allergy, and FHIR remain absent.
+Wave 2B.2a adds observation permissions. Wave 2B.2b adds laboratory permissions.
+Medication, allergy, and FHIR remain absent.
 """
 
 from enum import StrEnum
@@ -41,6 +41,18 @@ class Permission(StrEnum):
     CLINICAL_OBSERVATION_READ = "clinical.observation.read"
     CLINICAL_OBSERVATION_UPDATE = "clinical.observation.update"
     CLINICAL_OBSERVATION_ENTERED_IN_ERROR = "clinical.observation.entered_in_error"
+    CLINICAL_LAB_ORDER_CREATE = "clinical.laboratory.order.create"
+    CLINICAL_LAB_ORDER_READ = "clinical.laboratory.order.read"
+    CLINICAL_LAB_ORDER_UPDATE = "clinical.laboratory.order.update"
+    CLINICAL_LAB_ORDER_ENTERED_IN_ERROR = "clinical.laboratory.order.entered_in_error"
+    CLINICAL_LAB_SPECIMEN_CREATE = "clinical.laboratory.specimen.create"
+    CLINICAL_LAB_SPECIMEN_READ = "clinical.laboratory.specimen.read"
+    CLINICAL_LAB_SPECIMEN_UPDATE = "clinical.laboratory.specimen.update"
+    CLINICAL_LAB_SPECIMEN_ENTERED_IN_ERROR = "clinical.laboratory.specimen.entered_in_error"
+    CLINICAL_LAB_RESULT_CREATE = "clinical.laboratory.result.create"
+    CLINICAL_LAB_RESULT_READ = "clinical.laboratory.result.read"
+    CLINICAL_LAB_RESULT_UPDATE = "clinical.laboratory.result.update"
+    CLINICAL_LAB_RESULT_ENTERED_IN_ERROR = "clinical.laboratory.result.entered_in_error"
 
 
 class RoleCode(StrEnum):
@@ -79,14 +91,35 @@ WAVE2B2A_PERMISSIONS: frozenset[str] = frozenset(
         Permission.CLINICAL_OBSERVATION_ENTERED_IN_ERROR,
     }
 )
+WAVE2B2B_PERMISSIONS: frozenset[str] = frozenset(
+    {
+        Permission.CLINICAL_LAB_ORDER_CREATE,
+        Permission.CLINICAL_LAB_ORDER_READ,
+        Permission.CLINICAL_LAB_ORDER_UPDATE,
+        Permission.CLINICAL_LAB_ORDER_ENTERED_IN_ERROR,
+        Permission.CLINICAL_LAB_SPECIMEN_CREATE,
+        Permission.CLINICAL_LAB_SPECIMEN_READ,
+        Permission.CLINICAL_LAB_SPECIMEN_UPDATE,
+        Permission.CLINICAL_LAB_SPECIMEN_ENTERED_IN_ERROR,
+        Permission.CLINICAL_LAB_RESULT_CREATE,
+        Permission.CLINICAL_LAB_RESULT_READ,
+        Permission.CLINICAL_LAB_RESULT_UPDATE,
+        Permission.CLINICAL_LAB_RESULT_ENTERED_IN_ERROR,
+    }
+)
 WAVE1_PERMISSIONS: frozenset[str] = (
     frozenset(item.value for item in Permission)
     - WAVE2A_PERMISSIONS
     - WAVE2B1_PERMISSIONS
     - WAVE2B2A_PERMISSIONS
+    - WAVE2B2B_PERMISSIONS
 )
 CATALOG_PERMISSIONS: frozenset[str] = (
-    WAVE1_PERMISSIONS | WAVE2A_PERMISSIONS | WAVE2B1_PERMISSIONS | WAVE2B2A_PERMISSIONS
+    WAVE1_PERMISSIONS
+    | WAVE2A_PERMISSIONS
+    | WAVE2B1_PERMISSIONS
+    | WAVE2B2A_PERMISSIONS
+    | WAVE2B2B_PERMISSIONS
 )
 
 # Canonical permission *definitions* and the seed map used by Alembic.
@@ -106,6 +139,9 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.CLINICAL_NOTE_READ,
             Permission.CLINICAL_CONDITION_READ,
             Permission.CLINICAL_OBSERVATION_READ,
+            Permission.CLINICAL_LAB_ORDER_READ,
+            Permission.CLINICAL_LAB_SPECIMEN_READ,
+            Permission.CLINICAL_LAB_RESULT_READ,
         }
     ),
     RoleCode.REGISTRAR: frozenset(
@@ -146,6 +182,9 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.CLINICAL_NOTE_READ,
             Permission.CLINICAL_CONDITION_READ,
             Permission.CLINICAL_OBSERVATION_READ,
+            Permission.CLINICAL_LAB_ORDER_READ,
+            Permission.CLINICAL_LAB_SPECIMEN_READ,
+            Permission.CLINICAL_LAB_RESULT_READ,
         }
     ),
     RoleCode.CLINICIAN: frozenset(
@@ -169,6 +208,18 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.CLINICAL_OBSERVATION_READ,
             Permission.CLINICAL_OBSERVATION_UPDATE,
             Permission.CLINICAL_OBSERVATION_ENTERED_IN_ERROR,
+            Permission.CLINICAL_LAB_ORDER_CREATE,
+            Permission.CLINICAL_LAB_ORDER_READ,
+            Permission.CLINICAL_LAB_ORDER_UPDATE,
+            Permission.CLINICAL_LAB_ORDER_ENTERED_IN_ERROR,
+            Permission.CLINICAL_LAB_SPECIMEN_CREATE,
+            Permission.CLINICAL_LAB_SPECIMEN_READ,
+            Permission.CLINICAL_LAB_SPECIMEN_UPDATE,
+            Permission.CLINICAL_LAB_SPECIMEN_ENTERED_IN_ERROR,
+            Permission.CLINICAL_LAB_RESULT_CREATE,
+            Permission.CLINICAL_LAB_RESULT_READ,
+            Permission.CLINICAL_LAB_RESULT_UPDATE,
+            Permission.CLINICAL_LAB_RESULT_ENTERED_IN_ERROR,
         }
     ),
 }

@@ -182,8 +182,8 @@ async def test_observation_lifecycle_identity_and_authorization(db_client, db_en
                 SELECT count(*) FROM information_schema.tables
                 WHERE table_schema = 'public'
                   AND table_name IN (
-                    'laboratory_results','lab_orders','specimens','medications',
-                    'allergies','fhir_observations'
+                    'medications','allergies','fhir_observations',
+                    'fhir_specimens','fhir_diagnostic_reports'
                   )
                 """
             )

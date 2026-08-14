@@ -22,6 +22,9 @@ from app.modules.clinical.infrastructure.models import (
     ConditionModel,
     EncounterModel,
     EncounterParticipantModel,
+    LaboratoryOrderModel,
+    LaboratoryResultModel,
+    LaboratorySpecimenModel,
     ObservationModel,
 )
 from app.modules.mpi.infrastructure.models import (
@@ -62,6 +65,10 @@ assert EncounterParticipantModel.__tablename__ == "encounter_participants"
 assert ClinicalNoteModel.__tablename__ == "clinical_notes"
 assert ClinicalProvenanceModel.__tablename__ == "clinical_provenances"
 assert ConditionModel.__tablename__ == "conditions"
+assert ObservationModel.__tablename__ == "observations"
+assert LaboratoryOrderModel.__tablename__ == "laboratory_orders"
+assert LaboratorySpecimenModel.__tablename__ == "laboratory_specimens"
+assert LaboratoryResultModel.__tablename__ == "laboratory_results"
 
 config = context.config
 if config.config_file_name is not None:

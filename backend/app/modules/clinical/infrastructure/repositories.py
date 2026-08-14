@@ -10,6 +10,9 @@ from app.modules.clinical.infrastructure.models import (
     ConditionModel,
     EncounterModel,
     EncounterParticipantModel,
+    LaboratoryOrderModel,
+    LaboratoryResultModel,
+    LaboratorySpecimenModel,
     ObservationModel,
 )
 
@@ -149,5 +152,97 @@ class ClinicalRepository:
             query = query.where(ObservationModel.encounter_id == encounter_id)
         result = await self._session.execute(
             query.order_by(ObservationModel.recorded_at.desc()).limit(100)
+        )
+        return list(result.scalars().all())
+
+    async def add_lab_order(self, model: LaboratoryOrderModel) -> LaboratoryOrderModel:
+        self._session.add(model)
+        await self._session.flush()
+        return model
+
+    async def add_lab_specimen(self, model: LaboratorySpecimenModel) -> LaboratorySpecimenModel:
+        self._session.add(model)
+        await self._session.flush()
+        return model
+
+    async def add_lab_result(self, model: LaboratoryResultModel) -> LaboratoryResultModel:
+        self._session.add(model)
+        await self._session.flush()
+        return model
+
+    async def get_lab_order(self, order_id: UUID) -> LaboratoryOrderModel | None:
+        return await self._session.get(LaboratoryOrderModel, order_id)
+
+    async def get_lab_order_for_update(self, order_id: UUID) -> LaboratoryOrderModel | None:
+        result = await self._session.execute(
+            select(LaboratoryOrderModel)
+            .where(LaboratoryOrderModel.id == order_id)
+            .with_for_update()
+        )
+        return result.scalar_one_or_none()
+
+    async def get_lab_specimen(self, specimen_id: UUID) -> LaboratorySpecimenModel | None:
+        return await self._session.get(LaboratorySpecimenModel, specimen_id)
+
+    async def get_lab_specimen_for_update(
+        self, specimen_id: UUID
+    ) -> LaboratorySpecimenModel | None:
+        result = await self._session.execute(
+            select(LaboratorySpecimenModel)
+            .where(LaboratorySpecimenModel.id == specimen_id)
+            .with_for_update()
+        )
+        return result.scalar_one_or_none()
+
+    async def get_lab_result(self, result_id: UUID) -> LaboratoryResultModel | None:
+        return await self._session.get(LaboratoryResultModel, result_id)
+
+    async def get_lab_result_for_update(self, result_id: UUID) -> LaboratoryResultModel | None:
+        result = await self._session.execute(
+            select(LaboratoryResultModel)
+            .where(LaboratoryResultModel.id == result_id)
+            .with_for_update()
+        )
+        return result.scalar_one_or_none()
+
+    async def list_lab_orders_for_patient(
+        self, patient_identity_id: UUID, organization_id: UUID
+    ) -> list[LaboratoryOrderModel]:
+        result = await self._session.execute(
+            select(LaboratoryOrderModel)
+            .where(
+                LaboratoryOrderModel.patient_identity_id == patient_identity_id,
+                LaboratoryOrderModel.organization_id == organization_id,
+            )
+            .order_by(LaboratoryOrderModel.ordered_at.desc())
+            .limit(100)
+        )
+        return list(result.scalars().all())
+
+    async def list_lab_specimens_for_patient(
+        self, patient_identity_id: UUID, organization_id: UUID
+    ) -> list[LaboratorySpecimenModel]:
+        result = await self._session.execute(
+            select(LaboratorySpecimenModel)
+            .where(
+                LaboratorySpecimenModel.patient_identity_id == patient_identity_id,
+                LaboratorySpecimenModel.organization_id == organization_id,
+            )
+            .order_by(LaboratorySpecimenModel.collected_at.desc())
+            .limit(100)
+        )
+        return list(result.scalars().all())
+
+    async def list_lab_results_for_patient(
+        self, patient_identity_id: UUID, organization_id: UUID
+    ) -> list[LaboratoryResultModel]:
+        result = await self._session.execute(
+            select(LaboratoryResultModel)
+            .where(
+                LaboratoryResultModel.patient_identity_id == patient_identity_id,
+                LaboratoryResultModel.organization_id == organization_id,
+            )
+            .order_by(LaboratoryResultModel.recorded_at.desc())
+            .limit(100)
         )
         return list(result.scalars().all())

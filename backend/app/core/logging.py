@@ -35,6 +35,8 @@ _REDACT_KEYS = frozenset(
         "value_code_system",
         "value_code_display",
         "value_coded",
+        "reference_range_low",
+        "reference_range_high",
         "document_bytes",
     }
 )

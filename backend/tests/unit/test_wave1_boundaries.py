@@ -7,6 +7,9 @@ from app.modules.clinical.infrastructure.models import (
     ConditionModel,
     EncounterModel,
     EncounterParticipantModel,
+    LaboratoryOrderModel,
+    LaboratoryResultModel,
+    LaboratorySpecimenModel,
     ObservationModel,
 )
 from app.modules.iam.infrastructure.models import UserModel
@@ -19,7 +22,6 @@ FORBIDDEN_TABLES = {
     "diagnoses",
     "medications",
     "prescriptions",
-    "laboratory_results",
     "allergies",
     "vital_signs",
     "treatments",
@@ -29,6 +31,9 @@ FORBIDDEN_TABLES = {
     "fhir_encounters",
     "fhir_patients",
     "fhir_observations",
+    "fhir_specimens",
+    "fhir_service_requests",
+    "fhir_diagnostic_reports",
 }
 
 
@@ -72,6 +77,21 @@ def test_wave2b2a_metadata_has_observations_without_later_clinical_domains() -> 
     tables = set(Base.metadata.tables)
     assert "observations" in tables
     assert "conditions" in tables
+    assert tables.isdisjoint(FORBIDDEN_TABLES)
+
+
+def test_wave2b2b_metadata_has_laboratory_without_later_clinical_domains() -> None:
+    assert LaboratoryOrderModel.__tablename__ == "laboratory_orders"
+    assert LaboratorySpecimenModel.__tablename__ == "laboratory_specimens"
+    assert LaboratoryResultModel.__tablename__ == "laboratory_results"
+    tables = set(Base.metadata.tables)
+    assert {
+        "laboratory_orders",
+        "laboratory_specimens",
+        "laboratory_results",
+        "observations",
+        "conditions",
+    }.issubset(tables)
     assert tables.isdisjoint(FORBIDDEN_TABLES)
 
 

@@ -22,16 +22,32 @@ from app.modules.clinical.domain.enums import (
     ConditionVerificationStatus,
     EncounterClass,
     EncounterStatus,
+    LaboratoryOrderStatus,
+    LaboratoryResultInterpretation,
+    LaboratoryResultStatus,
+    LaboratoryResultValueType,
+    LaboratorySpecimenStatus,
+    LaboratorySpecimenType,
     ObservationCategory,
     ObservationStatus,
     ObservationValueType,
     ParticipationType,
+)
+from app.modules.clinical.domain.laboratory_values import (
+    LaboratoryResultValue,
+    laboratory_result_values_equal,
 )
 from app.modules.clinical.domain.lifecycle import (
     assert_condition_clinical_transition,
     assert_condition_mutable,
     assert_condition_verification_transition,
     assert_encounter_transition,
+    assert_lab_order_open,
+    assert_lab_order_transition,
+    assert_lab_result_can_amend,
+    assert_lab_result_mutable,
+    assert_lab_specimen_collectable,
+    assert_lab_specimen_transition,
     assert_note_can_finalize,
     assert_note_can_mark_error,
     assert_note_is_draft,
@@ -49,6 +65,9 @@ from app.modules.clinical.infrastructure.models import (
     ConditionModel,
     EncounterModel,
     EncounterParticipantModel,
+    LaboratoryOrderModel,
+    LaboratoryResultModel,
+    LaboratorySpecimenModel,
     ObservationModel,
 )
 from app.modules.clinical.infrastructure.repositories import ClinicalRepository, utc_now
@@ -123,6 +142,57 @@ class ObservationView:
     unit: str | None
     reference_range_low: Decimal | None
     reference_range_high: Decimal | None
+    effective_at: datetime | None
+    recorded_at: datetime
+    version: int
+
+
+@dataclass(frozen=True, slots=True)
+class LaboratoryOrderView:
+    id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    code: CodeableConcept
+    status: LaboratoryOrderStatus
+    ordered_at: datetime
+    version: int
+
+
+@dataclass(frozen=True, slots=True)
+class LaboratorySpecimenView:
+    id: UUID
+    laboratory_order_id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    specimen_type: LaboratorySpecimenType
+    status: LaboratorySpecimenStatus
+    collected_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class LaboratoryResultView:
+    id: UUID
+    laboratory_order_id: UUID
+    laboratory_specimen_id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    code: CodeableConcept
+    status: LaboratoryResultStatus
+    value_type: LaboratoryResultValueType
+    value_numeric: Decimal | None
+    value_text: str | None
+    value_boolean: bool | None
+    value_coded: CodeableConcept | None
+    unit: str | None
+    reference_range_low: Decimal | None
+    reference_range_high: Decimal | None
+    interpretation: LaboratoryResultInterpretation | None
     effective_at: datetime | None
     recorded_at: datetime
     version: int
@@ -1108,6 +1178,656 @@ class ClinicalService:
         )
         return _observation_view(observation)
 
+    async def create_lab_order(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        encounter_id: UUID | None,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        code: CodeableConcept,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> LaboratoryOrderView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_LAB_ORDER_CREATE,
+            resource_type="LaboratoryOrder",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        _identity, encounter, bound_patient_id, bound_facility_id = await self._bind_lab_identity(
+            principal,
+            patient_identity_id,
+            encounter_id,
+            organization_id,
+            facility_id,
+            resource="laboratory order",
+        )
+        order_id = new_id()
+        provenance = await self._record_provenance(
+            subject_type=ClinicalProvenanceSubjectType.LABORATORY_ORDER,
+            subject_id=order_id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            actor_id=None if principal is None else principal.user.id,
+        )
+        order = LaboratoryOrderModel(
+            id=order_id,
+            patient_identity_id=bound_patient_id,
+            encounter_id=None if encounter is None else encounter.id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            code_system=code.system,
+            code=code.code,
+            code_display=code.display,
+            status=LaboratoryOrderStatus.REGISTERED.value,
+            ordered_at=utc_now(),
+            recorder_id=None if principal is None else principal.user.id,
+            version=1,
+            provenance_id=provenance.id,
+        )
+        await self._clinical.add_lab_order(order)
+        await self._audit_success(
+            ClinicalAuditAction.LAB_ORDER_CREATED,
+            principal,
+            organization_id,
+            order.facility_id,
+            order.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=order.id,
+            metadata={"status": order.status},
+        )
+        return _lab_order_view(order)
+
+    async def get_lab_order(
+        self,
+        principal: Principal | None,
+        order_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> LaboratoryOrderView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_LAB_ORDER_READ,
+            resource_type="LaboratoryOrder",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        order = await self._visible_lab_order(principal, order_id, organization_id)
+        return _lab_order_view(order)
+
+    async def list_lab_orders(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> list[LaboratoryOrderView]:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_LAB_ORDER_READ,
+            resource_type="LaboratoryOrder",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        rows = await self._clinical.list_lab_orders_for_patient(identity.id, organization_id)
+        return [_lab_order_view(item) for item in rows]
+
+    async def cancel_lab_order(
+        self,
+        principal: Principal | None,
+        order_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> LaboratoryOrderView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_LAB_ORDER_UPDATE,
+            resource_type="LaboratoryOrder",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        order = await self._visible_lab_order(principal, order_id, organization_id, for_update=True)
+        current = LaboratoryOrderStatus(order.status)
+        assert_lab_order_transition(current, LaboratoryOrderStatus.CANCELLED)
+        order.status = LaboratoryOrderStatus.CANCELLED.value
+        order.version = order.version + 1
+        await self._audit_success(
+            ClinicalAuditAction.LAB_ORDER_CANCELLED,
+            principal,
+            organization_id,
+            order.facility_id,
+            order.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=order.id,
+            metadata={"old_status": current.value, "new_status": order.status},
+        )
+        return _lab_order_view(order)
+
+    async def mark_lab_order_entered_in_error(
+        self,
+        principal: Principal | None,
+        order_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> LaboratoryOrderView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_LAB_ORDER_ENTERED_IN_ERROR,
+            resource_type="LaboratoryOrder",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        order = await self._visible_lab_order(principal, order_id, organization_id, for_update=True)
+        current = LaboratoryOrderStatus(order.status)
+        assert_lab_order_transition(current, LaboratoryOrderStatus.ENTERED_IN_ERROR)
+        order.status = LaboratoryOrderStatus.ENTERED_IN_ERROR.value
+        order.version = order.version + 1
+        await self._audit_success(
+            ClinicalAuditAction.LAB_ORDER_ENTERED_IN_ERROR,
+            principal,
+            organization_id,
+            order.facility_id,
+            order.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=order.id,
+            metadata={"old_status": current.value},
+        )
+        return _lab_order_view(order)
+
+    async def collect_lab_specimen(
+        self,
+        principal: Principal | None,
+        *,
+        laboratory_order_id: UUID,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        specimen_type: LaboratorySpecimenType,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> LaboratorySpecimenView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_LAB_SPECIMEN_CREATE,
+            resource_type="LaboratorySpecimen",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        order = await self._visible_lab_order(
+            principal, laboratory_order_id, organization_id, for_update=True
+        )
+        assert_lab_order_open(LaboratoryOrderStatus(order.status))
+        specimen_id = new_id()
+        bound_facility_id = facility_id or order.facility_id
+        provenance = await self._record_provenance(
+            subject_type=ClinicalProvenanceSubjectType.LABORATORY_SPECIMEN,
+            subject_id=specimen_id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            actor_id=None if principal is None else principal.user.id,
+        )
+        specimen = LaboratorySpecimenModel(
+            id=specimen_id,
+            laboratory_order_id=order.id,
+            patient_identity_id=order.patient_identity_id,
+            encounter_id=order.encounter_id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            specimen_type=specimen_type.value,
+            status=LaboratorySpecimenStatus.COLLECTED.value,
+            collected_at=utc_now(),
+            recorder_id=None if principal is None else principal.user.id,
+            provenance_id=provenance.id,
+        )
+        await self._clinical.add_lab_specimen(specimen)
+        if LaboratoryOrderStatus(order.status) is LaboratoryOrderStatus.REGISTERED:
+            assert_lab_order_transition(
+                LaboratoryOrderStatus.REGISTERED, LaboratoryOrderStatus.IN_PROGRESS
+            )
+            order.status = LaboratoryOrderStatus.IN_PROGRESS.value
+            order.version = order.version + 1
+            await self._audit_success(
+                ClinicalAuditAction.LAB_ORDER_IN_PROGRESS,
+                principal,
+                organization_id,
+                order.facility_id,
+                order.patient_identity_id,
+                purpose,
+                correlation_id,
+                resource_id=order.id,
+                metadata={"status": order.status},
+            )
+        await self._audit_success(
+            ClinicalAuditAction.LAB_SPECIMEN_COLLECTED,
+            principal,
+            organization_id,
+            specimen.facility_id,
+            specimen.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=specimen.id,
+            metadata={"specimen_type": specimen.specimen_type, "order_id": str(order.id)},
+        )
+        return _lab_specimen_view(specimen)
+
+    async def get_lab_specimen(
+        self,
+        principal: Principal | None,
+        specimen_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> LaboratorySpecimenView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_LAB_SPECIMEN_READ,
+            resource_type="LaboratorySpecimen",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        specimen = await self._visible_lab_specimen(principal, specimen_id, organization_id)
+        return _lab_specimen_view(specimen)
+
+    async def list_lab_specimens(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> list[LaboratorySpecimenView]:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_LAB_SPECIMEN_READ,
+            resource_type="LaboratorySpecimen",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        rows = await self._clinical.list_lab_specimens_for_patient(identity.id, organization_id)
+        return [_lab_specimen_view(item) for item in rows]
+
+    async def reject_lab_specimen(
+        self,
+        principal: Principal | None,
+        specimen_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> LaboratorySpecimenView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_LAB_SPECIMEN_UPDATE,
+            resource_type="LaboratorySpecimen",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        specimen = await self._visible_lab_specimen(
+            principal, specimen_id, organization_id, for_update=True
+        )
+        current = LaboratorySpecimenStatus(specimen.status)
+        assert_lab_specimen_transition(current, LaboratorySpecimenStatus.REJECTED)
+        specimen.status = LaboratorySpecimenStatus.REJECTED.value
+        await self._audit_success(
+            ClinicalAuditAction.LAB_SPECIMEN_REJECTED,
+            principal,
+            organization_id,
+            specimen.facility_id,
+            specimen.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=specimen.id,
+            metadata={"old_status": current.value},
+        )
+        return _lab_specimen_view(specimen)
+
+    async def mark_lab_specimen_entered_in_error(
+        self,
+        principal: Principal | None,
+        specimen_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> LaboratorySpecimenView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_LAB_SPECIMEN_ENTERED_IN_ERROR,
+            resource_type="LaboratorySpecimen",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        specimen = await self._visible_lab_specimen(
+            principal, specimen_id, organization_id, for_update=True
+        )
+        current = LaboratorySpecimenStatus(specimen.status)
+        assert_lab_specimen_transition(current, LaboratorySpecimenStatus.ENTERED_IN_ERROR)
+        specimen.status = LaboratorySpecimenStatus.ENTERED_IN_ERROR.value
+        await self._audit_success(
+            ClinicalAuditAction.LAB_SPECIMEN_ENTERED_IN_ERROR,
+            principal,
+            organization_id,
+            specimen.facility_id,
+            specimen.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=specimen.id,
+            metadata={"old_status": current.value},
+        )
+        return _lab_specimen_view(specimen)
+
+    async def create_lab_result(
+        self,
+        principal: Principal | None,
+        *,
+        laboratory_specimen_id: UUID,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        code: CodeableConcept,
+        value: LaboratoryResultValue,
+        interpretation: LaboratoryResultInterpretation | None,
+        effective_at: datetime | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> LaboratoryResultView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_LAB_RESULT_CREATE,
+            resource_type="LaboratoryResult",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        specimen = await self._visible_lab_specimen(
+            principal, laboratory_specimen_id, organization_id, for_update=True
+        )
+        assert_lab_specimen_collectable(LaboratorySpecimenStatus(specimen.status))
+        order = await self._visible_lab_order(
+            principal, specimen.laboratory_order_id, organization_id, for_update=True
+        )
+        assert_lab_order_open(LaboratoryOrderStatus(order.status))
+        result_id = new_id()
+        bound_facility_id = facility_id or specimen.facility_id
+        provenance = await self._record_provenance(
+            subject_type=ClinicalProvenanceSubjectType.LABORATORY_RESULT,
+            subject_id=result_id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            actor_id=None if principal is None else principal.user.id,
+        )
+        result = LaboratoryResultModel(
+            id=result_id,
+            laboratory_order_id=order.id,
+            laboratory_specimen_id=specimen.id,
+            patient_identity_id=specimen.patient_identity_id,
+            encounter_id=specimen.encounter_id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            code_system=code.system,
+            code=code.code,
+            code_display=code.display,
+            status=LaboratoryResultStatus.FINAL.value,
+            recorded_at=utc_now(),
+            recorder_id=None if principal is None else principal.user.id,
+            version=1,
+            provenance_id=provenance.id,
+            interpretation=None if interpretation is None else interpretation.value,
+            effective_at=effective_at,
+        )
+        _apply_lab_result_value(result, value)
+        await self._clinical.add_lab_result(result)
+        await self._audit_success(
+            ClinicalAuditAction.LAB_RESULT_CREATED,
+            principal,
+            organization_id,
+            result.facility_id,
+            result.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=result.id,
+            metadata={"status": result.status, "interpretation": result.interpretation or ""},
+        )
+        return _lab_result_view(result)
+
+    async def get_lab_result(
+        self,
+        principal: Principal | None,
+        result_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> LaboratoryResultView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_LAB_RESULT_READ,
+            resource_type="LaboratoryResult",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        result = await self._visible_lab_result(principal, result_id, organization_id)
+        return _lab_result_view(result)
+
+    async def list_lab_results(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> list[LaboratoryResultView]:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_LAB_RESULT_READ,
+            resource_type="LaboratoryResult",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        rows = await self._clinical.list_lab_results_for_patient(identity.id, organization_id)
+        return [_lab_result_view(item) for item in rows]
+
+    async def amend_lab_result(
+        self,
+        principal: Principal | None,
+        result_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        value: LaboratoryResultValue,
+        interpretation: LaboratoryResultInterpretation | None,
+        effective_at: datetime | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> LaboratoryResultView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_LAB_RESULT_UPDATE,
+            resource_type="LaboratoryResult",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        result = await self._visible_lab_result(
+            principal, result_id, organization_id, for_update=True
+        )
+        current_status = LaboratoryResultStatus(result.status)
+        assert_lab_result_can_amend(current_status)
+        current_value = _lab_result_value_from_model(result)
+        if value.value_type is not current_value.value_type:
+            raise AppError(
+                "lab_result_value_type_immutable",
+                "Laboratory result value type cannot change",
+                status_code=422,
+            )
+        next_effective = result.effective_at if effective_at is None else effective_at
+        next_interpretation = (
+            result.interpretation if interpretation is None else interpretation.value
+        )
+        if (
+            laboratory_result_values_equal(current_value, value)
+            and next_effective == result.effective_at
+            and next_interpretation == result.interpretation
+        ):
+            raise AppError(
+                "lab_result_unchanged",
+                "Laboratory result is already at the requested values",
+                status_code=409,
+            )
+        old_status = result.status
+        _apply_lab_result_value(result, value)
+        result.effective_at = next_effective
+        result.interpretation = next_interpretation
+        result.status = LaboratoryResultStatus.AMENDED.value
+        result.version = result.version + 1
+        await self._audit_success(
+            ClinicalAuditAction.LAB_RESULT_AMENDED,
+            principal,
+            organization_id,
+            result.facility_id,
+            result.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=result.id,
+            metadata={
+                "old_status": old_status,
+                "new_status": result.status,
+                "version": str(result.version),
+            },
+        )
+        return _lab_result_view(result)
+
+    async def mark_lab_result_entered_in_error(
+        self,
+        principal: Principal | None,
+        result_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> LaboratoryResultView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_LAB_RESULT_ENTERED_IN_ERROR,
+            resource_type="LaboratoryResult",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        result = await self._visible_lab_result(
+            principal, result_id, organization_id, for_update=True
+        )
+        assert_lab_result_mutable(LaboratoryResultStatus(result.status))
+        result.status = LaboratoryResultStatus.ENTERED_IN_ERROR.value
+        await self._audit_success(
+            ClinicalAuditAction.LAB_RESULT_ENTERED_IN_ERROR,
+            principal,
+            organization_id,
+            result.facility_id,
+            result.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=result.id,
+            metadata={"purpose": purpose},
+        )
+        return _lab_result_view(result)
+
     async def _require_canonical_identity(
         self,
         principal: Principal | None,
@@ -1236,6 +1956,123 @@ class ClinicalService:
         if observation.organization_id != organization_id:
             raise NotFoundError("Observation not found")
         return observation
+
+    async def _bind_lab_identity(
+        self,
+        principal: Principal | None,
+        patient_identity_id: UUID,
+        encounter_id: UUID | None,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        *,
+        resource: str,
+    ) -> tuple[PatientIdentityModel, EncounterModel | None, UUID, UUID | None]:
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        if (
+            IdentityLifecycle(identity.lifecycle_status) is IdentityLifecycle.ANONYMOUS
+            and encounter_id is None
+        ):
+            raise AppError(
+                "anonymous_laboratory_requires_encounter",
+                f"An anonymous identity may receive only an emergency encounter {resource}",
+                status_code=409,
+            )
+        encounter = None
+        bound_patient_id = identity.id
+        bound_facility_id = facility_id
+        if encounter_id is not None:
+            encounter = await self._visible_encounter(
+                principal, encounter_id, organization_id, for_update=True
+            )
+            if EncounterStatus(encounter.status) in {
+                EncounterStatus.CANCELLED,
+                EncounterStatus.ENTERED_IN_ERROR,
+            }:
+                raise AppError(
+                    "encounter_not_documentable",
+                    f"A cancelled or erroneous encounter cannot receive {resource}s",
+                    status_code=409,
+                )
+            if encounter.patient_identity_id != identity.id:
+                raise AppError(
+                    "laboratory_patient_mismatch",
+                    "Laboratory patient must match the encounter patient",
+                    status_code=409,
+                )
+            if (
+                IdentityLifecycle(identity.lifecycle_status) is IdentityLifecycle.ANONYMOUS
+                and EncounterClass(encounter.encounter_class) is not EncounterClass.EMER
+            ):
+                raise AppError(
+                    "anonymous_encounter_not_emergency",
+                    f"An anonymous identity may receive only an emergency encounter {resource}",
+                    status_code=409,
+                )
+            bound_patient_id = encounter.patient_identity_id
+            bound_facility_id = facility_id or encounter.facility_id
+        return identity, encounter, bound_patient_id, bound_facility_id
+
+    async def _visible_lab_order(
+        self,
+        principal: Principal | None,
+        order_id: UUID,
+        organization_id: UUID,
+        *,
+        for_update: bool = False,
+    ) -> LaboratoryOrderModel:
+        if for_update:
+            order = await self._clinical.get_lab_order_for_update(order_id)
+        else:
+            order = await self._clinical.get_lab_order(order_id)
+        if order is None:
+            raise NotFoundError("Laboratory order not found")
+        if principal is not None and principal.has_platform_scope:
+            return order
+        if order.organization_id != organization_id:
+            raise NotFoundError("Laboratory order not found")
+        return order
+
+    async def _visible_lab_specimen(
+        self,
+        principal: Principal | None,
+        specimen_id: UUID,
+        organization_id: UUID,
+        *,
+        for_update: bool = False,
+    ) -> LaboratorySpecimenModel:
+        if for_update:
+            specimen = await self._clinical.get_lab_specimen_for_update(specimen_id)
+        else:
+            specimen = await self._clinical.get_lab_specimen(specimen_id)
+        if specimen is None:
+            raise NotFoundError("Laboratory specimen not found")
+        if principal is not None and principal.has_platform_scope:
+            return specimen
+        if specimen.organization_id != organization_id:
+            raise NotFoundError("Laboratory specimen not found")
+        return specimen
+
+    async def _visible_lab_result(
+        self,
+        principal: Principal | None,
+        result_id: UUID,
+        organization_id: UUID,
+        *,
+        for_update: bool = False,
+    ) -> LaboratoryResultModel:
+        if for_update:
+            result = await self._clinical.get_lab_result_for_update(result_id)
+        else:
+            result = await self._clinical.get_lab_result(result_id)
+        if result is None:
+            raise NotFoundError("Laboratory result not found")
+        if principal is not None and principal.has_platform_scope:
+            return result
+        if result.organization_id != organization_id:
+            raise NotFoundError("Laboratory result not found")
+        return result
 
     async def _record_provenance(
         self,
@@ -1433,6 +2270,113 @@ def _observation_view(model: ObservationModel) -> ObservationView:
         unit=model.unit,
         reference_range_low=model.reference_range_low,
         reference_range_high=model.reference_range_high,
+        effective_at=model.effective_at,
+        recorded_at=model.recorded_at,
+        version=model.version,
+    )
+
+
+def _lab_order_view(model: LaboratoryOrderModel) -> LaboratoryOrderView:
+    return LaboratoryOrderView(
+        id=model.id,
+        patient_identity_id=model.patient_identity_id,
+        encounter_id=model.encounter_id,
+        organization_id=model.organization_id,
+        facility_id=model.facility_id,
+        code=CodeableConcept(
+            system=model.code_system,
+            code=model.code,
+            display=model.code_display,
+        ),
+        status=LaboratoryOrderStatus(model.status),
+        ordered_at=model.ordered_at,
+        version=model.version,
+    )
+
+
+def _lab_specimen_view(model: LaboratorySpecimenModel) -> LaboratorySpecimenView:
+    return LaboratorySpecimenView(
+        id=model.id,
+        laboratory_order_id=model.laboratory_order_id,
+        patient_identity_id=model.patient_identity_id,
+        encounter_id=model.encounter_id,
+        organization_id=model.organization_id,
+        facility_id=model.facility_id,
+        specimen_type=LaboratorySpecimenType(model.specimen_type),
+        status=LaboratorySpecimenStatus(model.status),
+        collected_at=model.collected_at,
+    )
+
+
+def _lab_result_value_from_model(model: LaboratoryResultModel) -> LaboratoryResultValue:
+    coded = None
+    if model.value_code_system and model.value_code:
+        coded = CodeableConcept(
+            system=model.value_code_system,
+            code=model.value_code,
+            display=model.value_code_display,
+        )
+    return LaboratoryResultValue(
+        value_type=ObservationValueType(model.value_type),
+        numeric=model.value_numeric,
+        text=model.value_text,
+        boolean=model.value_boolean,
+        coded=coded,
+        unit=model.unit,
+        range_low=model.reference_range_low,
+        range_high=model.reference_range_high,
+    )
+
+
+def _apply_lab_result_value(model: LaboratoryResultModel, value: LaboratoryResultValue) -> None:
+    model.value_type = value.value_type.value
+    model.value_numeric = value.numeric
+    model.value_text = value.text
+    model.value_boolean = value.boolean
+    model.value_code_system = None if value.coded is None else value.coded.system
+    model.value_code = None if value.coded is None else value.coded.code
+    model.value_code_display = None if value.coded is None else value.coded.display
+    model.unit = value.unit
+    model.reference_range_low = value.range_low
+    model.reference_range_high = value.range_high
+
+
+def _lab_result_view(model: LaboratoryResultModel) -> LaboratoryResultView:
+    coded = None
+    if model.value_code_system and model.value_code:
+        coded = CodeableConcept(
+            system=model.value_code_system,
+            code=model.value_code,
+            display=model.value_code_display,
+        )
+    interpretation = (
+        None
+        if model.interpretation is None
+        else LaboratoryResultInterpretation(model.interpretation)
+    )
+    return LaboratoryResultView(
+        id=model.id,
+        laboratory_order_id=model.laboratory_order_id,
+        laboratory_specimen_id=model.laboratory_specimen_id,
+        patient_identity_id=model.patient_identity_id,
+        encounter_id=model.encounter_id,
+        organization_id=model.organization_id,
+        facility_id=model.facility_id,
+        code=CodeableConcept(
+            system=model.code_system,
+            code=model.code,
+            display=model.code_display,
+        ),
+        status=LaboratoryResultStatus(model.status),
+        value_type=LaboratoryResultValueType(model.value_type),
+        value_numeric=model.value_numeric,
+        value_text=model.value_text,
+        value_boolean=model.value_boolean,
+        value_coded=coded,
+        unit=model.unit,
+        reference_range_low=model.reference_range_low,
+        reference_range_high=model.reference_range_high,
+        interpretation=interpretation,
         effective_at=model.effective_at,
         recorded_at=model.recorded_at,
         version=model.version,

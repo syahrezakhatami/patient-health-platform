@@ -4,6 +4,9 @@ from app.modules.clinical.domain.enums import (
     ConditionClinicalStatus,
     ConditionVerificationStatus,
     EncounterStatus,
+    LaboratoryOrderStatus,
+    LaboratoryResultStatus,
+    LaboratorySpecimenStatus,
     ObservationStatus,
 )
 
@@ -201,5 +204,96 @@ def assert_observation_can_amend(status: ObservationStatus) -> None:
         raise AppError(
             "observation_not_amendable",
             "Only a FINAL or AMENDED observation can be amended",
+            status_code=409,
+        )
+
+
+LAB_ORDER_TRANSITIONS: dict[LaboratoryOrderStatus, frozenset[LaboratoryOrderStatus]] = {
+    LaboratoryOrderStatus.REGISTERED: frozenset(
+        {
+            LaboratoryOrderStatus.IN_PROGRESS,
+            LaboratoryOrderStatus.CANCELLED,
+            LaboratoryOrderStatus.ENTERED_IN_ERROR,
+        }
+    ),
+    LaboratoryOrderStatus.IN_PROGRESS: frozenset({LaboratoryOrderStatus.ENTERED_IN_ERROR}),
+    LaboratoryOrderStatus.CANCELLED: frozenset(),
+    LaboratoryOrderStatus.ENTERED_IN_ERROR: frozenset(),
+}
+
+
+LAB_SPECIMEN_TRANSITIONS: dict[LaboratorySpecimenStatus, frozenset[LaboratorySpecimenStatus]] = {
+    LaboratorySpecimenStatus.COLLECTED: frozenset(
+        {LaboratorySpecimenStatus.REJECTED, LaboratorySpecimenStatus.ENTERED_IN_ERROR}
+    ),
+    LaboratorySpecimenStatus.REJECTED: frozenset(),
+    LaboratorySpecimenStatus.ENTERED_IN_ERROR: frozenset(),
+}
+
+
+LAB_RESULT_TRANSITIONS: dict[LaboratoryResultStatus, frozenset[LaboratoryResultStatus]] = {
+    LaboratoryResultStatus.FINAL: frozenset(
+        {LaboratoryResultStatus.AMENDED, LaboratoryResultStatus.ENTERED_IN_ERROR}
+    ),
+    LaboratoryResultStatus.AMENDED: frozenset({LaboratoryResultStatus.ENTERED_IN_ERROR}),
+    LaboratoryResultStatus.ENTERED_IN_ERROR: frozenset(),
+}
+
+
+def assert_lab_order_transition(
+    current: LaboratoryOrderStatus, target: LaboratoryOrderStatus
+) -> None:
+    if target not in LAB_ORDER_TRANSITIONS.get(current, frozenset()):
+        raise AppError(
+            "invalid_lab_order_transition",
+            f"Laboratory order cannot transition from {current.value} to {target.value}",
+            status_code=409,
+        )
+
+
+def assert_lab_order_open(status: LaboratoryOrderStatus) -> None:
+    if status in {LaboratoryOrderStatus.CANCELLED, LaboratoryOrderStatus.ENTERED_IN_ERROR}:
+        raise AppError(
+            "lab_order_not_open",
+            "A cancelled or entered-in-error laboratory order cannot receive specimens",
+            status_code=409,
+        )
+
+
+def assert_lab_specimen_transition(
+    current: LaboratorySpecimenStatus, target: LaboratorySpecimenStatus
+) -> None:
+    if target not in LAB_SPECIMEN_TRANSITIONS.get(current, frozenset()):
+        raise AppError(
+            "invalid_lab_specimen_transition",
+            f"Laboratory specimen cannot transition from {current.value} to {target.value}",
+            status_code=409,
+        )
+
+
+def assert_lab_specimen_collectable(status: LaboratorySpecimenStatus) -> None:
+    if status is not LaboratorySpecimenStatus.COLLECTED:
+        raise AppError(
+            "lab_specimen_not_collectable",
+            "Only a COLLECTED specimen can receive laboratory results",
+            status_code=409,
+        )
+
+
+def assert_lab_result_mutable(status: LaboratoryResultStatus) -> None:
+    if status is LaboratoryResultStatus.ENTERED_IN_ERROR:
+        raise AppError(
+            "lab_result_entered_in_error",
+            "An entered-in-error laboratory result is immutable",
+            status_code=409,
+        )
+
+
+def assert_lab_result_can_amend(status: LaboratoryResultStatus) -> None:
+    assert_lab_result_mutable(status)
+    if status not in {LaboratoryResultStatus.FINAL, LaboratoryResultStatus.AMENDED}:
+        raise AppError(
+            "lab_result_not_amendable",
+            "Only a FINAL or AMENDED laboratory result can be amended",
             status_code=409,
         )

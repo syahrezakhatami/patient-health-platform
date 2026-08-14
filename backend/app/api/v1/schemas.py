@@ -12,6 +12,12 @@ from app.modules.clinical.domain.enums import (
     ConditionVerificationStatus,
     EncounterClass,
     EncounterStatus,
+    LaboratoryOrderStatus,
+    LaboratoryResultInterpretation,
+    LaboratoryResultStatus,
+    LaboratoryResultValueType,
+    LaboratorySpecimenStatus,
+    LaboratorySpecimenType,
     ObservationCategory,
     ObservationStatus,
     ObservationValueType,
@@ -304,6 +310,93 @@ class ObservationResponse(BaseModel):
     unit: str | None
     reference_range_low: Decimal | None
     reference_range_high: Decimal | None
+    effective_at: datetime | None
+    recorded_at: datetime
+    version: int
+
+
+class CreateLaboratoryOrderRequest(BaseModel):
+    patient_identity_id: UUID
+    encounter_id: UUID | None = None
+    code: CodeableConceptRequest
+
+
+class LaboratoryOrderResponse(BaseModel):
+    id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    code: CodeableConceptRequest
+    status: LaboratoryOrderStatus
+    ordered_at: datetime
+    version: int
+
+
+class CreateLaboratorySpecimenRequest(BaseModel):
+    laboratory_order_id: UUID
+    specimen_type: LaboratorySpecimenType
+
+
+class LaboratorySpecimenResponse(BaseModel):
+    id: UUID
+    laboratory_order_id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    specimen_type: LaboratorySpecimenType
+    status: LaboratorySpecimenStatus
+    collected_at: datetime
+
+
+class CreateLaboratoryResultRequest(BaseModel):
+    laboratory_specimen_id: UUID
+    code: CodeableConceptRequest
+    value_type: LaboratoryResultValueType
+    value_numeric: Decimal | None = None
+    value_text: str | None = Field(default=None, max_length=2000)
+    value_boolean: bool | None = None
+    value_coded: CodeableConceptRequest | None = None
+    unit: str | None = Field(default=None, max_length=32)
+    reference_range_low: Decimal | None = None
+    reference_range_high: Decimal | None = None
+    interpretation: LaboratoryResultInterpretation | None = None
+    effective_at: datetime | None = None
+
+
+class AmendLaboratoryResultRequest(BaseModel):
+    value_type: LaboratoryResultValueType
+    value_numeric: Decimal | None = None
+    value_text: str | None = Field(default=None, max_length=2000)
+    value_boolean: bool | None = None
+    value_coded: CodeableConceptRequest | None = None
+    unit: str | None = Field(default=None, max_length=32)
+    reference_range_low: Decimal | None = None
+    reference_range_high: Decimal | None = None
+    interpretation: LaboratoryResultInterpretation | None = None
+    effective_at: datetime | None = None
+
+
+class LaboratoryResultResponse(BaseModel):
+    id: UUID
+    laboratory_order_id: UUID
+    laboratory_specimen_id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    code: CodeableConceptRequest
+    status: LaboratoryResultStatus
+    value_type: LaboratoryResultValueType
+    value_numeric: Decimal | None
+    value_text: str | None
+    value_boolean: bool | None
+    value_coded: CodeableConceptRequest | None
+    unit: str | None
+    reference_range_low: Decimal | None
+    reference_range_high: Decimal | None
+    interpretation: LaboratoryResultInterpretation | None
     effective_at: datetime | None
     recorded_at: datetime
     version: int

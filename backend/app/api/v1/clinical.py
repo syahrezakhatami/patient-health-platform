@@ -12,6 +12,7 @@ from app.api.v1.deps import (
     RequestPurpose,
 )
 from app.api.v1.schemas import (
+    AmendLaboratoryResultRequest,
     AmendObservationRequest,
     ChangeConditionStatusRequest,
     ChangeEncounterStatusRequest,
@@ -21,8 +22,14 @@ from app.api.v1.schemas import (
     CreateClinicalNoteRequest,
     CreateConditionRequest,
     CreateEncounterRequest,
+    CreateLaboratoryOrderRequest,
+    CreateLaboratoryResultRequest,
+    CreateLaboratorySpecimenRequest,
     CreateObservationRequest,
     EncounterResponse,
+    LaboratoryOrderResponse,
+    LaboratoryResultResponse,
+    LaboratorySpecimenResponse,
     ObservationResponse,
     UpdateClinicalNoteRequest,
 )
@@ -33,10 +40,17 @@ from app.modules.clinical.application.services import (
     ClinicalService,
     ConditionView,
     EncounterView,
+    LaboratoryOrderView,
+    LaboratoryResultView,
+    LaboratorySpecimenView,
     ObservationView,
 )
+from app.modules.clinical.domain.laboratory_values import (
+    LaboratoryResultValue,
+    parse_laboratory_result_value,
+)
 from app.modules.clinical.domain.observation_values import ObservationValue, parse_observation_value
-from app.modules.clinical.domain.terminology import parse_codeable_concept
+from app.modules.clinical.domain.terminology import CodeableConcept, parse_codeable_concept
 
 router = APIRouter(prefix="/clinical", tags=["clinical"])
 
@@ -632,3 +646,465 @@ async def mark_observation_entered_in_error(
         correlation_id=correlation_id,
     )
     return _observation_response(view)
+
+
+def _codeable(concept: CodeableConcept) -> CodeableConceptRequest:
+    return CodeableConceptRequest(
+        system=concept.system,
+        code=concept.code,
+        display=concept.display,
+    )
+
+
+def _lab_order_response(view: LaboratoryOrderView) -> LaboratoryOrderResponse:
+    return LaboratoryOrderResponse(
+        id=view.id,
+        patient_identity_id=view.patient_identity_id,
+        encounter_id=view.encounter_id,
+        organization_id=view.organization_id,
+        facility_id=view.facility_id,
+        code=_codeable(view.code),
+        status=view.status,
+        ordered_at=view.ordered_at,
+        version=view.version,
+    )
+
+
+def _lab_specimen_response(view: LaboratorySpecimenView) -> LaboratorySpecimenResponse:
+    return LaboratorySpecimenResponse(
+        id=view.id,
+        laboratory_order_id=view.laboratory_order_id,
+        patient_identity_id=view.patient_identity_id,
+        encounter_id=view.encounter_id,
+        organization_id=view.organization_id,
+        facility_id=view.facility_id,
+        specimen_type=view.specimen_type,
+        status=view.status,
+        collected_at=view.collected_at,
+    )
+
+
+def _lab_result_response(view: LaboratoryResultView) -> LaboratoryResultResponse:
+    return LaboratoryResultResponse(
+        id=view.id,
+        laboratory_order_id=view.laboratory_order_id,
+        laboratory_specimen_id=view.laboratory_specimen_id,
+        patient_identity_id=view.patient_identity_id,
+        encounter_id=view.encounter_id,
+        organization_id=view.organization_id,
+        facility_id=view.facility_id,
+        code=_codeable(view.code),
+        status=view.status,
+        value_type=view.value_type,
+        value_numeric=view.value_numeric,
+        value_text=view.value_text,
+        value_boolean=view.value_boolean,
+        value_coded=None if view.value_coded is None else _codeable(view.value_coded),
+        unit=view.unit,
+        reference_range_low=view.reference_range_low,
+        reference_range_high=view.reference_range_high,
+        interpretation=view.interpretation,
+        effective_at=view.effective_at,
+        recorded_at=view.recorded_at,
+        version=view.version,
+    )
+
+
+def _parse_lab_result_value_body(
+    body: CreateLaboratoryResultRequest | AmendLaboratoryResultRequest,
+) -> LaboratoryResultValue:
+    return parse_laboratory_result_value(
+        value_type=body.value_type,
+        value_numeric=body.value_numeric,
+        value_text=body.value_text,
+        value_boolean=body.value_boolean,
+        value_coded=None if body.value_coded is None else body.value_coded.model_dump(),
+        unit=body.unit,
+        range_low=body.reference_range_low,
+        range_high=body.reference_range_high,
+    )
+
+
+@router.post("/laboratory/orders", response_model=LaboratoryOrderResponse)
+async def create_lab_order(
+    body: CreateLaboratoryOrderRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> LaboratoryOrderResponse:
+    code = parse_codeable_concept(body.code.model_dump())
+    if code is None:
+        raise AppError(
+            "invalid_codeable_concept",
+            "Codeable concept requires system and code",
+            status_code=422,
+        )
+    view = await _service(session, pdp, audit).create_lab_order(
+        principal,
+        patient_identity_id=body.patient_identity_id,
+        encounter_id=body.encounter_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        code=code,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _lab_order_response(view)
+
+
+@router.get("/laboratory/orders", response_model=list[LaboratoryOrderResponse])
+async def list_lab_orders(
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+    patient_identity_id: Annotated[UUID, Query()],
+) -> list[LaboratoryOrderResponse]:
+    views = await _service(session, pdp, audit).list_lab_orders(
+        principal,
+        patient_identity_id=patient_identity_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return [_lab_order_response(item) for item in views]
+
+
+@router.get("/laboratory/orders/{order_id}", response_model=LaboratoryOrderResponse)
+async def get_lab_order(
+    order_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> LaboratoryOrderResponse:
+    view = await _service(session, pdp, audit).get_lab_order(
+        principal,
+        order_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _lab_order_response(view)
+
+
+@router.post("/laboratory/orders/{order_id}/cancel", response_model=LaboratoryOrderResponse)
+async def cancel_lab_order(
+    order_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> LaboratoryOrderResponse:
+    view = await _service(session, pdp, audit).cancel_lab_order(
+        principal,
+        order_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _lab_order_response(view)
+
+
+@router.post(
+    "/laboratory/orders/{order_id}/entered-in-error",
+    response_model=LaboratoryOrderResponse,
+)
+async def mark_lab_order_entered_in_error(
+    order_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> LaboratoryOrderResponse:
+    view = await _service(session, pdp, audit).mark_lab_order_entered_in_error(
+        principal,
+        order_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _lab_order_response(view)
+
+
+@router.post("/laboratory/specimens", response_model=LaboratorySpecimenResponse)
+async def collect_lab_specimen(
+    body: CreateLaboratorySpecimenRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> LaboratorySpecimenResponse:
+    view = await _service(session, pdp, audit).collect_lab_specimen(
+        principal,
+        laboratory_order_id=body.laboratory_order_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        specimen_type=body.specimen_type,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _lab_specimen_response(view)
+
+
+@router.get("/laboratory/specimens", response_model=list[LaboratorySpecimenResponse])
+async def list_lab_specimens(
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+    patient_identity_id: Annotated[UUID, Query()],
+) -> list[LaboratorySpecimenResponse]:
+    views = await _service(session, pdp, audit).list_lab_specimens(
+        principal,
+        patient_identity_id=patient_identity_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return [_lab_specimen_response(item) for item in views]
+
+
+@router.get("/laboratory/specimens/{specimen_id}", response_model=LaboratorySpecimenResponse)
+async def get_lab_specimen(
+    specimen_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> LaboratorySpecimenResponse:
+    view = await _service(session, pdp, audit).get_lab_specimen(
+        principal,
+        specimen_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _lab_specimen_response(view)
+
+
+@router.post(
+    "/laboratory/specimens/{specimen_id}/reject",
+    response_model=LaboratorySpecimenResponse,
+)
+async def reject_lab_specimen(
+    specimen_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> LaboratorySpecimenResponse:
+    view = await _service(session, pdp, audit).reject_lab_specimen(
+        principal,
+        specimen_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _lab_specimen_response(view)
+
+
+@router.post(
+    "/laboratory/specimens/{specimen_id}/entered-in-error",
+    response_model=LaboratorySpecimenResponse,
+)
+async def mark_lab_specimen_entered_in_error(
+    specimen_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> LaboratorySpecimenResponse:
+    view = await _service(session, pdp, audit).mark_lab_specimen_entered_in_error(
+        principal,
+        specimen_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _lab_specimen_response(view)
+
+
+@router.post("/laboratory/results", response_model=LaboratoryResultResponse)
+async def create_lab_result(
+    body: CreateLaboratoryResultRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> LaboratoryResultResponse:
+    code = parse_codeable_concept(body.code.model_dump())
+    if code is None:
+        raise AppError(
+            "invalid_codeable_concept",
+            "Codeable concept requires system and code",
+            status_code=422,
+        )
+    view = await _service(session, pdp, audit).create_lab_result(
+        principal,
+        laboratory_specimen_id=body.laboratory_specimen_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        code=code,
+        value=_parse_lab_result_value_body(body),
+        interpretation=body.interpretation,
+        effective_at=body.effective_at,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _lab_result_response(view)
+
+
+@router.get("/laboratory/results", response_model=list[LaboratoryResultResponse])
+async def list_lab_results(
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+    patient_identity_id: Annotated[UUID, Query()],
+) -> list[LaboratoryResultResponse]:
+    views = await _service(session, pdp, audit).list_lab_results(
+        principal,
+        patient_identity_id=patient_identity_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return [_lab_result_response(item) for item in views]
+
+
+@router.get("/laboratory/results/{result_id}", response_model=LaboratoryResultResponse)
+async def get_lab_result(
+    result_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> LaboratoryResultResponse:
+    view = await _service(session, pdp, audit).get_lab_result(
+        principal,
+        result_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _lab_result_response(view)
+
+
+@router.post(
+    "/laboratory/results/{result_id}/amend",
+    response_model=LaboratoryResultResponse,
+)
+async def amend_lab_result(
+    result_id: UUID,
+    body: AmendLaboratoryResultRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> LaboratoryResultResponse:
+    view = await _service(session, pdp, audit).amend_lab_result(
+        principal,
+        result_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        value=_parse_lab_result_value_body(body),
+        interpretation=body.interpretation,
+        effective_at=body.effective_at,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _lab_result_response(view)
+
+
+@router.post(
+    "/laboratory/results/{result_id}/entered-in-error",
+    response_model=LaboratoryResultResponse,
+)
+async def mark_lab_result_entered_in_error(
+    result_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> LaboratoryResultResponse:
+    view = await _service(session, pdp, audit).mark_lab_result_entered_in_error(
+        principal,
+        result_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _lab_result_response(view)
