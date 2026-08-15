@@ -2,7 +2,8 @@
 
 Authorization is permission-based, not ``if role == doctor``.
 Wave 2B.2a adds observation permissions. Wave 2B.2b adds laboratory permissions.
-Wave 2B.3a adds medication permissions. Allergy and FHIR remain absent.
+Wave 2B.3a adds medication permissions. Wave 2B.3b adds allergy permissions.
+Consent and FHIR remain absent.
 """
 
 from enum import StrEnum
@@ -57,6 +58,10 @@ class Permission(StrEnum):
     CLINICAL_MEDICATION_READ = "clinical.medication.read"
     CLINICAL_MEDICATION_UPDATE = "clinical.medication.update"
     CLINICAL_MEDICATION_ENTERED_IN_ERROR = "clinical.medication.entered_in_error"
+    CLINICAL_ALLERGY_CREATE = "clinical.allergy.create"
+    CLINICAL_ALLERGY_READ = "clinical.allergy.read"
+    CLINICAL_ALLERGY_UPDATE = "clinical.allergy.update"
+    CLINICAL_ALLERGY_ENTERED_IN_ERROR = "clinical.allergy.entered_in_error"
 
 
 class RoleCode(StrEnum):
@@ -119,6 +124,14 @@ WAVE2B3A_PERMISSIONS: frozenset[str] = frozenset(
         Permission.CLINICAL_MEDICATION_ENTERED_IN_ERROR,
     }
 )
+WAVE2B3B_PERMISSIONS: frozenset[str] = frozenset(
+    {
+        Permission.CLINICAL_ALLERGY_CREATE,
+        Permission.CLINICAL_ALLERGY_READ,
+        Permission.CLINICAL_ALLERGY_UPDATE,
+        Permission.CLINICAL_ALLERGY_ENTERED_IN_ERROR,
+    }
+)
 WAVE1_PERMISSIONS: frozenset[str] = (
     frozenset(item.value for item in Permission)
     - WAVE2A_PERMISSIONS
@@ -126,6 +139,7 @@ WAVE1_PERMISSIONS: frozenset[str] = (
     - WAVE2B2A_PERMISSIONS
     - WAVE2B2B_PERMISSIONS
     - WAVE2B3A_PERMISSIONS
+    - WAVE2B3B_PERMISSIONS
 )
 CATALOG_PERMISSIONS: frozenset[str] = (
     WAVE1_PERMISSIONS
@@ -134,6 +148,7 @@ CATALOG_PERMISSIONS: frozenset[str] = (
     | WAVE2B2A_PERMISSIONS
     | WAVE2B2B_PERMISSIONS
     | WAVE2B3A_PERMISSIONS
+    | WAVE2B3B_PERMISSIONS
 )
 
 # Canonical permission *definitions* and the seed map used by Alembic.
@@ -157,6 +172,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.CLINICAL_LAB_SPECIMEN_READ,
             Permission.CLINICAL_LAB_RESULT_READ,
             Permission.CLINICAL_MEDICATION_READ,
+            Permission.CLINICAL_ALLERGY_READ,
         }
     ),
     RoleCode.REGISTRAR: frozenset(
@@ -201,6 +217,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.CLINICAL_LAB_SPECIMEN_READ,
             Permission.CLINICAL_LAB_RESULT_READ,
             Permission.CLINICAL_MEDICATION_READ,
+            Permission.CLINICAL_ALLERGY_READ,
         }
     ),
     RoleCode.CLINICIAN: frozenset(
@@ -240,6 +257,10 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.CLINICAL_MEDICATION_READ,
             Permission.CLINICAL_MEDICATION_UPDATE,
             Permission.CLINICAL_MEDICATION_ENTERED_IN_ERROR,
+            Permission.CLINICAL_ALLERGY_CREATE,
+            Permission.CLINICAL_ALLERGY_READ,
+            Permission.CLINICAL_ALLERGY_UPDATE,
+            Permission.CLINICAL_ALLERGY_ENTERED_IN_ERROR,
         }
     ),
 }

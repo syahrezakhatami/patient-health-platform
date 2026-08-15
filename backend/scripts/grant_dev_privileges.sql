@@ -22,6 +22,7 @@ REVOKE DELETE, TRUNCATE ON TABLE laboratory_orders FROM app_dml;
 REVOKE DELETE, TRUNCATE ON TABLE laboratory_specimens FROM app_dml;
 REVOKE DELETE, TRUNCATE ON TABLE laboratory_results FROM app_dml;
 REVOKE DELETE, TRUNCATE ON TABLE medications FROM app_dml;
+REVOKE DELETE, TRUNCATE ON TABLE allergies FROM app_dml;
 GRANT INSERT, SELECT ON TABLE audit_events TO app_dml;
 GRANT INSERT, SELECT ON TABLE identity_merge_operations TO app_dml;
 GRANT INSERT, SELECT ON TABLE identity_provenances TO app_dml;

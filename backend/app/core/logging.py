@@ -41,6 +41,13 @@ _REDACT_KEYS = frozenset(
         "dose_numeric",
         "dose_unit",
         "dose",
+        "reaction",
+        "reaction_display",
+        "reaction_code",
+        "reaction_code_system",
+        "reaction_code_display",
+        "severity",
+        "criticality",
     }
 )
 

@@ -25,6 +25,7 @@ from app.modules.clinical.infrastructure.models import (
     LaboratoryOrderModel,
     LaboratoryResultModel,
     LaboratorySpecimenModel,
+    AllergyModel,
     MedicationModel,
     ObservationModel,
 )
@@ -71,6 +72,7 @@ assert LaboratoryOrderModel.__tablename__ == "laboratory_orders"
 assert LaboratorySpecimenModel.__tablename__ == "laboratory_specimens"
 assert LaboratoryResultModel.__tablename__ == "laboratory_results"
 assert MedicationModel.__tablename__ == "medications"
+assert AllergyModel.__tablename__ == "allergies"
 
 config = context.config
 if config.config_file_name is not None:

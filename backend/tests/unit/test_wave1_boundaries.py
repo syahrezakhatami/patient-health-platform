@@ -2,6 +2,7 @@ import pytest
 from app.db.base import Base
 from app.modules.audit.infrastructure.models import AuditEventModel
 from app.modules.clinical.infrastructure.models import (
+    AllergyModel,
     ClinicalNoteModel,
     ClinicalProvenanceModel,
     ConditionModel,
@@ -22,7 +23,7 @@ pytestmark = pytest.mark.unit
 FORBIDDEN_TABLES = {
     "diagnoses",
     "prescriptions",
-    "allergies",
+    "consents",
     "vital_signs",
     "treatments",
     "care_plans",
@@ -99,6 +100,21 @@ def test_wave2b3a_metadata_has_medications_without_later_clinical_domains() -> N
     assert MedicationModel.__tablename__ == "medications"
     tables = set(Base.metadata.tables)
     assert {
+        "medications",
+        "laboratory_orders",
+        "laboratory_specimens",
+        "laboratory_results",
+        "observations",
+        "conditions",
+    }.issubset(tables)
+    assert tables.isdisjoint(FORBIDDEN_TABLES)
+
+
+def test_wave2b3b_metadata_has_allergies_without_later_clinical_domains() -> None:
+    assert AllergyModel.__tablename__ == "allergies"
+    tables = set(Base.metadata.tables)
+    assert {
+        "allergies",
         "medications",
         "laboratory_orders",
         "laboratory_specimens",

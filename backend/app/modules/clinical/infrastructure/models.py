@@ -415,3 +415,55 @@ class MedicationModel(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         ForeignKey("clinical_provenances.id", ondelete="RESTRICT"),
         nullable=True,
     )
+
+
+class AllergyModel(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "allergies"
+    __table_args__ = (
+        Index("ix_allergies_patient_identity_id", "patient_identity_id"),
+        Index("ix_allergies_encounter_id", "encounter_id"),
+        Index("ix_allergies_organization_id", "organization_id"),
+        Index("ix_allergies_recorded_at", "recorded_at"),
+    )
+
+    patient_identity_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("patient_identities.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    encounter_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("encounters.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    organization_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    facility_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("facilities.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    category: Mapped[str] = mapped_column(String(32), nullable=False)
+    code_system: Mapped[str] = mapped_column(String(128), nullable=False)
+    code: Mapped[str] = mapped_column(String(64), nullable=False)
+    code_display: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    clinical_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    verification_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    criticality: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    severity: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    reaction_code_system: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    reaction_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    reaction_display: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    onset_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    recorder_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    provenance_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("clinical_provenances.id", ondelete="RESTRICT"),
+        nullable=True,
+    )

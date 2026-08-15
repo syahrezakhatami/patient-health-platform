@@ -140,6 +140,42 @@ class MedicationRoute(StrEnum):
     OTHER = "OTHER"
 
 
+class AllergyCategory(StrEnum):
+    DRUG = "DRUG"
+    FOOD = "FOOD"
+    ENVIRONMENT = "ENVIRONMENT"
+    OTHER = "OTHER"
+
+
+class AllergyStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+    AMENDED = "AMENDED"
+    ENTERED_IN_ERROR = "ENTERED_IN_ERROR"
+
+
+class AllergyClinicalStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
+
+
+class AllergyVerificationStatus(StrEnum):
+    UNCONFIRMED = "UNCONFIRMED"
+    CONFIRMED = "CONFIRMED"
+    REFUTED = "REFUTED"
+
+
+class AllergyCriticality(StrEnum):
+    LOW = "LOW"
+    HIGH = "HIGH"
+    UNABLE_TO_ASSESS = "UNABLE_TO_ASSESS"
+
+
+class AllergySeverity(StrEnum):
+    MILD = "MILD"
+    MODERATE = "MODERATE"
+    SEVERE = "SEVERE"
+
+
 class ClinicalProvenanceSubjectType(StrEnum):
     ENCOUNTER = "ENCOUNTER"
     CLINICAL_NOTE = "CLINICAL_NOTE"
@@ -149,6 +185,7 @@ class ClinicalProvenanceSubjectType(StrEnum):
     LABORATORY_SPECIMEN = "LABORATORY_SPECIMEN"
     LABORATORY_RESULT = "LABORATORY_RESULT"
     MEDICATION = "MEDICATION"
+    ALLERGY = "ALLERGY"
 
 
 class ClinicalAuditAction(StrEnum):
@@ -177,3 +214,6 @@ class ClinicalAuditAction(StrEnum):
     MEDICATION_CREATED = "MEDICATION_CREATED"
     MEDICATION_STOPPED = "MEDICATION_STOPPED"
     MEDICATION_ENTERED_IN_ERROR = "MEDICATION_ENTERED_IN_ERROR"
+    ALLERGY_CREATED = "ALLERGY_CREATED"
+    ALLERGY_AMENDED = "ALLERGY_AMENDED"
+    ALLERGY_ENTERED_IN_ERROR = "ALLERGY_ENTERED_IN_ERROR"

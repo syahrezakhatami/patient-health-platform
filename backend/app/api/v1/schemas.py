@@ -5,6 +5,12 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.modules.clinical.domain.enums import (
+    AllergyCategory,
+    AllergyClinicalStatus,
+    AllergyCriticality,
+    AllergySeverity,
+    AllergyStatus,
+    AllergyVerificationStatus,
     ClinicalNoteType,
     ClinicalRecordStatus,
     ConditionCategory,
@@ -430,6 +436,47 @@ class MedicationResponse(BaseModel):
     route: MedicationRoute | None
     started_at: datetime | None
     stopped_at: datetime | None
+    recorded_at: datetime
+    version: int
+
+
+class CreateAllergyRequest(BaseModel):
+    patient_identity_id: UUID
+    encounter_id: UUID | None = None
+    category: AllergyCategory
+    code: CodeableConceptRequest
+    clinical_status: AllergyClinicalStatus = AllergyClinicalStatus.ACTIVE
+    verification_status: AllergyVerificationStatus = AllergyVerificationStatus.UNCONFIRMED
+    criticality: AllergyCriticality | None = None
+    severity: AllergySeverity | None = None
+    reaction: CodeableConceptRequest | None = None
+    onset_at: datetime | None = None
+
+
+class AmendAllergyRequest(BaseModel):
+    clinical_status: AllergyClinicalStatus
+    verification_status: AllergyVerificationStatus
+    criticality: AllergyCriticality | None = None
+    severity: AllergySeverity | None = None
+    reaction: CodeableConceptRequest | None = None
+    onset_at: datetime | None = None
+
+
+class AllergyResponse(BaseModel):
+    id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    category: AllergyCategory
+    code: CodeableConceptRequest
+    status: AllergyStatus
+    clinical_status: AllergyClinicalStatus
+    verification_status: AllergyVerificationStatus
+    criticality: AllergyCriticality | None
+    severity: AllergySeverity | None
+    reaction: CodeableConceptRequest | None
+    onset_at: datetime | None
     recorded_at: datetime
     version: int
 

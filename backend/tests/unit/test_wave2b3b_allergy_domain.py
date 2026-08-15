@@ -1,4 +1,3 @@
-from decimal import Decimal
 from uuid import uuid4
 
 import pytest
@@ -7,42 +6,46 @@ from app.core.logging import _redact_secrets
 from app.modules.authorization.application.wave1_pdp import Wave1PolicyPDP
 from app.modules.authorization.domain.catalog import Permission
 from app.modules.authorization.domain.models import AuthorizationContext
-from app.modules.clinical.application.services import _parse_medication_dose
-from app.modules.clinical.domain.enums import MedicationStatus
+from app.modules.clinical.application.services import _parse_optional_reaction
+from app.modules.clinical.domain.enums import AllergyStatus
 from app.modules.clinical.domain.lifecycle import (
-    MEDICATION_TRANSITIONS,
-    assert_medication_can_stop,
-    assert_medication_mutable,
+    ALLERGY_TRANSITIONS,
+    assert_allergy_can_amend,
+    assert_allergy_mutable,
 )
+from app.modules.clinical.domain.terminology import CodeableConcept
 from app.shared.enums import PrincipalType
 
 pytestmark = pytest.mark.unit
 
 
-def test_medication_dose_requires_both_or_neither() -> None:
-    assert _parse_medication_dose(None, None) == (None, None)
-    assert _parse_medication_dose(Decimal("500"), "mg") == (Decimal("500"), "mg")
-    with pytest.raises(AppError, match="dose_numeric and dose_unit"):
-        _parse_medication_dose(Decimal("500"), None)
-    with pytest.raises(AppError, match="dose_numeric and dose_unit"):
-        _parse_medication_dose(None, "mg")
+def test_allergy_reaction_requires_both_or_neither() -> None:
+    assert _parse_optional_reaction(None) == (None, None, None)
+    assert _parse_optional_reaction(
+        CodeableConcept(system="http://snomed.info/sct", code="39579001", display="Anaphylaxis")
+    ) == ("http://snomed.info/sct", "39579001", "Anaphylaxis")
+    with pytest.raises(AppError, match="system and code"):
+        _parse_optional_reaction(CodeableConcept(system=" ", code="39579001", display=None))
+    with pytest.raises(AppError, match="system and code"):
+        _parse_optional_reaction(
+            CodeableConcept(system="http://snomed.info/sct", code=" ", display=None)
+        )
 
 
-def test_medication_lifecycle_and_immutability() -> None:
-    assert MedicationStatus.STOPPED in MEDICATION_TRANSITIONS[MedicationStatus.ACTIVE]
-    assert MedicationStatus.ENTERED_IN_ERROR in MEDICATION_TRANSITIONS[MedicationStatus.ACTIVE]
-    assert MedicationStatus.ENTERED_IN_ERROR in MEDICATION_TRANSITIONS[MedicationStatus.STOPPED]
-    assert MEDICATION_TRANSITIONS[MedicationStatus.ENTERED_IN_ERROR] == frozenset()
-    assert_medication_can_stop(MedicationStatus.ACTIVE)
-    with pytest.raises(AppError, match="ACTIVE"):
-        assert_medication_can_stop(MedicationStatus.STOPPED)
+def test_allergy_lifecycle_and_immutability() -> None:
+    assert AllergyStatus.AMENDED in ALLERGY_TRANSITIONS[AllergyStatus.ACTIVE]
+    assert AllergyStatus.ENTERED_IN_ERROR in ALLERGY_TRANSITIONS[AllergyStatus.ACTIVE]
+    assert AllergyStatus.ENTERED_IN_ERROR in ALLERGY_TRANSITIONS[AllergyStatus.AMENDED]
+    assert ALLERGY_TRANSITIONS[AllergyStatus.ENTERED_IN_ERROR] == frozenset()
+    assert_allergy_can_amend(AllergyStatus.ACTIVE)
+    assert_allergy_can_amend(AllergyStatus.AMENDED)
     with pytest.raises(AppError, match="immutable"):
-        assert_medication_mutable(MedicationStatus.ENTERED_IN_ERROR)
+        assert_allergy_mutable(AllergyStatus.ENTERED_IN_ERROR)
     with pytest.raises(AppError, match="immutable"):
-        assert_medication_can_stop(MedicationStatus.ENTERED_IN_ERROR)
+        assert_allergy_can_amend(AllergyStatus.ENTERED_IN_ERROR)
 
 
-def test_pdp_allows_medication_permission_and_denies_unknown_allergy_alias() -> None:
+def test_pdp_allows_allergy_permission_and_denies_unknown_consent_alias() -> None:
     pdp = Wave1PolicyPDP()
     org_id = uuid4()
     allowed = pdp.evaluate(
@@ -52,12 +55,12 @@ def test_pdp_allows_medication_permission_and_denies_unknown_allergy_alias() -> 
             organization_id=org_id,
             facility_id=None,
             roles=("CLINICIAN",),
-            scopes=(Permission.CLINICAL_MEDICATION_CREATE,),
+            scopes=(Permission.CLINICAL_ALLERGY_CREATE,),
             patient_id=None,
             purpose="TREATMENT",
             emergency_access_id=None,
-            resource_type="Medication",
-            action=Permission.CLINICAL_MEDICATION_CREATE,
+            resource_type="Allergy",
+            action=Permission.CLINICAL_ALLERGY_CREATE,
             actor_organization_ids=(org_id,),
         )
     )
@@ -100,20 +103,26 @@ def test_pdp_allows_medication_permission_and_denies_unknown_allergy_alias() -> 
     assert unknown_dx.reason == "deny_by_default"
 
 
-def test_medication_values_are_redacted_from_log_events() -> None:
+def test_allergy_values_are_redacted_from_log_events() -> None:
     redacted = _redact_secrets(
         None,  # type: ignore[arg-type]
         "info",
         {
-            "dose_numeric": "500",
-            "dose_unit": "mg",
-            "dose": "500 mg",
-            "code_display": "Paracetamol",
+            "code_display": "Penicillin",
+            "reaction": "Anaphylaxis",
+            "reaction_display": "Anaphylaxis",
+            "reaction_code": "39579001",
+            "reaction_code_system": "http://snomed.info/sct",
+            "severity": "SEVERE",
+            "criticality": "HIGH",
             "event": "request",
         },
     )
-    assert redacted["dose_numeric"] == "[REDACTED]"
-    assert redacted["dose_unit"] == "[REDACTED]"
-    assert redacted["dose"] == "[REDACTED]"
     assert redacted["code_display"] == "[REDACTED]"
+    assert redacted["reaction"] == "[REDACTED]"
+    assert redacted["reaction_display"] == "[REDACTED]"
+    assert redacted["reaction_code"] == "[REDACTED]"
+    assert redacted["reaction_code_system"] == "[REDACTED]"
+    assert redacted["severity"] == "[REDACTED]"
+    assert redacted["criticality"] == "[REDACTED]"
     assert redacted["event"] == "request"

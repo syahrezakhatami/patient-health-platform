@@ -1,5 +1,6 @@
 from app.core.errors import AppError
 from app.modules.clinical.domain.enums import (
+    AllergyStatus,
     ClinicalRecordStatus,
     ConditionClinicalStatus,
     ConditionVerificationStatus,
@@ -324,5 +325,31 @@ def assert_medication_can_stop(status: MedicationStatus) -> None:
         raise AppError(
             "medication_not_active",
             "Only an ACTIVE medication can be stopped",
+            status_code=409,
+        )
+
+
+ALLERGY_TRANSITIONS: dict[AllergyStatus, frozenset[AllergyStatus]] = {
+    AllergyStatus.ACTIVE: frozenset({AllergyStatus.AMENDED, AllergyStatus.ENTERED_IN_ERROR}),
+    AllergyStatus.AMENDED: frozenset({AllergyStatus.ENTERED_IN_ERROR}),
+    AllergyStatus.ENTERED_IN_ERROR: frozenset(),
+}
+
+
+def assert_allergy_mutable(status: AllergyStatus) -> None:
+    if status is AllergyStatus.ENTERED_IN_ERROR:
+        raise AppError(
+            "allergy_entered_in_error",
+            "An entered-in-error allergy is immutable",
+            status_code=409,
+        )
+
+
+def assert_allergy_can_amend(status: AllergyStatus) -> None:
+    assert_allergy_mutable(status)
+    if status not in {AllergyStatus.ACTIVE, AllergyStatus.AMENDED}:
+        raise AppError(
+            "allergy_not_amendable",
+            "Only an ACTIVE or AMENDED allergy can be amended",
             status_code=409,
         )

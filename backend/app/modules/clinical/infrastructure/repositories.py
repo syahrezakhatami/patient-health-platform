@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.clinical.infrastructure.models import (
+    AllergyModel,
     ClinicalNoteModel,
     ClinicalProvenanceModel,
     ConditionModel,
@@ -277,5 +278,37 @@ class ClinicalRepository:
             query = query.where(MedicationModel.encounter_id == encounter_id)
         result = await self._session.execute(
             query.order_by(MedicationModel.recorded_at.desc()).limit(100)
+        )
+        return list(result.scalars().all())
+
+    async def add_allergy(self, model: AllergyModel) -> AllergyModel:
+        self._session.add(model)
+        await self._session.flush()
+        return model
+
+    async def get_allergy(self, allergy_id: UUID) -> AllergyModel | None:
+        return await self._session.get(AllergyModel, allergy_id)
+
+    async def get_allergy_for_update(self, allergy_id: UUID) -> AllergyModel | None:
+        result = await self._session.execute(
+            select(AllergyModel).where(AllergyModel.id == allergy_id).with_for_update()
+        )
+        return result.scalar_one_or_none()
+
+    async def list_allergies_for_patient(
+        self,
+        patient_identity_id: UUID,
+        organization_id: UUID,
+        *,
+        encounter_id: UUID | None = None,
+    ) -> list[AllergyModel]:
+        query = select(AllergyModel).where(
+            AllergyModel.patient_identity_id == patient_identity_id,
+            AllergyModel.organization_id == organization_id,
+        )
+        if encounter_id is not None:
+            query = query.where(AllergyModel.encounter_id == encounter_id)
+        result = await self._session.execute(
+            query.order_by(AllergyModel.recorded_at.desc()).limit(100)
         )
         return list(result.scalars().all())

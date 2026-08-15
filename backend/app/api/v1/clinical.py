@@ -12,6 +12,8 @@ from app.api.v1.deps import (
     RequestPurpose,
 )
 from app.api.v1.schemas import (
+    AllergyResponse,
+    AmendAllergyRequest,
     AmendLaboratoryResultRequest,
     AmendObservationRequest,
     ChangeConditionStatusRequest,
@@ -19,6 +21,7 @@ from app.api.v1.schemas import (
     ClinicalNoteResponse,
     CodeableConceptRequest,
     ConditionResponse,
+    CreateAllergyRequest,
     CreateClinicalNoteRequest,
     CreateConditionRequest,
     CreateEncounterRequest,
@@ -38,6 +41,7 @@ from app.api.v1.schemas import (
 from app.core.dependencies import CurrentPDP, DbSession
 from app.core.errors import AppError
 from app.modules.clinical.application.services import (
+    AllergyView,
     ClinicalNoteView,
     ClinicalService,
     ConditionView,
@@ -1262,3 +1266,182 @@ async def mark_medication_entered_in_error(
         correlation_id=correlation_id,
     )
     return _medication_response(view)
+
+
+def _allergy_response(view: AllergyView) -> AllergyResponse:
+    return AllergyResponse(
+        id=view.id,
+        patient_identity_id=view.patient_identity_id,
+        encounter_id=view.encounter_id,
+        organization_id=view.organization_id,
+        facility_id=view.facility_id,
+        category=view.category,
+        code=_codeable(view.code),
+        status=view.status,
+        clinical_status=view.clinical_status,
+        verification_status=view.verification_status,
+        criticality=view.criticality,
+        severity=view.severity,
+        reaction=None if view.reaction is None else _codeable(view.reaction),
+        onset_at=view.onset_at,
+        recorded_at=view.recorded_at,
+        version=view.version,
+    )
+
+
+@router.post("/allergies", response_model=AllergyResponse)
+async def create_allergy(
+    body: CreateAllergyRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> AllergyResponse:
+    code = parse_codeable_concept(body.code.model_dump())
+    if code is None:
+        raise AppError(
+            "invalid_codeable_concept",
+            "Codeable concept requires system and code",
+            status_code=422,
+        )
+    reaction = None
+    if body.reaction is not None:
+        reaction = parse_codeable_concept(body.reaction.model_dump())
+        if reaction is None:
+            raise AppError(
+                "invalid_codeable_concept",
+                "Codeable concept requires system and code",
+                status_code=422,
+            )
+    view = await _service(session, pdp, audit).create_allergy(
+        principal,
+        patient_identity_id=body.patient_identity_id,
+        encounter_id=body.encounter_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        category=body.category,
+        code=code,
+        clinical_status=body.clinical_status,
+        verification_status=body.verification_status,
+        criticality=body.criticality,
+        severity=body.severity,
+        reaction=reaction,
+        onset_at=body.onset_at,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _allergy_response(view)
+
+
+@router.get("/allergies", response_model=list[AllergyResponse])
+async def list_allergies(
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+    patient_identity_id: Annotated[UUID, Query()],
+    encounter_id: Annotated[UUID | None, Query()] = None,
+) -> list[AllergyResponse]:
+    views = await _service(session, pdp, audit).list_allergies(
+        principal,
+        patient_identity_id=patient_identity_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        encounter_id=encounter_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return [_allergy_response(item) for item in views]
+
+
+@router.get("/allergies/{allergy_id}", response_model=AllergyResponse)
+async def get_allergy(
+    allergy_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> AllergyResponse:
+    view = await _service(session, pdp, audit).get_allergy(
+        principal,
+        allergy_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _allergy_response(view)
+
+
+@router.post("/allergies/{allergy_id}/amend", response_model=AllergyResponse)
+async def amend_allergy(
+    allergy_id: UUID,
+    body: AmendAllergyRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> AllergyResponse:
+    reaction = None
+    if body.reaction is not None:
+        reaction = parse_codeable_concept(body.reaction.model_dump())
+        if reaction is None:
+            raise AppError(
+                "invalid_codeable_concept",
+                "Codeable concept requires system and code",
+                status_code=422,
+            )
+    view = await _service(session, pdp, audit).amend_allergy(
+        principal,
+        allergy_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        clinical_status=body.clinical_status,
+        verification_status=body.verification_status,
+        criticality=body.criticality,
+        severity=body.severity,
+        reaction=reaction,
+        onset_at=body.onset_at,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _allergy_response(view)
+
+
+@router.post("/allergies/{allergy_id}/entered-in-error", response_model=AllergyResponse)
+async def mark_allergy_entered_in_error(
+    allergy_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> AllergyResponse:
+    view = await _service(session, pdp, audit).mark_allergy_entered_in_error(
+        principal,
+        allergy_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _allergy_response(view)

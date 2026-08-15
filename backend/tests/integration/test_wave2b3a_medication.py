@@ -212,7 +212,7 @@ async def test_medication_lifecycle_identity_and_authorization(db_client, db_eng
                 SELECT count(*) FROM information_schema.tables
                 WHERE table_schema = 'public'
                   AND table_name IN (
-                    'allergies','consents','fhir_medication_requests',
+                    'consents','fhir_medication_requests',
                     'prescriptions','fhir_observations'
                   )
                 """

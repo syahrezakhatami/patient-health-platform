@@ -13,6 +13,12 @@ from app.modules.authorization.application.authorize import authorize
 from app.modules.authorization.application.ports import PolicyDecisionPoint
 from app.modules.authorization.domain.catalog import Permission
 from app.modules.clinical.domain.enums import (
+    AllergyCategory,
+    AllergyClinicalStatus,
+    AllergyCriticality,
+    AllergySeverity,
+    AllergyStatus,
+    AllergyVerificationStatus,
     ClinicalAuditAction,
     ClinicalNoteType,
     ClinicalProvenanceSubjectType,
@@ -41,6 +47,8 @@ from app.modules.clinical.domain.laboratory_values import (
     laboratory_result_values_equal,
 )
 from app.modules.clinical.domain.lifecycle import (
+    assert_allergy_can_amend,
+    assert_allergy_mutable,
     assert_condition_clinical_transition,
     assert_condition_mutable,
     assert_condition_verification_transition,
@@ -65,6 +73,7 @@ from app.modules.clinical.domain.observation_values import (
 )
 from app.modules.clinical.domain.terminology import CodeableConcept
 from app.modules.clinical.infrastructure.models import (
+    AllergyModel,
     ClinicalNoteModel,
     ClinicalProvenanceModel,
     ConditionModel,
@@ -219,6 +228,26 @@ class MedicationView:
     route: MedicationRoute | None
     started_at: datetime | None
     stopped_at: datetime | None
+    recorded_at: datetime
+    version: int
+
+
+@dataclass(frozen=True, slots=True)
+class AllergyView:
+    id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    category: AllergyCategory
+    code: CodeableConcept
+    status: AllergyStatus
+    clinical_status: AllergyClinicalStatus
+    verification_status: AllergyVerificationStatus
+    criticality: AllergyCriticality | None
+    severity: AllergySeverity | None
+    reaction: CodeableConcept | None
+    onset_at: datetime | None
     recorded_at: datetime
     version: int
 
@@ -2107,6 +2136,309 @@ class ClinicalService:
         )
         return _medication_view(medication)
 
+    async def create_allergy(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        encounter_id: UUID | None,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        category: AllergyCategory,
+        code: CodeableConcept,
+        clinical_status: AllergyClinicalStatus,
+        verification_status: AllergyVerificationStatus,
+        criticality: AllergyCriticality | None,
+        severity: AllergySeverity | None,
+        reaction: CodeableConcept | None,
+        onset_at: datetime | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> AllergyView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_ALLERGY_CREATE,
+            resource_type="Allergy",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        if (
+            IdentityLifecycle(identity.lifecycle_status) is IdentityLifecycle.ANONYMOUS
+            and encounter_id is None
+        ):
+            raise AppError(
+                "anonymous_allergy_requires_encounter",
+                "An anonymous identity may receive only an emergency encounter allergy",
+                status_code=409,
+            )
+        reaction_system, reaction_code, reaction_display = _parse_optional_reaction(reaction)
+        encounter = None
+        bound_patient_id = identity.id
+        bound_facility_id = facility_id
+        if encounter_id is not None:
+            encounter = await self._visible_encounter(
+                principal, encounter_id, organization_id, for_update=True
+            )
+            if EncounterStatus(encounter.status) in {
+                EncounterStatus.CANCELLED,
+                EncounterStatus.ENTERED_IN_ERROR,
+            }:
+                raise AppError(
+                    "encounter_not_documentable",
+                    "A cancelled or erroneous encounter cannot receive allergies",
+                    status_code=409,
+                )
+            if encounter.patient_identity_id != identity.id:
+                raise AppError(
+                    "allergy_patient_mismatch",
+                    "Allergy patient must match the encounter patient",
+                    status_code=409,
+                )
+            if (
+                IdentityLifecycle(identity.lifecycle_status) is IdentityLifecycle.ANONYMOUS
+                and EncounterClass(encounter.encounter_class) is not EncounterClass.EMER
+            ):
+                raise AppError(
+                    "anonymous_encounter_not_emergency",
+                    "An anonymous identity may receive only an emergency encounter allergy",
+                    status_code=409,
+                )
+            bound_patient_id = encounter.patient_identity_id
+            bound_facility_id = facility_id or encounter.facility_id
+        allergy_id = new_id()
+        provenance = await self._record_provenance(
+            subject_type=ClinicalProvenanceSubjectType.ALLERGY,
+            subject_id=allergy_id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            actor_id=None if principal is None else principal.user.id,
+        )
+        allergy = AllergyModel(
+            id=allergy_id,
+            patient_identity_id=bound_patient_id,
+            encounter_id=None if encounter is None else encounter.id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            category=category.value,
+            code_system=code.system,
+            code=code.code,
+            code_display=code.display,
+            status=AllergyStatus.ACTIVE.value,
+            clinical_status=clinical_status.value,
+            verification_status=verification_status.value,
+            criticality=None if criticality is None else criticality.value,
+            severity=None if severity is None else severity.value,
+            reaction_code_system=reaction_system,
+            reaction_code=reaction_code,
+            reaction_display=reaction_display,
+            onset_at=onset_at,
+            recorded_at=utc_now(),
+            recorder_id=None if principal is None else principal.user.id,
+            version=1,
+            provenance_id=provenance.id,
+        )
+        await self._clinical.add_allergy(allergy)
+        await self._audit_success(
+            ClinicalAuditAction.ALLERGY_CREATED,
+            principal,
+            organization_id,
+            allergy.facility_id,
+            allergy.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=allergy.id,
+            metadata={
+                "category": allergy.category,
+                "status": allergy.status,
+                "clinical_status": allergy.clinical_status,
+                "verification_status": allergy.verification_status,
+            },
+        )
+        return _allergy_view(allergy)
+
+    async def get_allergy(
+        self,
+        principal: Principal | None,
+        allergy_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> AllergyView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_ALLERGY_READ,
+            resource_type="Allergy",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        allergy = await self._visible_allergy(principal, allergy_id, organization_id)
+        return _allergy_view(allergy)
+
+    async def list_allergies(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        encounter_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> list[AllergyView]:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_ALLERGY_READ,
+            resource_type="Allergy",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        rows = await self._clinical.list_allergies_for_patient(
+            identity.id, organization_id, encounter_id=encounter_id
+        )
+        return [_allergy_view(item) for item in rows]
+
+    async def amend_allergy(
+        self,
+        principal: Principal | None,
+        allergy_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        clinical_status: AllergyClinicalStatus,
+        verification_status: AllergyVerificationStatus,
+        criticality: AllergyCriticality | None,
+        severity: AllergySeverity | None,
+        reaction: CodeableConcept | None,
+        onset_at: datetime | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> AllergyView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_ALLERGY_UPDATE,
+            resource_type="Allergy",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        allergy = await self._visible_allergy(
+            principal, allergy_id, organization_id, for_update=True
+        )
+        current_status = AllergyStatus(allergy.status)
+        assert_allergy_can_amend(current_status)
+        reaction_system, reaction_code, reaction_display = _parse_optional_reaction(reaction)
+        next_criticality = None if criticality is None else criticality.value
+        next_severity = None if severity is None else severity.value
+        unchanged = (
+            allergy.clinical_status == clinical_status.value
+            and allergy.verification_status == verification_status.value
+            and allergy.criticality == next_criticality
+            and allergy.severity == next_severity
+            and allergy.reaction_code_system == reaction_system
+            and allergy.reaction_code == reaction_code
+            and allergy.reaction_display == reaction_display
+            and allergy.onset_at == onset_at
+        )
+        if unchanged:
+            raise AppError(
+                "allergy_unchanged",
+                "Allergy is already at the requested values",
+                status_code=409,
+            )
+        old_status = allergy.status
+        allergy.clinical_status = clinical_status.value
+        allergy.verification_status = verification_status.value
+        allergy.criticality = next_criticality
+        allergy.severity = next_severity
+        allergy.reaction_code_system = reaction_system
+        allergy.reaction_code = reaction_code
+        allergy.reaction_display = reaction_display
+        allergy.onset_at = onset_at
+        allergy.status = AllergyStatus.AMENDED.value
+        allergy.version = allergy.version + 1
+        await self._audit_success(
+            ClinicalAuditAction.ALLERGY_AMENDED,
+            principal,
+            organization_id,
+            allergy.facility_id,
+            allergy.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=allergy.id,
+            metadata={
+                "old_status": old_status,
+                "new_status": allergy.status,
+                "clinical_status": allergy.clinical_status,
+                "verification_status": allergy.verification_status,
+                "version": str(allergy.version),
+            },
+        )
+        return _allergy_view(allergy)
+
+    async def mark_allergy_entered_in_error(
+        self,
+        principal: Principal | None,
+        allergy_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> AllergyView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_ALLERGY_ENTERED_IN_ERROR,
+            resource_type="Allergy",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        allergy = await self._visible_allergy(
+            principal, allergy_id, organization_id, for_update=True
+        )
+        assert_allergy_mutable(AllergyStatus(allergy.status))
+        allergy.status = AllergyStatus.ENTERED_IN_ERROR.value
+        await self._audit_success(
+            ClinicalAuditAction.ALLERGY_ENTERED_IN_ERROR,
+            principal,
+            organization_id,
+            allergy.facility_id,
+            allergy.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=allergy.id,
+            metadata={"purpose": purpose},
+        )
+        return _allergy_view(allergy)
+
     async def _require_canonical_identity(
         self,
         principal: Principal | None,
@@ -2372,6 +2704,26 @@ class ClinicalService:
         if medication.organization_id != organization_id:
             raise NotFoundError("Medication not found")
         return medication
+
+    async def _visible_allergy(
+        self,
+        principal: Principal | None,
+        allergy_id: UUID,
+        organization_id: UUID,
+        *,
+        for_update: bool = False,
+    ) -> AllergyModel:
+        if for_update:
+            allergy = await self._clinical.get_allergy_for_update(allergy_id)
+        else:
+            allergy = await self._clinical.get_allergy(allergy_id)
+        if allergy is None:
+            raise NotFoundError("Allergy not found")
+        if principal is not None and principal.has_platform_scope:
+            return allergy
+        if allergy.organization_id != organization_id:
+            raise NotFoundError("Allergy not found")
+        return allergy
 
     async def _record_provenance(
         self,
@@ -2719,6 +3071,57 @@ def _medication_view(model: MedicationModel) -> MedicationView:
         route=None if model.route is None else MedicationRoute(model.route),
         started_at=model.started_at,
         stopped_at=model.stopped_at,
+        recorded_at=model.recorded_at,
+        version=model.version,
+    )
+
+
+def _parse_optional_reaction(
+    reaction: CodeableConcept | None,
+) -> tuple[str | None, str | None, str | None]:
+    if reaction is None:
+        return None, None, None
+    system = reaction.system.strip()
+    code = reaction.code.strip()
+    if system == "" or code == "":
+        raise AppError(
+            "allergy_reaction_shape",
+            "Allergy reaction requires both system and code, or neither",
+            status_code=422,
+        )
+    display = None if reaction.display is None else reaction.display.strip()
+    if display == "":
+        display = None
+    return system, code, display
+
+
+def _allergy_view(model: AllergyModel) -> AllergyView:
+    reaction = None
+    if model.reaction_code_system is not None and model.reaction_code is not None:
+        reaction = CodeableConcept(
+            system=model.reaction_code_system,
+            code=model.reaction_code,
+            display=model.reaction_display,
+        )
+    return AllergyView(
+        id=model.id,
+        patient_identity_id=model.patient_identity_id,
+        encounter_id=model.encounter_id,
+        organization_id=model.organization_id,
+        facility_id=model.facility_id,
+        category=AllergyCategory(model.category),
+        code=CodeableConcept(
+            system=model.code_system,
+            code=model.code,
+            display=model.code_display,
+        ),
+        status=AllergyStatus(model.status),
+        clinical_status=AllergyClinicalStatus(model.clinical_status),
+        verification_status=AllergyVerificationStatus(model.verification_status),
+        criticality=None if model.criticality is None else AllergyCriticality(model.criticality),
+        severity=None if model.severity is None else AllergySeverity(model.severity),
+        reaction=reaction,
+        onset_at=model.onset_at,
         recorded_at=model.recorded_at,
         version=model.version,
     )
