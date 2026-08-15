@@ -233,6 +233,17 @@ class ImmunizationSite(StrEnum):
     OTHER = "OTHER"
 
 
+class ProcedureCategory(StrEnum):
+    PERFORMED = "PERFORMED"
+    REPORTED = "REPORTED"
+
+
+class ProcedureStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+    AMENDED = "AMENDED"
+    ENTERED_IN_ERROR = "ENTERED_IN_ERROR"
+
+
 class ClinicalProvenanceSubjectType(StrEnum):
     ENCOUNTER = "ENCOUNTER"
     CLINICAL_NOTE = "CLINICAL_NOTE"
@@ -245,6 +256,7 @@ class ClinicalProvenanceSubjectType(StrEnum):
     ALLERGY = "ALLERGY"
     CONSENT = "CONSENT"
     IMMUNIZATION = "IMMUNIZATION"
+    PROCEDURE = "PROCEDURE"
 
 
 class ClinicalAuditAction(StrEnum):
@@ -283,3 +295,6 @@ class ClinicalAuditAction(StrEnum):
     IMMUNIZATION_CREATED = "IMMUNIZATION_CREATED"
     IMMUNIZATION_AMENDED = "IMMUNIZATION_AMENDED"
     IMMUNIZATION_ENTERED_IN_ERROR = "IMMUNIZATION_ENTERED_IN_ERROR"
+    PROCEDURE_CREATED = "PROCEDURE_CREATED"
+    PROCEDURE_AMENDED = "PROCEDURE_AMENDED"
+    PROCEDURE_ENTERED_IN_ERROR = "PROCEDURE_ENTERED_IN_ERROR"

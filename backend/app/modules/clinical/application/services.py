@@ -50,6 +50,8 @@ from app.modules.clinical.domain.enums import (
     ObservationStatus,
     ObservationValueType,
     ParticipationType,
+    ProcedureCategory,
+    ProcedureStatus,
 )
 from app.modules.clinical.domain.laboratory_values import (
     LaboratoryResultValue,
@@ -81,6 +83,8 @@ from app.modules.clinical.domain.lifecycle import (
     assert_note_is_draft,
     assert_observation_can_amend,
     assert_observation_mutable,
+    assert_procedure_can_amend,
+    assert_procedure_mutable,
     consent_is_effective,
 )
 from app.modules.clinical.domain.observation_values import (
@@ -102,6 +106,7 @@ from app.modules.clinical.infrastructure.models import (
     LaboratorySpecimenModel,
     MedicationModel,
     ObservationModel,
+    ProcedureModel,
 )
 from app.modules.clinical.infrastructure.repositories import ClinicalRepository, utc_now
 from app.modules.iam.domain.models import Principal
@@ -306,6 +311,22 @@ class ImmunizationView:
     site: ImmunizationSite | None
     note_text: str | None
     status: ImmunizationStatus
+    recorded_at: datetime
+    version: int
+
+
+@dataclass(frozen=True, slots=True)
+class ProcedureView:
+    id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    category: ProcedureCategory
+    code: CodeableConcept
+    occurrence_at: datetime | None
+    note_text: str | None
+    status: ProcedureStatus
     recorded_at: datetime
     version: int
 
@@ -3112,6 +3133,279 @@ class ClinicalService:
         )
         return _immunization_view(immunization)
 
+    async def create_procedure(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        encounter_id: UUID | None,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        category: ProcedureCategory,
+        code: CodeableConcept,
+        occurrence_at: datetime | None,
+        note_text: str | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> ProcedureView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_PROCEDURE_CREATE,
+            resource_type="Procedure",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        if (
+            IdentityLifecycle(identity.lifecycle_status) is IdentityLifecycle.ANONYMOUS
+            and encounter_id is None
+        ):
+            raise AppError(
+                "anonymous_procedure_requires_encounter",
+                "An anonymous identity may receive only an emergency encounter procedure",
+                status_code=409,
+            )
+        encounter = None
+        bound_patient_id = identity.id
+        bound_facility_id = facility_id
+        if encounter_id is not None:
+            encounter = await self._visible_encounter(
+                principal, encounter_id, organization_id, for_update=True
+            )
+            if EncounterStatus(encounter.status) in {
+                EncounterStatus.CANCELLED,
+                EncounterStatus.ENTERED_IN_ERROR,
+            }:
+                raise AppError(
+                    "encounter_not_documentable",
+                    "A cancelled or erroneous encounter cannot receive procedures",
+                    status_code=409,
+                )
+            if encounter.patient_identity_id != identity.id:
+                raise AppError(
+                    "procedure_patient_mismatch",
+                    "Procedure patient must match the encounter patient",
+                    status_code=409,
+                )
+            if (
+                IdentityLifecycle(identity.lifecycle_status) is IdentityLifecycle.ANONYMOUS
+                and EncounterClass(encounter.encounter_class) is not EncounterClass.EMER
+            ):
+                raise AppError(
+                    "anonymous_encounter_not_emergency",
+                    "An anonymous identity may receive only an emergency encounter procedure",
+                    status_code=409,
+                )
+            bound_patient_id = encounter.patient_identity_id
+            bound_facility_id = facility_id or encounter.facility_id
+        procedure_id = new_id()
+        provenance = await self._record_provenance(
+            subject_type=ClinicalProvenanceSubjectType.PROCEDURE,
+            subject_id=procedure_id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            actor_id=None if principal is None else principal.user.id,
+        )
+        procedure = ProcedureModel(
+            id=procedure_id,
+            patient_identity_id=bound_patient_id,
+            encounter_id=None if encounter is None else encounter.id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            category=category.value,
+            code_system=code.system,
+            code=code.code,
+            code_display=code.display,
+            occurrence_at=occurrence_at,
+            note_text=None if note_text is None or note_text.strip() == "" else note_text.strip(),
+            status=ProcedureStatus.ACTIVE.value,
+            recorded_at=utc_now(),
+            recorder_id=None if principal is None else principal.user.id,
+            version=1,
+            provenance_id=provenance.id,
+        )
+        await self._clinical.add_procedure(procedure)
+        await self._audit_success(
+            ClinicalAuditAction.PROCEDURE_CREATED,
+            principal,
+            organization_id,
+            procedure.facility_id,
+            procedure.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=procedure.id,
+            metadata={
+                "category": procedure.category,
+                "status": procedure.status,
+                "version": str(procedure.version),
+            },
+        )
+        return _procedure_view(procedure)
+
+    async def get_procedure(
+        self,
+        principal: Principal | None,
+        procedure_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> ProcedureView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_PROCEDURE_READ,
+            resource_type="Procedure",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        procedure = await self._visible_procedure(principal, procedure_id, organization_id)
+        return _procedure_view(procedure)
+
+    async def list_procedures(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        encounter_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> list[ProcedureView]:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_PROCEDURE_READ,
+            resource_type="Procedure",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        rows = await self._clinical.list_procedures_for_patient(
+            identity.id, organization_id, encounter_id=encounter_id
+        )
+        return [_procedure_view(item) for item in rows]
+
+    async def amend_procedure(
+        self,
+        principal: Principal | None,
+        procedure_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        occurrence_at: datetime | None,
+        note_text: str | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> ProcedureView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_PROCEDURE_UPDATE,
+            resource_type="Procedure",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        procedure = await self._visible_procedure(
+            principal, procedure_id, organization_id, for_update=True
+        )
+        assert_procedure_can_amend(ProcedureStatus(procedure.status))
+        next_note = None if note_text is None or note_text.strip() == "" else note_text.strip()
+        unchanged = procedure.occurrence_at == occurrence_at and procedure.note_text == next_note
+        if unchanged:
+            raise AppError(
+                "procedure_unchanged",
+                "Procedure is already at the requested values",
+                status_code=409,
+            )
+        old_status = procedure.status
+        procedure.occurrence_at = occurrence_at
+        procedure.note_text = next_note
+        procedure.status = ProcedureStatus.AMENDED.value
+        procedure.version = procedure.version + 1
+        await self._audit_success(
+            ClinicalAuditAction.PROCEDURE_AMENDED,
+            principal,
+            organization_id,
+            procedure.facility_id,
+            procedure.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=procedure.id,
+            metadata={
+                "old_status": old_status,
+                "new_status": procedure.status,
+                "status": procedure.status,
+                "version": str(procedure.version),
+            },
+        )
+        return _procedure_view(procedure)
+
+    async def mark_procedure_entered_in_error(
+        self,
+        principal: Principal | None,
+        procedure_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> ProcedureView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_PROCEDURE_ENTERED_IN_ERROR,
+            resource_type="Procedure",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        procedure = await self._visible_procedure(
+            principal, procedure_id, organization_id, for_update=True
+        )
+        assert_procedure_mutable(ProcedureStatus(procedure.status))
+        old_status = procedure.status
+        procedure.status = ProcedureStatus.ENTERED_IN_ERROR.value
+        await self._audit_success(
+            ClinicalAuditAction.PROCEDURE_ENTERED_IN_ERROR,
+            principal,
+            organization_id,
+            procedure.facility_id,
+            procedure.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=procedure.id,
+            metadata={
+                "old_status": old_status,
+                "new_status": procedure.status,
+                "status": procedure.status,
+            },
+        )
+        return _procedure_view(procedure)
+
     async def _require_canonical_identity(
         self,
         principal: Principal | None,
@@ -3437,6 +3731,26 @@ class ClinicalService:
         if immunization.organization_id != organization_id:
             raise NotFoundError("Immunization not found")
         return immunization
+
+    async def _visible_procedure(
+        self,
+        principal: Principal | None,
+        procedure_id: UUID,
+        organization_id: UUID,
+        *,
+        for_update: bool = False,
+    ) -> ProcedureModel:
+        if for_update:
+            procedure = await self._clinical.get_procedure_for_update(procedure_id)
+        else:
+            procedure = await self._clinical.get_procedure(procedure_id)
+        if procedure is None:
+            raise NotFoundError("Procedure not found")
+        if principal is not None and principal.has_platform_scope:
+            return procedure
+        if procedure.organization_id != organization_id:
+            raise NotFoundError("Procedure not found")
+        return procedure
 
     async def _record_provenance(
         self,
@@ -3908,6 +4222,27 @@ def _immunization_view(model: ImmunizationModel) -> ImmunizationView:
         site=None if model.site is None else ImmunizationSite(model.site),
         note_text=model.note_text,
         status=ImmunizationStatus(model.status),
+        recorded_at=model.recorded_at,
+        version=model.version,
+    )
+
+
+def _procedure_view(model: ProcedureModel) -> ProcedureView:
+    return ProcedureView(
+        id=model.id,
+        patient_identity_id=model.patient_identity_id,
+        encounter_id=model.encounter_id,
+        organization_id=model.organization_id,
+        facility_id=model.facility_id,
+        category=ProcedureCategory(model.category),
+        code=CodeableConcept(
+            system=model.code_system,
+            code=model.code,
+            display=model.code_display,
+        ),
+        occurrence_at=model.occurrence_at,
+        note_text=model.note_text,
+        status=ProcedureStatus(model.status),
         recorded_at=model.recorded_at,
         version=model.version,
     )

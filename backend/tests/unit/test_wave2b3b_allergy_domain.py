@@ -72,12 +72,12 @@ def test_pdp_allows_allergy_permission_and_denies_unknown_consent_alias() -> Non
             organization_id=org_id,
             facility_id=None,
             roles=("CLINICIAN",),
-            scopes=("clinical.procedure.create",),
+            scopes=("clinical.care_plan.create",),
             patient_id=None,
             purpose="TREATMENT",
             emergency_access_id=None,
-            resource_type="Procedure",
-            action="clinical.procedure.create",
+            resource_type="CarePlan",
+            action="clinical.care_plan.create",
             actor_organization_ids=(org_id,),
         )
     )

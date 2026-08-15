@@ -14,6 +14,7 @@ from app.modules.clinical.domain.enums import (
     LaboratorySpecimenStatus,
     MedicationStatus,
     ObservationStatus,
+    ProcedureStatus,
 )
 
 ENCOUNTER_TRANSITIONS: dict[EncounterStatus, frozenset[EncounterStatus]] = {
@@ -447,6 +448,32 @@ def assert_immunization_can_amend(status: ImmunizationStatus) -> None:
         raise AppError(
             "immunization_not_amendable",
             "Only an ACTIVE or AMENDED immunization can be amended",
+            status_code=409,
+        )
+
+
+PROCEDURE_TRANSITIONS: dict[ProcedureStatus, frozenset[ProcedureStatus]] = {
+    ProcedureStatus.ACTIVE: frozenset({ProcedureStatus.AMENDED, ProcedureStatus.ENTERED_IN_ERROR}),
+    ProcedureStatus.AMENDED: frozenset({ProcedureStatus.ENTERED_IN_ERROR}),
+    ProcedureStatus.ENTERED_IN_ERROR: frozenset(),
+}
+
+
+def assert_procedure_mutable(status: ProcedureStatus) -> None:
+    if status is ProcedureStatus.ENTERED_IN_ERROR:
+        raise AppError(
+            "procedure_entered_in_error",
+            "An entered-in-error procedure is immutable",
+            status_code=409,
+        )
+
+
+def assert_procedure_can_amend(status: ProcedureStatus) -> None:
+    assert_procedure_mutable(status)
+    if status not in {ProcedureStatus.ACTIVE, ProcedureStatus.AMENDED}:
+        raise AppError(
+            "procedure_not_amendable",
+            "Only an ACTIVE or AMENDED procedure can be amended",
             status_code=409,
         )
 

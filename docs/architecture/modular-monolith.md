@@ -75,6 +75,12 @@ The backend is a single FastAPI process with explicit bounded-context packages u
 |---|---|
 | `clinical` | Adds native Immunization (documented vaccination fact). Not a FHIR Immunization store. |
 
+## Wave 2B.5 modules
+
+| Module | Why it exists now |
+|---|---|
+| `clinical` | Adds native Procedure (documented performed or reported procedure fact). Not a FHIR Procedure store. |
+
 Timeline, FHIR clinical APIs, and AI remain out of scope.
 
 ## Async strategy

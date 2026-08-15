@@ -15,6 +15,7 @@ from app.modules.clinical.infrastructure.models import (
     LaboratorySpecimenModel,
     MedicationModel,
     ObservationModel,
+    ProcedureModel,
 )
 from app.modules.iam.infrastructure.models import UserModel
 from app.modules.mpi.infrastructure.models import PatientIdentityModel
@@ -159,6 +160,26 @@ def test_wave2b4_metadata_has_immunizations_without_later_clinical_domains() -> 
     }.issubset(tables)
     assert tables.isdisjoint(FORBIDDEN_TABLES)
     assert "fhir_immunizations" not in tables
+    assert "care_plans" not in tables
+
+
+def test_wave2b5_metadata_has_procedures_without_later_clinical_domains() -> None:
+    assert ProcedureModel.__tablename__ == "procedures"
+    tables = set(Base.metadata.tables)
+    assert {
+        "procedures",
+        "immunizations",
+        "consents",
+        "allergies",
+        "medications",
+        "laboratory_orders",
+        "laboratory_specimens",
+        "laboratory_results",
+        "observations",
+        "conditions",
+    }.issubset(tables)
+    assert tables.isdisjoint(FORBIDDEN_TABLES)
+    assert "fhir_procedures" not in tables
     assert "care_plans" not in tables
 
 

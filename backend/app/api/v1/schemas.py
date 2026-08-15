@@ -39,6 +39,8 @@ from app.modules.clinical.domain.enums import (
     ObservationCategory,
     ObservationStatus,
     ObservationValueType,
+    ProcedureCategory,
+    ProcedureStatus,
 )
 from app.modules.mpi.domain.enums import (
     AdministrativeSex,
@@ -561,6 +563,35 @@ class ImmunizationResponse(BaseModel):
     site: ImmunizationSite | None
     note_text: str | None
     status: ImmunizationStatus
+    recorded_at: datetime
+    version: int
+
+
+class CreateProcedureRequest(BaseModel):
+    patient_identity_id: UUID
+    encounter_id: UUID | None = None
+    category: ProcedureCategory
+    code: CodeableConceptRequest
+    occurrence_at: datetime | None = None
+    note_text: str | None = Field(default=None, max_length=2000)
+
+
+class AmendProcedureRequest(BaseModel):
+    occurrence_at: datetime | None = None
+    note_text: str | None = Field(default=None, max_length=2000)
+
+
+class ProcedureResponse(BaseModel):
+    id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    category: ProcedureCategory
+    code: CodeableConceptRequest
+    occurrence_at: datetime | None
+    note_text: str | None
+    status: ProcedureStatus
     recorded_at: datetime
     version: int
 

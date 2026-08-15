@@ -31,7 +31,7 @@ def make_settings(**overrides: object) -> Settings:
         "auth_dev_hs256_secret": SecretStr(TEST_SECRET),
         "cors_allowed_origins": "http://localhost:3000",
         "max_request_bytes": 1024,
-        "rate_limit_per_minute": 1000,
+        "rate_limit_per_minute": 10000,
         "openapi_enabled": True,
     }
     values.update(overrides)

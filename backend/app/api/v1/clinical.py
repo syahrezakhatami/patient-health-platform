@@ -18,6 +18,7 @@ from app.api.v1.schemas import (
     AmendImmunizationRequest,
     AmendLaboratoryResultRequest,
     AmendObservationRequest,
+    AmendProcedureRequest,
     ChangeConditionStatusRequest,
     ChangeEncounterStatusRequest,
     ClinicalNoteResponse,
@@ -35,6 +36,7 @@ from app.api.v1.schemas import (
     CreateLaboratorySpecimenRequest,
     CreateMedicationRequest,
     CreateObservationRequest,
+    CreateProcedureRequest,
     EncounterResponse,
     ImmunizationResponse,
     LaboratoryOrderResponse,
@@ -42,6 +44,7 @@ from app.api.v1.schemas import (
     LaboratorySpecimenResponse,
     MedicationResponse,
     ObservationResponse,
+    ProcedureResponse,
     UpdateClinicalNoteRequest,
 )
 from app.core.dependencies import CurrentPDP, DbSession
@@ -59,6 +62,7 @@ from app.modules.clinical.application.services import (
     LaboratorySpecimenView,
     MedicationView,
     ObservationView,
+    ProcedureView,
 )
 from app.modules.clinical.domain.laboratory_values import (
     LaboratoryResultValue,
@@ -1796,3 +1800,155 @@ async def mark_immunization_entered_in_error(
         correlation_id=correlation_id,
     )
     return _immunization_response(view)
+
+
+def _procedure_response(view: ProcedureView) -> ProcedureResponse:
+    return ProcedureResponse(
+        id=view.id,
+        patient_identity_id=view.patient_identity_id,
+        encounter_id=view.encounter_id,
+        organization_id=view.organization_id,
+        facility_id=view.facility_id,
+        category=view.category,
+        code=_codeable(view.code),
+        occurrence_at=view.occurrence_at,
+        note_text=view.note_text,
+        status=view.status,
+        recorded_at=view.recorded_at,
+        version=view.version,
+    )
+
+
+@router.post("/procedures", response_model=ProcedureResponse)
+async def create_procedure(
+    body: CreateProcedureRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> ProcedureResponse:
+    code = parse_codeable_concept(body.code.model_dump())
+    if code is None:
+        raise AppError(
+            "invalid_codeable_concept",
+            "Codeable concept requires system and code",
+            status_code=422,
+        )
+    view = await _service(session, pdp, audit).create_procedure(
+        principal,
+        patient_identity_id=body.patient_identity_id,
+        encounter_id=body.encounter_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        category=body.category,
+        code=code,
+        occurrence_at=body.occurrence_at,
+        note_text=body.note_text,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _procedure_response(view)
+
+
+@router.get("/procedures", response_model=list[ProcedureResponse])
+async def list_procedures(
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+    patient_identity_id: Annotated[UUID, Query()],
+    encounter_id: Annotated[UUID | None, Query()] = None,
+) -> list[ProcedureResponse]:
+    views = await _service(session, pdp, audit).list_procedures(
+        principal,
+        patient_identity_id=patient_identity_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        encounter_id=encounter_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return [_procedure_response(item) for item in views]
+
+
+@router.get("/procedures/{procedure_id}", response_model=ProcedureResponse)
+async def get_procedure(
+    procedure_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> ProcedureResponse:
+    view = await _service(session, pdp, audit).get_procedure(
+        principal,
+        procedure_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _procedure_response(view)
+
+
+@router.post("/procedures/{procedure_id}/amend", response_model=ProcedureResponse)
+async def amend_procedure(
+    procedure_id: UUID,
+    body: AmendProcedureRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> ProcedureResponse:
+    view = await _service(session, pdp, audit).amend_procedure(
+        principal,
+        procedure_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        occurrence_at=body.occurrence_at,
+        note_text=body.note_text,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _procedure_response(view)
+
+
+@router.post(
+    "/procedures/{procedure_id}/entered-in-error",
+    response_model=ProcedureResponse,
+)
+async def mark_procedure_entered_in_error(
+    procedure_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> ProcedureResponse:
+    view = await _service(session, pdp, audit).mark_procedure_entered_in_error(
+        principal,
+        procedure_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _procedure_response(view)

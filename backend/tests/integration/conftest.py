@@ -49,7 +49,7 @@ def db_settings() -> Settings:
         auth_audience="php-api",
         auth_dev_hs256_secret=SecretStr(TEST_SECRET),
         cors_allowed_origins="http://localhost:3000",
-        rate_limit_per_minute=1000,
+        rate_limit_per_minute=10000,
         openapi_enabled=True,
     )
 
