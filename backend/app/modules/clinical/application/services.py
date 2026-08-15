@@ -26,6 +26,11 @@ from app.modules.clinical.domain.enums import (
     ConditionCategory,
     ConditionClinicalStatus,
     ConditionVerificationStatus,
+    ConsentCategory,
+    ConsentDecision,
+    ConsentScope,
+    ConsentSource,
+    ConsentStatus,
     EncounterClass,
     EncounterStatus,
     LaboratoryOrderStatus,
@@ -52,6 +57,10 @@ from app.modules.clinical.domain.lifecycle import (
     assert_condition_clinical_transition,
     assert_condition_mutable,
     assert_condition_verification_transition,
+    assert_consent_can_amend,
+    assert_consent_can_revoke,
+    assert_consent_mutable,
+    assert_consent_period,
     assert_encounter_transition,
     assert_lab_order_open,
     assert_lab_order_transition,
@@ -66,6 +75,7 @@ from app.modules.clinical.domain.lifecycle import (
     assert_note_is_draft,
     assert_observation_can_amend,
     assert_observation_mutable,
+    consent_is_effective,
 )
 from app.modules.clinical.domain.observation_values import (
     ObservationValue,
@@ -77,6 +87,7 @@ from app.modules.clinical.infrastructure.models import (
     ClinicalNoteModel,
     ClinicalProvenanceModel,
     ConditionModel,
+    ConsentModel,
     EncounterModel,
     EncounterParticipantModel,
     LaboratoryOrderModel,
@@ -250,6 +261,28 @@ class AllergyView:
     onset_at: datetime | None
     recorded_at: datetime
     version: int
+
+
+@dataclass(frozen=True, slots=True)
+class ConsentView:
+    id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    category: ConsentCategory
+    scope: ConsentScope
+    decision: ConsentDecision
+    code: CodeableConcept | None
+    source: ConsentSource
+    period_start: datetime | None
+    period_end: datetime | None
+    note_text: str | None
+    status: ConsentStatus
+    recorded_at: datetime
+    revoked_at: datetime | None
+    version: int
+    is_effective: bool
 
 
 class ClinicalService:
@@ -2439,6 +2472,333 @@ class ClinicalService:
         )
         return _allergy_view(allergy)
 
+    async def create_consent(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        encounter_id: UUID | None,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        category: ConsentCategory,
+        scope: ConsentScope,
+        decision: ConsentDecision,
+        code: CodeableConcept | None,
+        source: ConsentSource,
+        period_start: datetime | None,
+        period_end: datetime | None,
+        note_text: str | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> ConsentView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_CONSENT_CREATE,
+            resource_type="Consent",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        if IdentityLifecycle(identity.lifecycle_status) is IdentityLifecycle.ANONYMOUS:
+            raise AppError(
+                "anonymous_consent_not_allowed",
+                "An anonymous identity cannot receive a consent record",
+                status_code=409,
+            )
+        assert_consent_period(period_start, period_end)
+        code_system, code_value, code_display = _parse_optional_consent_code(code)
+        encounter = None
+        bound_patient_id = identity.id
+        bound_facility_id = facility_id
+        if encounter_id is not None:
+            encounter = await self._visible_encounter(
+                principal, encounter_id, organization_id, for_update=True
+            )
+            if EncounterStatus(encounter.status) in {
+                EncounterStatus.CANCELLED,
+                EncounterStatus.ENTERED_IN_ERROR,
+            }:
+                raise AppError(
+                    "encounter_not_documentable",
+                    "A cancelled or erroneous encounter cannot receive consents",
+                    status_code=409,
+                )
+            if encounter.patient_identity_id != identity.id:
+                raise AppError(
+                    "consent_patient_mismatch",
+                    "Consent patient must match the encounter patient",
+                    status_code=409,
+                )
+            bound_patient_id = encounter.patient_identity_id
+            bound_facility_id = facility_id or encounter.facility_id
+        consent_id = new_id()
+        provenance = await self._record_provenance(
+            subject_type=ClinicalProvenanceSubjectType.CONSENT,
+            subject_id=consent_id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            actor_id=None if principal is None else principal.user.id,
+        )
+        consent = ConsentModel(
+            id=consent_id,
+            patient_identity_id=bound_patient_id,
+            encounter_id=None if encounter is None else encounter.id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            category=category.value,
+            scope=scope.value,
+            decision=decision.value,
+            code_system=code_system,
+            code=code_value,
+            code_display=code_display,
+            source=source.value,
+            period_start=period_start,
+            period_end=period_end,
+            note_text=None if note_text is None or note_text.strip() == "" else note_text.strip(),
+            status=ConsentStatus.ACTIVE.value,
+            recorded_at=utc_now(),
+            recorder_id=None if principal is None else principal.user.id,
+            revoked_at=None,
+            version=1,
+            provenance_id=provenance.id,
+        )
+        await self._clinical.add_consent(consent)
+        await self._audit_success(
+            ClinicalAuditAction.CONSENT_CREATED,
+            principal,
+            organization_id,
+            consent.facility_id,
+            consent.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=consent.id,
+            metadata={
+                "category": consent.category,
+                "scope": consent.scope,
+                "decision": consent.decision,
+                "status": consent.status,
+            },
+        )
+        return _consent_view(consent)
+
+    async def get_consent(
+        self,
+        principal: Principal | None,
+        consent_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> ConsentView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_CONSENT_READ,
+            resource_type="Consent",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        consent = await self._visible_consent(principal, consent_id, organization_id)
+        return _consent_view(consent)
+
+    async def list_consents(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        encounter_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> list[ConsentView]:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_CONSENT_READ,
+            resource_type="Consent",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        rows = await self._clinical.list_consents_for_patient(
+            identity.id, organization_id, encounter_id=encounter_id
+        )
+        return [_consent_view(item) for item in rows]
+
+    async def amend_consent(
+        self,
+        principal: Principal | None,
+        consent_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        period_start: datetime | None,
+        period_end: datetime | None,
+        note_text: str | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> ConsentView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_CONSENT_UPDATE,
+            resource_type="Consent",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        consent = await self._visible_consent(
+            principal, consent_id, organization_id, for_update=True
+        )
+        assert_consent_can_amend(ConsentStatus(consent.status))
+        assert_consent_period(period_start, period_end)
+        next_note = None if note_text is None or note_text.strip() == "" else note_text.strip()
+        unchanged = (
+            consent.period_start == period_start
+            and consent.period_end == period_end
+            and consent.note_text == next_note
+        )
+        if unchanged:
+            raise AppError(
+                "consent_unchanged",
+                "Consent is already at the requested values",
+                status_code=409,
+            )
+        old_status = consent.status
+        consent.period_start = period_start
+        consent.period_end = period_end
+        consent.note_text = next_note
+        consent.status = ConsentStatus.AMENDED.value
+        consent.version = consent.version + 1
+        await self._audit_success(
+            ClinicalAuditAction.CONSENT_AMENDED,
+            principal,
+            organization_id,
+            consent.facility_id,
+            consent.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=consent.id,
+            metadata={
+                "old_status": old_status,
+                "new_status": consent.status,
+                "status": consent.status,
+                "version": str(consent.version),
+            },
+        )
+        return _consent_view(consent)
+
+    async def revoke_consent(
+        self,
+        principal: Principal | None,
+        consent_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> ConsentView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_CONSENT_REVOKE,
+            resource_type="Consent",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        consent = await self._visible_consent(
+            principal, consent_id, organization_id, for_update=True
+        )
+        assert_consent_can_revoke(ConsentStatus(consent.status))
+        old_status = consent.status
+        consent.status = ConsentStatus.REVOKED.value
+        consent.revoked_at = utc_now()
+        consent.version = consent.version + 1
+        await self._audit_success(
+            ClinicalAuditAction.CONSENT_REVOKED,
+            principal,
+            organization_id,
+            consent.facility_id,
+            consent.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=consent.id,
+            metadata={
+                "old_status": old_status,
+                "new_status": consent.status,
+                "status": consent.status,
+                "version": str(consent.version),
+            },
+        )
+        return _consent_view(consent)
+
+    async def mark_consent_entered_in_error(
+        self,
+        principal: Principal | None,
+        consent_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> ConsentView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_CONSENT_ENTERED_IN_ERROR,
+            resource_type="Consent",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        consent = await self._visible_consent(
+            principal, consent_id, organization_id, for_update=True
+        )
+        assert_consent_mutable(ConsentStatus(consent.status))
+        old_status = consent.status
+        consent.status = ConsentStatus.ENTERED_IN_ERROR.value
+        await self._audit_success(
+            ClinicalAuditAction.CONSENT_ENTERED_IN_ERROR,
+            principal,
+            organization_id,
+            consent.facility_id,
+            consent.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=consent.id,
+            metadata={
+                "old_status": old_status,
+                "new_status": consent.status,
+                "status": consent.status,
+            },
+        )
+        return _consent_view(consent)
+
     async def _require_canonical_identity(
         self,
         principal: Principal | None,
@@ -2724,6 +3084,26 @@ class ClinicalService:
         if allergy.organization_id != organization_id:
             raise NotFoundError("Allergy not found")
         return allergy
+
+    async def _visible_consent(
+        self,
+        principal: Principal | None,
+        consent_id: UUID,
+        organization_id: UUID,
+        *,
+        for_update: bool = False,
+    ) -> ConsentModel:
+        if for_update:
+            consent = await self._clinical.get_consent_for_update(consent_id)
+        else:
+            consent = await self._clinical.get_consent(consent_id)
+        if consent is None:
+            raise NotFoundError("Consent not found")
+        if principal is not None and principal.has_platform_scope:
+            return consent
+        if consent.organization_id != organization_id:
+            raise NotFoundError("Consent not found")
+        return consent
 
     async def _record_provenance(
         self,
@@ -3124,4 +3504,54 @@ def _allergy_view(model: AllergyModel) -> AllergyView:
         onset_at=model.onset_at,
         recorded_at=model.recorded_at,
         version=model.version,
+    )
+
+
+def _parse_optional_consent_code(
+    code: CodeableConcept | None,
+) -> tuple[str | None, str | None, str | None]:
+    if code is None:
+        return None, None, None
+    system = code.system.strip()
+    value = code.code.strip()
+    if system == "" or value == "":
+        raise AppError(
+            "consent_code_shape",
+            "Consent code requires both system and code, or neither",
+            status_code=422,
+        )
+    display = None if code.display is None else code.display.strip()
+    if display == "":
+        display = None
+    return system, value, display
+
+
+def _consent_view(model: ConsentModel) -> ConsentView:
+    coded = None
+    if model.code_system is not None and model.code is not None:
+        coded = CodeableConcept(
+            system=model.code_system,
+            code=model.code,
+            display=model.code_display,
+        )
+    status = ConsentStatus(model.status)
+    return ConsentView(
+        id=model.id,
+        patient_identity_id=model.patient_identity_id,
+        encounter_id=model.encounter_id,
+        organization_id=model.organization_id,
+        facility_id=model.facility_id,
+        category=ConsentCategory(model.category),
+        scope=ConsentScope(model.scope),
+        decision=ConsentDecision(model.decision),
+        code=coded,
+        source=ConsentSource(model.source),
+        period_start=model.period_start,
+        period_end=model.period_end,
+        note_text=model.note_text,
+        status=status,
+        recorded_at=model.recorded_at,
+        revoked_at=model.revoked_at,
+        version=model.version,
+        is_effective=consent_is_effective(status, model.period_start, model.period_end, utc_now()),
     )

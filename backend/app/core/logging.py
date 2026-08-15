@@ -48,6 +48,8 @@ _REDACT_KEYS = frozenset(
         "reaction_code_display",
         "severity",
         "criticality",
+        "note",
+        "consent_note",
     }
 )
 

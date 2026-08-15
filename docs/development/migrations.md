@@ -67,3 +67,7 @@ Migration `20260814_0010` adds `medications`. It extends `clinical_provenances.s
 ## Wave 2B.3b Allergy schema
 
 Migration `20260814_0011` adds `allergies`. It extends `clinical_provenances.subject_type` with `ALLERGY` and seeds allergy permissions. It does not add consent, FHIR AllergyIntolerance, or later clinical tables. After upgrade, re-run `scripts/grant_dev_privileges.sql` so `app_dml` can use the new table and so DELETE remains revoked. Do not edit `0001`–`0010`. Do not run destructive downgrade against a populated local database.
+
+## Wave 2B.3c Consent schema
+
+Migration `20260814_0012` adds `consents`. It extends `clinical_provenances.subject_type` with `CONSENT` and seeds consent permissions. It does not add FHIR Consent, break-glass, patient-portal, or later clinical tables. After upgrade, re-run `scripts/grant_dev_privileges.sql` so `app_dml` can use the new table and so DELETE remains revoked. Do not edit `0001`–`0011`. Do not run destructive downgrade against a populated local database.

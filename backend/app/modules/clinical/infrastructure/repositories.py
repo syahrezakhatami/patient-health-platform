@@ -9,6 +9,7 @@ from app.modules.clinical.infrastructure.models import (
     ClinicalNoteModel,
     ClinicalProvenanceModel,
     ConditionModel,
+    ConsentModel,
     EncounterModel,
     EncounterParticipantModel,
     LaboratoryOrderModel,
@@ -310,5 +311,37 @@ class ClinicalRepository:
             query = query.where(AllergyModel.encounter_id == encounter_id)
         result = await self._session.execute(
             query.order_by(AllergyModel.recorded_at.desc()).limit(100)
+        )
+        return list(result.scalars().all())
+
+    async def add_consent(self, model: ConsentModel) -> ConsentModel:
+        self._session.add(model)
+        await self._session.flush()
+        return model
+
+    async def get_consent(self, consent_id: UUID) -> ConsentModel | None:
+        return await self._session.get(ConsentModel, consent_id)
+
+    async def get_consent_for_update(self, consent_id: UUID) -> ConsentModel | None:
+        result = await self._session.execute(
+            select(ConsentModel).where(ConsentModel.id == consent_id).with_for_update()
+        )
+        return result.scalar_one_or_none()
+
+    async def list_consents_for_patient(
+        self,
+        patient_identity_id: UUID,
+        organization_id: UUID,
+        *,
+        encounter_id: UUID | None = None,
+    ) -> list[ConsentModel]:
+        query = select(ConsentModel).where(
+            ConsentModel.patient_identity_id == patient_identity_id,
+            ConsentModel.organization_id == organization_id,
+        )
+        if encounter_id is not None:
+            query = query.where(ConsentModel.encounter_id == encounter_id)
+        result = await self._session.execute(
+            query.order_by(ConsentModel.recorded_at.desc()).limit(100)
         )
         return list(result.scalars().all())

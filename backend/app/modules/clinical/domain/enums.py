@@ -176,6 +176,36 @@ class AllergySeverity(StrEnum):
     SEVERE = "SEVERE"
 
 
+class ConsentCategory(StrEnum):
+    TREATMENT = "TREATMENT"
+    DISCLOSURE = "DISCLOSURE"
+    PRIVACY = "PRIVACY"
+    OTHER = "OTHER"
+
+
+class ConsentScope(StrEnum):
+    ORGANIZATION = "ORGANIZATION"
+    ENCOUNTER = "ENCOUNTER"
+
+
+class ConsentDecision(StrEnum):
+    PERMIT = "PERMIT"
+    DENY = "DENY"
+
+
+class ConsentSource(StrEnum):
+    PATIENT = "PATIENT"
+    REPRESENTATIVE = "REPRESENTATIVE"
+    CLINICIAN_DOCUMENTED = "CLINICIAN_DOCUMENTED"
+
+
+class ConsentStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+    AMENDED = "AMENDED"
+    REVOKED = "REVOKED"
+    ENTERED_IN_ERROR = "ENTERED_IN_ERROR"
+
+
 class ClinicalProvenanceSubjectType(StrEnum):
     ENCOUNTER = "ENCOUNTER"
     CLINICAL_NOTE = "CLINICAL_NOTE"
@@ -186,6 +216,7 @@ class ClinicalProvenanceSubjectType(StrEnum):
     LABORATORY_RESULT = "LABORATORY_RESULT"
     MEDICATION = "MEDICATION"
     ALLERGY = "ALLERGY"
+    CONSENT = "CONSENT"
 
 
 class ClinicalAuditAction(StrEnum):
@@ -217,3 +248,7 @@ class ClinicalAuditAction(StrEnum):
     ALLERGY_CREATED = "ALLERGY_CREATED"
     ALLERGY_AMENDED = "ALLERGY_AMENDED"
     ALLERGY_ENTERED_IN_ERROR = "ALLERGY_ENTERED_IN_ERROR"
+    CONSENT_CREATED = "CONSENT_CREATED"
+    CONSENT_AMENDED = "CONSENT_AMENDED"
+    CONSENT_REVOKED = "CONSENT_REVOKED"
+    CONSENT_ENTERED_IN_ERROR = "CONSENT_ENTERED_IN_ERROR"

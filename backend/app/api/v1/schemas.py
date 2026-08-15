@@ -16,6 +16,11 @@ from app.modules.clinical.domain.enums import (
     ConditionCategory,
     ConditionClinicalStatus,
     ConditionVerificationStatus,
+    ConsentCategory,
+    ConsentDecision,
+    ConsentScope,
+    ConsentSource,
+    ConsentStatus,
     EncounterClass,
     EncounterStatus,
     LaboratoryOrderStatus,
@@ -479,6 +484,46 @@ class AllergyResponse(BaseModel):
     onset_at: datetime | None
     recorded_at: datetime
     version: int
+
+
+class CreateConsentRequest(BaseModel):
+    patient_identity_id: UUID
+    encounter_id: UUID | None = None
+    category: ConsentCategory
+    scope: ConsentScope
+    decision: ConsentDecision
+    code: CodeableConceptRequest | None = None
+    source: ConsentSource
+    period_start: datetime | None = None
+    period_end: datetime | None = None
+    note_text: str | None = Field(default=None, max_length=2000)
+
+
+class AmendConsentRequest(BaseModel):
+    period_start: datetime | None = None
+    period_end: datetime | None = None
+    note_text: str | None = Field(default=None, max_length=2000)
+
+
+class ConsentResponse(BaseModel):
+    id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    category: ConsentCategory
+    scope: ConsentScope
+    decision: ConsentDecision
+    code: CodeableConceptRequest | None
+    source: ConsentSource
+    period_start: datetime | None
+    period_end: datetime | None
+    note_text: str | None
+    status: ConsentStatus
+    recorded_at: datetime
+    revoked_at: datetime | None
+    version: int
+    is_effective: bool
 
 
 class MergeOperationResponse(BaseModel):

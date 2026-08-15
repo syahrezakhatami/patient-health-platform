@@ -63,7 +63,13 @@ The backend is a single FastAPI process with explicit bounded-context packages u
 |---|---|
 | `clinical` | Adds native Allergy (documented allergy/intolerance fact). Not a FHIR AllergyIntolerance store. |
 
-Consent, timeline, FHIR clinical APIs, and AI remain out of scope.
+## Wave 2B.3c modules
+
+| Module | Why it exists now |
+|---|---|
+| `clinical` | Adds native Consent (documented permit/refuse decision). Not a FHIR Consent store and not a PDP. |
+
+Timeline, FHIR clinical APIs, and AI remain out of scope.
 
 ## Async strategy
 

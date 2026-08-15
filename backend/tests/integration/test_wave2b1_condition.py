@@ -168,7 +168,7 @@ async def test_condition_lifecycle_identity_and_authorization(db_client, db_engi
                 WHERE table_schema = 'public'
                   AND table_name IN (
                         'diagnoses','prescriptions',
-                        'consents','fhir_conditions'
+                        'fhir_conditions'
                   )
                 """
             )

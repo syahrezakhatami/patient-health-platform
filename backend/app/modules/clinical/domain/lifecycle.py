@@ -1,9 +1,12 @@
+from datetime import datetime
+
 from app.core.errors import AppError
 from app.modules.clinical.domain.enums import (
     AllergyStatus,
     ClinicalRecordStatus,
     ConditionClinicalStatus,
     ConditionVerificationStatus,
+    ConsentStatus,
     EncounterStatus,
     LaboratoryOrderStatus,
     LaboratoryResultStatus,
@@ -353,3 +356,82 @@ def assert_allergy_can_amend(status: AllergyStatus) -> None:
             "Only an ACTIVE or AMENDED allergy can be amended",
             status_code=409,
         )
+
+
+CONSENT_TRANSITIONS: dict[ConsentStatus, frozenset[ConsentStatus]] = {
+    ConsentStatus.ACTIVE: frozenset(
+        {
+            ConsentStatus.AMENDED,
+            ConsentStatus.REVOKED,
+            ConsentStatus.ENTERED_IN_ERROR,
+        }
+    ),
+    ConsentStatus.AMENDED: frozenset(
+        {
+            ConsentStatus.AMENDED,
+            ConsentStatus.REVOKED,
+            ConsentStatus.ENTERED_IN_ERROR,
+        }
+    ),
+    ConsentStatus.REVOKED: frozenset(),
+    ConsentStatus.ENTERED_IN_ERROR: frozenset(),
+}
+
+
+def assert_consent_mutable(status: ConsentStatus) -> None:
+    if status is ConsentStatus.ENTERED_IN_ERROR:
+        raise AppError(
+            "consent_entered_in_error",
+            "An entered-in-error consent is immutable",
+            status_code=409,
+        )
+    if status is ConsentStatus.REVOKED:
+        raise AppError(
+            "consent_revoked",
+            "A revoked consent is terminal",
+            status_code=409,
+        )
+
+
+def assert_consent_can_amend(status: ConsentStatus) -> None:
+    assert_consent_mutable(status)
+    if status not in {ConsentStatus.ACTIVE, ConsentStatus.AMENDED}:
+        raise AppError(
+            "consent_not_amendable",
+            "Only an ACTIVE or AMENDED consent can be amended",
+            status_code=409,
+        )
+
+
+def assert_consent_can_revoke(status: ConsentStatus) -> None:
+    assert_consent_mutable(status)
+    if status not in {ConsentStatus.ACTIVE, ConsentStatus.AMENDED}:
+        raise AppError(
+            "consent_not_revocable",
+            "Only an ACTIVE or AMENDED consent can be revoked",
+            status_code=409,
+        )
+
+
+def assert_consent_period(period_start: datetime | None, period_end: datetime | None) -> None:
+    if period_start is not None and period_end is not None and period_end < period_start:
+        raise AppError(
+            "invalid_consent_period",
+            "Consent period_end must be greater than or equal to period_start",
+            status_code=422,
+        )
+
+
+def consent_is_effective(
+    status: ConsentStatus,
+    period_start: datetime | None,
+    period_end: datetime | None,
+    now: datetime,
+) -> bool:
+    if status not in {ConsentStatus.ACTIVE, ConsentStatus.AMENDED}:
+        return False
+    if period_start is not None and now < period_start:
+        return False
+    if period_end is not None and now > period_end:
+        return False
+    return True

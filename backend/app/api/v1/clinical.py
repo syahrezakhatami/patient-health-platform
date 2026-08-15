@@ -14,6 +14,7 @@ from app.api.v1.deps import (
 from app.api.v1.schemas import (
     AllergyResponse,
     AmendAllergyRequest,
+    AmendConsentRequest,
     AmendLaboratoryResultRequest,
     AmendObservationRequest,
     ChangeConditionStatusRequest,
@@ -21,9 +22,11 @@ from app.api.v1.schemas import (
     ClinicalNoteResponse,
     CodeableConceptRequest,
     ConditionResponse,
+    ConsentResponse,
     CreateAllergyRequest,
     CreateClinicalNoteRequest,
     CreateConditionRequest,
+    CreateConsentRequest,
     CreateEncounterRequest,
     CreateLaboratoryOrderRequest,
     CreateLaboratoryResultRequest,
@@ -45,6 +48,7 @@ from app.modules.clinical.application.services import (
     ClinicalNoteView,
     ClinicalService,
     ConditionView,
+    ConsentView,
     EncounterView,
     LaboratoryOrderView,
     LaboratoryResultView,
@@ -1445,3 +1449,188 @@ async def mark_allergy_entered_in_error(
         correlation_id=correlation_id,
     )
     return _allergy_response(view)
+
+
+def _consent_response(view: ConsentView) -> ConsentResponse:
+    return ConsentResponse(
+        id=view.id,
+        patient_identity_id=view.patient_identity_id,
+        encounter_id=view.encounter_id,
+        organization_id=view.organization_id,
+        facility_id=view.facility_id,
+        category=view.category,
+        scope=view.scope,
+        decision=view.decision,
+        code=None if view.code is None else _codeable(view.code),
+        source=view.source,
+        period_start=view.period_start,
+        period_end=view.period_end,
+        note_text=view.note_text,
+        status=view.status,
+        recorded_at=view.recorded_at,
+        revoked_at=view.revoked_at,
+        version=view.version,
+        is_effective=view.is_effective,
+    )
+
+
+@router.post("/consents", response_model=ConsentResponse)
+async def create_consent(
+    body: CreateConsentRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> ConsentResponse:
+    code = None
+    if body.code is not None:
+        code = parse_codeable_concept(body.code.model_dump())
+        if code is None:
+            raise AppError(
+                "invalid_codeable_concept",
+                "Codeable concept requires system and code",
+                status_code=422,
+            )
+    view = await _service(session, pdp, audit).create_consent(
+        principal,
+        patient_identity_id=body.patient_identity_id,
+        encounter_id=body.encounter_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        category=body.category,
+        scope=body.scope,
+        decision=body.decision,
+        code=code,
+        source=body.source,
+        period_start=body.period_start,
+        period_end=body.period_end,
+        note_text=body.note_text,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _consent_response(view)
+
+
+@router.get("/consents", response_model=list[ConsentResponse])
+async def list_consents(
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+    patient_identity_id: Annotated[UUID, Query()],
+    encounter_id: Annotated[UUID | None, Query()] = None,
+) -> list[ConsentResponse]:
+    views = await _service(session, pdp, audit).list_consents(
+        principal,
+        patient_identity_id=patient_identity_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        encounter_id=encounter_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return [_consent_response(item) for item in views]
+
+
+@router.get("/consents/{consent_id}", response_model=ConsentResponse)
+async def get_consent(
+    consent_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> ConsentResponse:
+    view = await _service(session, pdp, audit).get_consent(
+        principal,
+        consent_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _consent_response(view)
+
+
+@router.post("/consents/{consent_id}/amend", response_model=ConsentResponse)
+async def amend_consent(
+    consent_id: UUID,
+    body: AmendConsentRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> ConsentResponse:
+    view = await _service(session, pdp, audit).amend_consent(
+        principal,
+        consent_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        period_start=body.period_start,
+        period_end=body.period_end,
+        note_text=body.note_text,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _consent_response(view)
+
+
+@router.post("/consents/{consent_id}/revoke", response_model=ConsentResponse)
+async def revoke_consent(
+    consent_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> ConsentResponse:
+    view = await _service(session, pdp, audit).revoke_consent(
+        principal,
+        consent_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _consent_response(view)
+
+
+@router.post("/consents/{consent_id}/entered-in-error", response_model=ConsentResponse)
+async def mark_consent_entered_in_error(
+    consent_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> ConsentResponse:
+    view = await _service(session, pdp, audit).mark_consent_entered_in_error(
+        principal,
+        consent_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _consent_response(view)

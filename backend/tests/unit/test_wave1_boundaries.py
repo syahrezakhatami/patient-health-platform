@@ -6,6 +6,7 @@ from app.modules.clinical.infrastructure.models import (
     ClinicalNoteModel,
     ClinicalProvenanceModel,
     ConditionModel,
+    ConsentModel,
     EncounterModel,
     EncounterParticipantModel,
     LaboratoryOrderModel,
@@ -23,7 +24,6 @@ pytestmark = pytest.mark.unit
 FORBIDDEN_TABLES = {
     "diagnoses",
     "prescriptions",
-    "consents",
     "vital_signs",
     "treatments",
     "care_plans",
@@ -123,6 +123,23 @@ def test_wave2b3b_metadata_has_allergies_without_later_clinical_domains() -> Non
         "conditions",
     }.issubset(tables)
     assert tables.isdisjoint(FORBIDDEN_TABLES)
+
+
+def test_wave2b3c_metadata_has_consents_without_later_clinical_domains() -> None:
+    assert ConsentModel.__tablename__ == "consents"
+    tables = set(Base.metadata.tables)
+    assert {
+        "consents",
+        "allergies",
+        "medications",
+        "laboratory_orders",
+        "laboratory_specimens",
+        "laboratory_results",
+        "observations",
+        "conditions",
+    }.issubset(tables)
+    assert tables.isdisjoint(FORBIDDEN_TABLES)
+    assert "fhir_consents" not in tables
 
 
 def test_no_fhir_or_ai_modules_imported() -> None:

@@ -211,12 +211,12 @@ def test_pdp_allows_laboratory_permissions_and_denies_unknown_aliases() -> None:
             organization_id=org_id,
             facility_id=None,
             roles=("CLINICIAN",),
-            scopes=("clinical.consent.create",),
+            scopes=("clinical.immunization.create",),
             patient_id=None,
             purpose="TREATMENT",
             emergency_access_id=None,
-            resource_type="Consent",
-            action="clinical.consent.create",
+            resource_type="Immunization",
+            action="clinical.immunization.create",
             actor_organization_ids=(org_id,),
         )
     )
