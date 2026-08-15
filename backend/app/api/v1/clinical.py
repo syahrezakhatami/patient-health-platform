@@ -15,6 +15,7 @@ from app.api.v1.schemas import (
     AllergyResponse,
     AmendAllergyRequest,
     AmendConsentRequest,
+    AmendImmunizationRequest,
     AmendLaboratoryResultRequest,
     AmendObservationRequest,
     ChangeConditionStatusRequest,
@@ -28,12 +29,14 @@ from app.api.v1.schemas import (
     CreateConditionRequest,
     CreateConsentRequest,
     CreateEncounterRequest,
+    CreateImmunizationRequest,
     CreateLaboratoryOrderRequest,
     CreateLaboratoryResultRequest,
     CreateLaboratorySpecimenRequest,
     CreateMedicationRequest,
     CreateObservationRequest,
     EncounterResponse,
+    ImmunizationResponse,
     LaboratoryOrderResponse,
     LaboratoryResultResponse,
     LaboratorySpecimenResponse,
@@ -50,6 +53,7 @@ from app.modules.clinical.application.services import (
     ConditionView,
     ConsentView,
     EncounterView,
+    ImmunizationView,
     LaboratoryOrderView,
     LaboratoryResultView,
     LaboratorySpecimenView,
@@ -1634,3 +1638,161 @@ async def mark_consent_entered_in_error(
         correlation_id=correlation_id,
     )
     return _consent_response(view)
+
+
+def _immunization_response(view: ImmunizationView) -> ImmunizationResponse:
+    return ImmunizationResponse(
+        id=view.id,
+        patient_identity_id=view.patient_identity_id,
+        encounter_id=view.encounter_id,
+        organization_id=view.organization_id,
+        facility_id=view.facility_id,
+        category=view.category,
+        code=_codeable(view.code),
+        occurrence_at=view.occurrence_at,
+        route=view.route,
+        site=view.site,
+        note_text=view.note_text,
+        status=view.status,
+        recorded_at=view.recorded_at,
+        version=view.version,
+    )
+
+
+@router.post("/immunizations", response_model=ImmunizationResponse)
+async def create_immunization(
+    body: CreateImmunizationRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> ImmunizationResponse:
+    code = parse_codeable_concept(body.code.model_dump())
+    if code is None:
+        raise AppError(
+            "invalid_codeable_concept",
+            "Codeable concept requires system and code",
+            status_code=422,
+        )
+    view = await _service(session, pdp, audit).create_immunization(
+        principal,
+        patient_identity_id=body.patient_identity_id,
+        encounter_id=body.encounter_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        category=body.category,
+        code=code,
+        occurrence_at=body.occurrence_at,
+        route=body.route,
+        site=body.site,
+        note_text=body.note_text,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _immunization_response(view)
+
+
+@router.get("/immunizations", response_model=list[ImmunizationResponse])
+async def list_immunizations(
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+    patient_identity_id: Annotated[UUID, Query()],
+    encounter_id: Annotated[UUID | None, Query()] = None,
+) -> list[ImmunizationResponse]:
+    views = await _service(session, pdp, audit).list_immunizations(
+        principal,
+        patient_identity_id=patient_identity_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        encounter_id=encounter_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return [_immunization_response(item) for item in views]
+
+
+@router.get("/immunizations/{immunization_id}", response_model=ImmunizationResponse)
+async def get_immunization(
+    immunization_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> ImmunizationResponse:
+    view = await _service(session, pdp, audit).get_immunization(
+        principal,
+        immunization_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _immunization_response(view)
+
+
+@router.post("/immunizations/{immunization_id}/amend", response_model=ImmunizationResponse)
+async def amend_immunization(
+    immunization_id: UUID,
+    body: AmendImmunizationRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> ImmunizationResponse:
+    view = await _service(session, pdp, audit).amend_immunization(
+        principal,
+        immunization_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        occurrence_at=body.occurrence_at,
+        route=body.route,
+        site=body.site,
+        note_text=body.note_text,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _immunization_response(view)
+
+
+@router.post(
+    "/immunizations/{immunization_id}/entered-in-error",
+    response_model=ImmunizationResponse,
+)
+async def mark_immunization_entered_in_error(
+    immunization_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> ImmunizationResponse:
+    view = await _service(session, pdp, audit).mark_immunization_entered_in_error(
+        principal,
+        immunization_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _immunization_response(view)

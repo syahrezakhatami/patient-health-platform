@@ -8,6 +8,7 @@ from app.modules.clinical.domain.enums import (
     ConditionVerificationStatus,
     ConsentStatus,
     EncounterStatus,
+    ImmunizationStatus,
     LaboratoryOrderStatus,
     LaboratoryResultStatus,
     LaboratorySpecimenStatus,
@@ -419,6 +420,34 @@ def assert_consent_period(period_start: datetime | None, period_end: datetime | 
             "invalid_consent_period",
             "Consent period_end must be greater than or equal to period_start",
             status_code=422,
+        )
+
+
+IMMUNIZATION_TRANSITIONS: dict[ImmunizationStatus, frozenset[ImmunizationStatus]] = {
+    ImmunizationStatus.ACTIVE: frozenset(
+        {ImmunizationStatus.AMENDED, ImmunizationStatus.ENTERED_IN_ERROR}
+    ),
+    ImmunizationStatus.AMENDED: frozenset({ImmunizationStatus.ENTERED_IN_ERROR}),
+    ImmunizationStatus.ENTERED_IN_ERROR: frozenset(),
+}
+
+
+def assert_immunization_mutable(status: ImmunizationStatus) -> None:
+    if status is ImmunizationStatus.ENTERED_IN_ERROR:
+        raise AppError(
+            "immunization_entered_in_error",
+            "An entered-in-error immunization is immutable",
+            status_code=409,
+        )
+
+
+def assert_immunization_can_amend(status: ImmunizationStatus) -> None:
+    assert_immunization_mutable(status)
+    if status not in {ImmunizationStatus.ACTIVE, ImmunizationStatus.AMENDED}:
+        raise AppError(
+            "immunization_not_amendable",
+            "Only an ACTIVE or AMENDED immunization can be amended",
+            status_code=409,
         )
 
 

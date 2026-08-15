@@ -69,6 +69,12 @@ The backend is a single FastAPI process with explicit bounded-context packages u
 |---|---|
 | `clinical` | Adds native Consent (documented permit/refuse decision). Not a FHIR Consent store and not a PDP. |
 
+## Wave 2B.4 modules
+
+| Module | Why it exists now |
+|---|---|
+| `clinical` | Adds native Immunization (documented vaccination fact). Not a FHIR Immunization store. |
+
 Timeline, FHIR clinical APIs, and AI remain out of scope.
 
 ## Async strategy

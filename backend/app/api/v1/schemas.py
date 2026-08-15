@@ -23,6 +23,10 @@ from app.modules.clinical.domain.enums import (
     ConsentStatus,
     EncounterClass,
     EncounterStatus,
+    ImmunizationCategory,
+    ImmunizationRoute,
+    ImmunizationSite,
+    ImmunizationStatus,
     LaboratoryOrderStatus,
     LaboratoryResultInterpretation,
     LaboratoryResultStatus,
@@ -524,6 +528,41 @@ class ConsentResponse(BaseModel):
     revoked_at: datetime | None
     version: int
     is_effective: bool
+
+
+class CreateImmunizationRequest(BaseModel):
+    patient_identity_id: UUID
+    encounter_id: UUID | None = None
+    category: ImmunizationCategory
+    code: CodeableConceptRequest
+    occurrence_at: datetime | None = None
+    route: ImmunizationRoute | None = None
+    site: ImmunizationSite | None = None
+    note_text: str | None = Field(default=None, max_length=2000)
+
+
+class AmendImmunizationRequest(BaseModel):
+    occurrence_at: datetime | None = None
+    route: ImmunizationRoute | None = None
+    site: ImmunizationSite | None = None
+    note_text: str | None = Field(default=None, max_length=2000)
+
+
+class ImmunizationResponse(BaseModel):
+    id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    category: ImmunizationCategory
+    code: CodeableConceptRequest
+    occurrence_at: datetime | None
+    route: ImmunizationRoute | None
+    site: ImmunizationSite | None
+    note_text: str | None
+    status: ImmunizationStatus
+    recorded_at: datetime
+    version: int
 
 
 class MergeOperationResponse(BaseModel):

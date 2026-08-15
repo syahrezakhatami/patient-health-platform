@@ -206,6 +206,33 @@ class ConsentStatus(StrEnum):
     ENTERED_IN_ERROR = "ENTERED_IN_ERROR"
 
 
+class ImmunizationCategory(StrEnum):
+    ADMINISTERED = "ADMINISTERED"
+    REPORTED = "REPORTED"
+
+
+class ImmunizationStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+    AMENDED = "AMENDED"
+    ENTERED_IN_ERROR = "ENTERED_IN_ERROR"
+
+
+class ImmunizationRoute(StrEnum):
+    IM = "IM"
+    SC = "SC"
+    ORAL = "ORAL"
+    INTRANASAL = "INTRANASAL"
+    OTHER = "OTHER"
+
+
+class ImmunizationSite(StrEnum):
+    LEFT_ARM = "LEFT_ARM"
+    RIGHT_ARM = "RIGHT_ARM"
+    LEFT_THIGH = "LEFT_THIGH"
+    RIGHT_THIGH = "RIGHT_THIGH"
+    OTHER = "OTHER"
+
+
 class ClinicalProvenanceSubjectType(StrEnum):
     ENCOUNTER = "ENCOUNTER"
     CLINICAL_NOTE = "CLINICAL_NOTE"
@@ -217,6 +244,7 @@ class ClinicalProvenanceSubjectType(StrEnum):
     MEDICATION = "MEDICATION"
     ALLERGY = "ALLERGY"
     CONSENT = "CONSENT"
+    IMMUNIZATION = "IMMUNIZATION"
 
 
 class ClinicalAuditAction(StrEnum):
@@ -252,3 +280,6 @@ class ClinicalAuditAction(StrEnum):
     CONSENT_AMENDED = "CONSENT_AMENDED"
     CONSENT_REVOKED = "CONSENT_REVOKED"
     CONSENT_ENTERED_IN_ERROR = "CONSENT_ENTERED_IN_ERROR"
+    IMMUNIZATION_CREATED = "IMMUNIZATION_CREATED"
+    IMMUNIZATION_AMENDED = "IMMUNIZATION_AMENDED"
+    IMMUNIZATION_ENTERED_IN_ERROR = "IMMUNIZATION_ENTERED_IN_ERROR"

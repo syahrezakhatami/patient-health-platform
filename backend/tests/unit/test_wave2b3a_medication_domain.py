@@ -69,12 +69,12 @@ def test_pdp_allows_medication_permission_and_denies_unknown_allergy_alias() -> 
             organization_id=org_id,
             facility_id=None,
             roles=("CLINICIAN",),
-            scopes=("clinical.immunization.create",),
+            scopes=("clinical.procedure.create",),
             patient_id=None,
             purpose="TREATMENT",
             emergency_access_id=None,
-            resource_type="Immunization",
-            action="clinical.immunization.create",
+            resource_type="Procedure",
+            action="clinical.procedure.create",
             actor_organization_ids=(org_id,),
         )
     )

@@ -9,6 +9,7 @@ from app.modules.clinical.infrastructure.models import (
     ConsentModel,
     EncounterModel,
     EncounterParticipantModel,
+    ImmunizationModel,
     LaboratoryOrderModel,
     LaboratoryResultModel,
     LaboratorySpecimenModel,
@@ -140,6 +141,25 @@ def test_wave2b3c_metadata_has_consents_without_later_clinical_domains() -> None
     }.issubset(tables)
     assert tables.isdisjoint(FORBIDDEN_TABLES)
     assert "fhir_consents" not in tables
+
+
+def test_wave2b4_metadata_has_immunizations_without_later_clinical_domains() -> None:
+    assert ImmunizationModel.__tablename__ == "immunizations"
+    tables = set(Base.metadata.tables)
+    assert {
+        "immunizations",
+        "consents",
+        "allergies",
+        "medications",
+        "laboratory_orders",
+        "laboratory_specimens",
+        "laboratory_results",
+        "observations",
+        "conditions",
+    }.issubset(tables)
+    assert tables.isdisjoint(FORBIDDEN_TABLES)
+    assert "fhir_immunizations" not in tables
+    assert "care_plans" not in tables
 
 
 def test_no_fhir_or_ai_modules_imported() -> None:

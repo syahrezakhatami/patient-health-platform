@@ -50,6 +50,9 @@ _REDACT_KEYS = frozenset(
         "criticality",
         "note",
         "consent_note",
+        "vaccine_display",
+        "vaccine_code",
+        "immunization_note",
     }
 )
 

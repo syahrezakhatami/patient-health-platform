@@ -6,46 +6,36 @@ from app.core.logging import _redact_secrets
 from app.modules.authorization.application.wave1_pdp import Wave1PolicyPDP
 from app.modules.authorization.domain.catalog import Permission
 from app.modules.authorization.domain.models import AuthorizationContext
-from app.modules.clinical.application.services import _parse_optional_reaction
-from app.modules.clinical.domain.enums import AllergyStatus
+from app.modules.clinical.domain.enums import ImmunizationStatus
 from app.modules.clinical.domain.lifecycle import (
-    ALLERGY_TRANSITIONS,
-    assert_allergy_can_amend,
-    assert_allergy_mutable,
+    IMMUNIZATION_TRANSITIONS,
+    assert_immunization_can_amend,
+    assert_immunization_mutable,
 )
-from app.modules.clinical.domain.terminology import CodeableConcept
 from app.shared.enums import PrincipalType
 
 pytestmark = pytest.mark.unit
 
 
-def test_allergy_reaction_requires_both_or_neither() -> None:
-    assert _parse_optional_reaction(None) == (None, None, None)
-    assert _parse_optional_reaction(
-        CodeableConcept(system="http://snomed.info/sct", code="39579001", display="Anaphylaxis")
-    ) == ("http://snomed.info/sct", "39579001", "Anaphylaxis")
-    with pytest.raises(AppError, match="system and code"):
-        _parse_optional_reaction(CodeableConcept(system=" ", code="39579001", display=None))
-    with pytest.raises(AppError, match="system and code"):
-        _parse_optional_reaction(
-            CodeableConcept(system="http://snomed.info/sct", code=" ", display=None)
-        )
-
-
-def test_allergy_lifecycle_and_immutability() -> None:
-    assert AllergyStatus.AMENDED in ALLERGY_TRANSITIONS[AllergyStatus.ACTIVE]
-    assert AllergyStatus.ENTERED_IN_ERROR in ALLERGY_TRANSITIONS[AllergyStatus.ACTIVE]
-    assert AllergyStatus.ENTERED_IN_ERROR in ALLERGY_TRANSITIONS[AllergyStatus.AMENDED]
-    assert ALLERGY_TRANSITIONS[AllergyStatus.ENTERED_IN_ERROR] == frozenset()
-    assert_allergy_can_amend(AllergyStatus.ACTIVE)
-    assert_allergy_can_amend(AllergyStatus.AMENDED)
+def test_immunization_lifecycle_and_immutability() -> None:
+    assert ImmunizationStatus.AMENDED in IMMUNIZATION_TRANSITIONS[ImmunizationStatus.ACTIVE]
+    assert (
+        ImmunizationStatus.ENTERED_IN_ERROR in IMMUNIZATION_TRANSITIONS[ImmunizationStatus.ACTIVE]
+    )
+    assert (
+        ImmunizationStatus.ENTERED_IN_ERROR in IMMUNIZATION_TRANSITIONS[ImmunizationStatus.AMENDED]
+    )
+    assert IMMUNIZATION_TRANSITIONS[ImmunizationStatus.ENTERED_IN_ERROR] == frozenset()
+    assert ImmunizationStatus.ACTIVE not in IMMUNIZATION_TRANSITIONS[ImmunizationStatus.AMENDED]
+    assert_immunization_can_amend(ImmunizationStatus.ACTIVE)
+    assert_immunization_can_amend(ImmunizationStatus.AMENDED)
     with pytest.raises(AppError, match="immutable"):
-        assert_allergy_mutable(AllergyStatus.ENTERED_IN_ERROR)
+        assert_immunization_mutable(ImmunizationStatus.ENTERED_IN_ERROR)
     with pytest.raises(AppError, match="immutable"):
-        assert_allergy_can_amend(AllergyStatus.ENTERED_IN_ERROR)
+        assert_immunization_can_amend(ImmunizationStatus.ENTERED_IN_ERROR)
 
 
-def test_pdp_allows_allergy_permission_and_denies_unknown_consent_alias() -> None:
+def test_pdp_allows_immunization_permission_and_denies_unknown_aliases() -> None:
     pdp = Wave1PolicyPDP()
     org_id = uuid4()
     allowed = pdp.evaluate(
@@ -55,12 +45,12 @@ def test_pdp_allows_allergy_permission_and_denies_unknown_consent_alias() -> Non
             organization_id=org_id,
             facility_id=None,
             roles=("CLINICIAN",),
-            scopes=(Permission.CLINICAL_ALLERGY_CREATE,),
+            scopes=(Permission.CLINICAL_IMMUNIZATION_CREATE,),
             patient_id=None,
             purpose="TREATMENT",
             emergency_access_id=None,
-            resource_type="Allergy",
-            action=Permission.CLINICAL_ALLERGY_CREATE,
+            resource_type="Immunization",
+            action=Permission.CLINICAL_IMMUNIZATION_CREATE,
             actor_organization_ids=(org_id,),
         )
     )
@@ -103,26 +93,24 @@ def test_pdp_allows_allergy_permission_and_denies_unknown_consent_alias() -> Non
     assert unknown_dx.reason == "deny_by_default"
 
 
-def test_allergy_values_are_redacted_from_log_events() -> None:
+def test_immunization_values_are_redacted_from_log_events() -> None:
     redacted = _redact_secrets(
         None,  # type: ignore[arg-type]
         "info",
         {
-            "code_display": "Penicillin",
-            "reaction": "Anaphylaxis",
-            "reaction_display": "Anaphylaxis",
-            "reaction_code": "39579001",
-            "reaction_code_system": "http://snomed.info/sct",
-            "severity": "SEVERE",
-            "criticality": "HIGH",
+            "code_display": "COVID-19 vaccine",
+            "vaccine_display": "COVID-19 vaccine",
+            "vaccine_code": "208",
+            "note": "Given in left arm",
+            "note_text": "Given in left arm",
+            "immunization_note": "Given in left arm",
             "event": "request",
         },
     )
     assert redacted["code_display"] == "[REDACTED]"
-    assert redacted["reaction"] == "[REDACTED]"
-    assert redacted["reaction_display"] == "[REDACTED]"
-    assert redacted["reaction_code"] == "[REDACTED]"
-    assert redacted["reaction_code_system"] == "[REDACTED]"
-    assert redacted["severity"] == "[REDACTED]"
-    assert redacted["criticality"] == "[REDACTED]"
+    assert redacted["vaccine_display"] == "[REDACTED]"
+    assert redacted["vaccine_code"] == "[REDACTED]"
+    assert redacted["note"] == "[REDACTED]"
+    assert redacted["note_text"] == "[REDACTED]"
+    assert redacted["immunization_note"] == "[REDACTED]"
     assert redacted["event"] == "request"

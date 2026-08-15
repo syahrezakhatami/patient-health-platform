@@ -33,6 +33,10 @@ from app.modules.clinical.domain.enums import (
     ConsentStatus,
     EncounterClass,
     EncounterStatus,
+    ImmunizationCategory,
+    ImmunizationRoute,
+    ImmunizationSite,
+    ImmunizationStatus,
     LaboratoryOrderStatus,
     LaboratoryResultInterpretation,
     LaboratoryResultStatus,
@@ -62,6 +66,8 @@ from app.modules.clinical.domain.lifecycle import (
     assert_consent_mutable,
     assert_consent_period,
     assert_encounter_transition,
+    assert_immunization_can_amend,
+    assert_immunization_mutable,
     assert_lab_order_open,
     assert_lab_order_transition,
     assert_lab_result_can_amend,
@@ -90,6 +96,7 @@ from app.modules.clinical.infrastructure.models import (
     ConsentModel,
     EncounterModel,
     EncounterParticipantModel,
+    ImmunizationModel,
     LaboratoryOrderModel,
     LaboratoryResultModel,
     LaboratorySpecimenModel,
@@ -283,6 +290,24 @@ class ConsentView:
     revoked_at: datetime | None
     version: int
     is_effective: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ImmunizationView:
+    id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    category: ImmunizationCategory
+    code: CodeableConcept
+    occurrence_at: datetime | None
+    route: ImmunizationRoute | None
+    site: ImmunizationSite | None
+    note_text: str | None
+    status: ImmunizationStatus
+    recorded_at: datetime
+    version: int
 
 
 class ClinicalService:
@@ -2799,6 +2824,294 @@ class ClinicalService:
         )
         return _consent_view(consent)
 
+    async def create_immunization(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        encounter_id: UUID | None,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        category: ImmunizationCategory,
+        code: CodeableConcept,
+        occurrence_at: datetime | None,
+        route: ImmunizationRoute | None,
+        site: ImmunizationSite | None,
+        note_text: str | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> ImmunizationView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_IMMUNIZATION_CREATE,
+            resource_type="Immunization",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        if (
+            IdentityLifecycle(identity.lifecycle_status) is IdentityLifecycle.ANONYMOUS
+            and encounter_id is None
+        ):
+            raise AppError(
+                "anonymous_immunization_requires_encounter",
+                "An anonymous identity may receive only an emergency encounter immunization",
+                status_code=409,
+            )
+        encounter = None
+        bound_patient_id = identity.id
+        bound_facility_id = facility_id
+        if encounter_id is not None:
+            encounter = await self._visible_encounter(
+                principal, encounter_id, organization_id, for_update=True
+            )
+            if EncounterStatus(encounter.status) in {
+                EncounterStatus.CANCELLED,
+                EncounterStatus.ENTERED_IN_ERROR,
+            }:
+                raise AppError(
+                    "encounter_not_documentable",
+                    "A cancelled or erroneous encounter cannot receive immunizations",
+                    status_code=409,
+                )
+            if encounter.patient_identity_id != identity.id:
+                raise AppError(
+                    "immunization_patient_mismatch",
+                    "Immunization patient must match the encounter patient",
+                    status_code=409,
+                )
+            if (
+                IdentityLifecycle(identity.lifecycle_status) is IdentityLifecycle.ANONYMOUS
+                and EncounterClass(encounter.encounter_class) is not EncounterClass.EMER
+            ):
+                raise AppError(
+                    "anonymous_encounter_not_emergency",
+                    "An anonymous identity may receive only an emergency encounter immunization",
+                    status_code=409,
+                )
+            bound_patient_id = encounter.patient_identity_id
+            bound_facility_id = facility_id or encounter.facility_id
+        immunization_id = new_id()
+        provenance = await self._record_provenance(
+            subject_type=ClinicalProvenanceSubjectType.IMMUNIZATION,
+            subject_id=immunization_id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            actor_id=None if principal is None else principal.user.id,
+        )
+        immunization = ImmunizationModel(
+            id=immunization_id,
+            patient_identity_id=bound_patient_id,
+            encounter_id=None if encounter is None else encounter.id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            category=category.value,
+            code_system=code.system,
+            code=code.code,
+            code_display=code.display,
+            occurrence_at=occurrence_at,
+            route=None if route is None else route.value,
+            site=None if site is None else site.value,
+            note_text=None if note_text is None or note_text.strip() == "" else note_text.strip(),
+            status=ImmunizationStatus.ACTIVE.value,
+            recorded_at=utc_now(),
+            recorder_id=None if principal is None else principal.user.id,
+            version=1,
+            provenance_id=provenance.id,
+        )
+        await self._clinical.add_immunization(immunization)
+        await self._audit_success(
+            ClinicalAuditAction.IMMUNIZATION_CREATED,
+            principal,
+            organization_id,
+            immunization.facility_id,
+            immunization.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=immunization.id,
+            metadata={
+                "category": immunization.category,
+                "status": immunization.status,
+                "version": str(immunization.version),
+            },
+        )
+        return _immunization_view(immunization)
+
+    async def get_immunization(
+        self,
+        principal: Principal | None,
+        immunization_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> ImmunizationView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_IMMUNIZATION_READ,
+            resource_type="Immunization",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        immunization = await self._visible_immunization(principal, immunization_id, organization_id)
+        return _immunization_view(immunization)
+
+    async def list_immunizations(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        encounter_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> list[ImmunizationView]:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_IMMUNIZATION_READ,
+            resource_type="Immunization",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        rows = await self._clinical.list_immunizations_for_patient(
+            identity.id, organization_id, encounter_id=encounter_id
+        )
+        return [_immunization_view(item) for item in rows]
+
+    async def amend_immunization(
+        self,
+        principal: Principal | None,
+        immunization_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        occurrence_at: datetime | None,
+        route: ImmunizationRoute | None,
+        site: ImmunizationSite | None,
+        note_text: str | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> ImmunizationView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_IMMUNIZATION_UPDATE,
+            resource_type="Immunization",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        immunization = await self._visible_immunization(
+            principal, immunization_id, organization_id, for_update=True
+        )
+        assert_immunization_can_amend(ImmunizationStatus(immunization.status))
+        next_route = None if route is None else route.value
+        next_site = None if site is None else site.value
+        next_note = None if note_text is None or note_text.strip() == "" else note_text.strip()
+        unchanged = (
+            immunization.occurrence_at == occurrence_at
+            and immunization.route == next_route
+            and immunization.site == next_site
+            and immunization.note_text == next_note
+        )
+        if unchanged:
+            raise AppError(
+                "immunization_unchanged",
+                "Immunization is already at the requested values",
+                status_code=409,
+            )
+        old_status = immunization.status
+        immunization.occurrence_at = occurrence_at
+        immunization.route = next_route
+        immunization.site = next_site
+        immunization.note_text = next_note
+        immunization.status = ImmunizationStatus.AMENDED.value
+        immunization.version = immunization.version + 1
+        await self._audit_success(
+            ClinicalAuditAction.IMMUNIZATION_AMENDED,
+            principal,
+            organization_id,
+            immunization.facility_id,
+            immunization.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=immunization.id,
+            metadata={
+                "old_status": old_status,
+                "new_status": immunization.status,
+                "status": immunization.status,
+                "version": str(immunization.version),
+            },
+        )
+        return _immunization_view(immunization)
+
+    async def mark_immunization_entered_in_error(
+        self,
+        principal: Principal | None,
+        immunization_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> ImmunizationView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_IMMUNIZATION_ENTERED_IN_ERROR,
+            resource_type="Immunization",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        immunization = await self._visible_immunization(
+            principal, immunization_id, organization_id, for_update=True
+        )
+        assert_immunization_mutable(ImmunizationStatus(immunization.status))
+        old_status = immunization.status
+        immunization.status = ImmunizationStatus.ENTERED_IN_ERROR.value
+        await self._audit_success(
+            ClinicalAuditAction.IMMUNIZATION_ENTERED_IN_ERROR,
+            principal,
+            organization_id,
+            immunization.facility_id,
+            immunization.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=immunization.id,
+            metadata={
+                "old_status": old_status,
+                "new_status": immunization.status,
+                "status": immunization.status,
+            },
+        )
+        return _immunization_view(immunization)
+
     async def _require_canonical_identity(
         self,
         principal: Principal | None,
@@ -3104,6 +3417,26 @@ class ClinicalService:
         if consent.organization_id != organization_id:
             raise NotFoundError("Consent not found")
         return consent
+
+    async def _visible_immunization(
+        self,
+        principal: Principal | None,
+        immunization_id: UUID,
+        organization_id: UUID,
+        *,
+        for_update: bool = False,
+    ) -> ImmunizationModel:
+        if for_update:
+            immunization = await self._clinical.get_immunization_for_update(immunization_id)
+        else:
+            immunization = await self._clinical.get_immunization(immunization_id)
+        if immunization is None:
+            raise NotFoundError("Immunization not found")
+        if principal is not None and principal.has_platform_scope:
+            return immunization
+        if immunization.organization_id != organization_id:
+            raise NotFoundError("Immunization not found")
+        return immunization
 
     async def _record_provenance(
         self,
@@ -3554,4 +3887,27 @@ def _consent_view(model: ConsentModel) -> ConsentView:
         revoked_at=model.revoked_at,
         version=model.version,
         is_effective=consent_is_effective(status, model.period_start, model.period_end, utc_now()),
+    )
+
+
+def _immunization_view(model: ImmunizationModel) -> ImmunizationView:
+    return ImmunizationView(
+        id=model.id,
+        patient_identity_id=model.patient_identity_id,
+        encounter_id=model.encounter_id,
+        organization_id=model.organization_id,
+        facility_id=model.facility_id,
+        category=ImmunizationCategory(model.category),
+        code=CodeableConcept(
+            system=model.code_system,
+            code=model.code,
+            display=model.code_display,
+        ),
+        occurrence_at=model.occurrence_at,
+        route=None if model.route is None else ImmunizationRoute(model.route),
+        site=None if model.site is None else ImmunizationSite(model.site),
+        note_text=model.note_text,
+        status=ImmunizationStatus(model.status),
+        recorded_at=model.recorded_at,
+        version=model.version,
     )

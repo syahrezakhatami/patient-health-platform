@@ -12,6 +12,7 @@ from app.modules.clinical.infrastructure.models import (
     ConsentModel,
     EncounterModel,
     EncounterParticipantModel,
+    ImmunizationModel,
     LaboratoryOrderModel,
     LaboratoryResultModel,
     LaboratorySpecimenModel,
@@ -343,5 +344,39 @@ class ClinicalRepository:
             query = query.where(ConsentModel.encounter_id == encounter_id)
         result = await self._session.execute(
             query.order_by(ConsentModel.recorded_at.desc()).limit(100)
+        )
+        return list(result.scalars().all())
+
+    async def add_immunization(self, model: ImmunizationModel) -> ImmunizationModel:
+        self._session.add(model)
+        await self._session.flush()
+        return model
+
+    async def get_immunization(self, immunization_id: UUID) -> ImmunizationModel | None:
+        return await self._session.get(ImmunizationModel, immunization_id)
+
+    async def get_immunization_for_update(self, immunization_id: UUID) -> ImmunizationModel | None:
+        result = await self._session.execute(
+            select(ImmunizationModel)
+            .where(ImmunizationModel.id == immunization_id)
+            .with_for_update()
+        )
+        return result.scalar_one_or_none()
+
+    async def list_immunizations_for_patient(
+        self,
+        patient_identity_id: UUID,
+        organization_id: UUID,
+        *,
+        encounter_id: UUID | None = None,
+    ) -> list[ImmunizationModel]:
+        query = select(ImmunizationModel).where(
+            ImmunizationModel.patient_identity_id == patient_identity_id,
+            ImmunizationModel.organization_id == organization_id,
+        )
+        if encounter_id is not None:
+            query = query.where(ImmunizationModel.encounter_id == encounter_id)
+        result = await self._session.execute(
+            query.order_by(ImmunizationModel.recorded_at.desc()).limit(100)
         )
         return list(result.scalars().all())
