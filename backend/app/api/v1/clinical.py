@@ -12,7 +12,9 @@ from app.api.v1.deps import (
     RequestPurpose,
 )
 from app.api.v1.schemas import (
+    AdverseEventResponse,
     AllergyResponse,
+    AmendAdverseEventRequest,
     AmendAllergyRequest,
     AmendConsentRequest,
     AmendImmunizationRequest,
@@ -26,6 +28,7 @@ from app.api.v1.schemas import (
     CodeableConceptRequest,
     ConditionResponse,
     ConsentResponse,
+    CreateAdverseEventRequest,
     CreateAllergyRequest,
     CreateClinicalNoteRequest,
     CreateConditionRequest,
@@ -53,6 +56,7 @@ from app.api.v1.schemas import (
 from app.core.dependencies import CurrentPDP, DbSession
 from app.core.errors import AppError
 from app.modules.clinical.application.services import (
+    AdverseEventView,
     AllergyView,
     ClinicalNoteView,
     ClinicalService,
@@ -2114,3 +2118,167 @@ async def mark_medical_device_entered_in_error(
         correlation_id=correlation_id,
     )
     return _medical_device_response(view)
+
+
+def _adverse_event_response(view: AdverseEventView) -> AdverseEventResponse:
+    return AdverseEventResponse(
+        id=view.id,
+        patient_identity_id=view.patient_identity_id,
+        encounter_id=view.encounter_id,
+        organization_id=view.organization_id,
+        facility_id=view.facility_id,
+        category=view.category,
+        code=_codeable(view.code),
+        severity=view.severity,
+        medication_id=view.medication_id,
+        medical_device_id=view.medical_device_id,
+        procedure_id=view.procedure_id,
+        occurrence_at=view.occurrence_at,
+        note_text=view.note_text,
+        status=view.status,
+        recorded_at=view.recorded_at,
+        version=view.version,
+    )
+
+
+@router.post("/adverse-events", response_model=AdverseEventResponse)
+async def create_adverse_event(
+    body: CreateAdverseEventRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> AdverseEventResponse:
+    code = parse_codeable_concept(body.code.model_dump())
+    if code is None:
+        raise AppError(
+            "invalid_codeable_concept",
+            "Codeable concept requires system and code",
+            status_code=422,
+        )
+    view = await _service(session, pdp, audit).create_adverse_event(
+        principal,
+        patient_identity_id=body.patient_identity_id,
+        encounter_id=body.encounter_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        category=body.category,
+        code=code,
+        severity=body.severity,
+        medication_id=body.medication_id,
+        medical_device_id=body.medical_device_id,
+        procedure_id=body.procedure_id,
+        occurrence_at=body.occurrence_at,
+        note_text=body.note_text,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _adverse_event_response(view)
+
+
+@router.get("/adverse-events", response_model=list[AdverseEventResponse])
+async def list_adverse_events(
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+    patient_identity_id: Annotated[UUID, Query()],
+    encounter_id: Annotated[UUID | None, Query()] = None,
+) -> list[AdverseEventResponse]:
+    views = await _service(session, pdp, audit).list_adverse_events(
+        principal,
+        patient_identity_id=patient_identity_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        encounter_id=encounter_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return [_adverse_event_response(item) for item in views]
+
+
+@router.get("/adverse-events/{adverse_event_id}", response_model=AdverseEventResponse)
+async def get_adverse_event(
+    adverse_event_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> AdverseEventResponse:
+    view = await _service(session, pdp, audit).get_adverse_event(
+        principal,
+        adverse_event_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _adverse_event_response(view)
+
+
+@router.post(
+    "/adverse-events/{adverse_event_id}/amend",
+    response_model=AdverseEventResponse,
+)
+async def amend_adverse_event(
+    adverse_event_id: UUID,
+    body: AmendAdverseEventRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> AdverseEventResponse:
+    view = await _service(session, pdp, audit).amend_adverse_event(
+        principal,
+        adverse_event_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        severity=body.severity,
+        occurrence_at=body.occurrence_at,
+        note_text=body.note_text,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _adverse_event_response(view)
+
+
+@router.post(
+    "/adverse-events/{adverse_event_id}/entered-in-error",
+    response_model=AdverseEventResponse,
+)
+async def mark_adverse_event_entered_in_error(
+    adverse_event_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> AdverseEventResponse:
+    view = await _service(session, pdp, audit).mark_adverse_event_entered_in_error(
+        principal,
+        adverse_event_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _adverse_event_response(view)

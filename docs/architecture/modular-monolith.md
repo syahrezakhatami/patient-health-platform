@@ -87,6 +87,12 @@ The backend is a single FastAPI process with explicit bounded-context packages u
 |---|---|
 | `clinical` | Adds native Medical Device (documented patient-device association). Not a FHIR Device store and not inventory. |
 
+## Wave 2B.7 modules
+
+| Module | Why it exists now |
+|---|---|
+| `clinical` | Adds native Adverse Event (documented coded adverse event). Not a FHIR AdverseEvent store, not pharmacovigilance, and not incident management. |
+
 Timeline, FHIR clinical APIs, and AI remain out of scope.
 
 ## Async strategy

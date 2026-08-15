@@ -2,9 +2,12 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.modules.clinical.domain.enums import (
+    AdverseEventCategory,
+    AdverseEventSeverity,
+    AdverseEventStatus,
     AllergyCategory,
     AllergyClinicalStatus,
     AllergyCriticality,
@@ -627,6 +630,55 @@ class MedicalDeviceResponse(BaseModel):
     occurrence_at: datetime | None
     note_text: str | None
     status: MedicalDeviceStatus
+    recorded_at: datetime
+    version: int
+
+
+class CreateAdverseEventRequest(BaseModel):
+    patient_identity_id: UUID
+    encounter_id: UUID | None = None
+    category: AdverseEventCategory
+    code: CodeableConceptRequest
+    severity: AdverseEventSeverity
+    medication_id: UUID | None = None
+    medical_device_id: UUID | None = None
+    procedure_id: UUID | None = None
+    occurrence_at: datetime | None = None
+    note_text: str | None = Field(default=None, max_length=2000)
+
+    @model_validator(mode="after")
+    def related_fact_at_most_one(self) -> "CreateAdverseEventRequest":
+        populated = sum(
+            1
+            for item in (self.medication_id, self.medical_device_id, self.procedure_id)
+            if item is not None
+        )
+        if populated > 1:
+            raise ValueError("Adverse event may reference at most one related clinical fact")
+        return self
+
+
+class AmendAdverseEventRequest(BaseModel):
+    severity: AdverseEventSeverity | None = None
+    occurrence_at: datetime | None = None
+    note_text: str | None = Field(default=None, max_length=2000)
+
+
+class AdverseEventResponse(BaseModel):
+    id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    category: AdverseEventCategory
+    code: CodeableConceptRequest
+    severity: AdverseEventSeverity
+    medication_id: UUID | None
+    medical_device_id: UUID | None
+    procedure_id: UUID | None
+    occurrence_at: datetime | None
+    note_text: str | None
+    status: AdverseEventStatus
     recorded_at: datetime
     version: int
 

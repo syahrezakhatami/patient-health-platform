@@ -702,7 +702,7 @@ async def test_medical_device_authz_denied_audit_and_app_dml(db_client, db_engin
                 WHERE table_schema = 'public'
                   AND table_name IN (
                     'fhir_devices','fhir_medical_devices','care_plans','vital_signs',
-                    'diagnoses','patient_histories','adverse_events'
+                    'diagnoses','patient_histories'
                   )
                 """
             )

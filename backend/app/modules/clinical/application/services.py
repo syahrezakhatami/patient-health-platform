@@ -13,6 +13,9 @@ from app.modules.authorization.application.authorize import authorize
 from app.modules.authorization.application.ports import PolicyDecisionPoint
 from app.modules.authorization.domain.catalog import Permission
 from app.modules.clinical.domain.enums import (
+    AdverseEventCategory,
+    AdverseEventSeverity,
+    AdverseEventStatus,
     AllergyCategory,
     AllergyClinicalStatus,
     AllergyCriticality,
@@ -61,6 +64,8 @@ from app.modules.clinical.domain.laboratory_values import (
     laboratory_result_values_equal,
 )
 from app.modules.clinical.domain.lifecycle import (
+    assert_adverse_event_can_amend,
+    assert_adverse_event_mutable,
     assert_allergy_can_amend,
     assert_allergy_mutable,
     assert_condition_clinical_transition,
@@ -98,6 +103,7 @@ from app.modules.clinical.domain.observation_values import (
 )
 from app.modules.clinical.domain.terminology import CodeableConcept
 from app.modules.clinical.infrastructure.models import (
+    AdverseEventModel,
     AllergyModel,
     ClinicalNoteModel,
     ClinicalProvenanceModel,
@@ -350,6 +356,26 @@ class MedicalDeviceView:
     occurrence_at: datetime | None
     note_text: str | None
     status: MedicalDeviceStatus
+    recorded_at: datetime
+    version: int
+
+
+@dataclass(frozen=True, slots=True)
+class AdverseEventView:
+    id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    category: AdverseEventCategory
+    code: CodeableConcept
+    severity: AdverseEventSeverity
+    medication_id: UUID | None
+    medical_device_id: UUID | None
+    procedure_id: UUID | None
+    occurrence_at: datetime | None
+    note_text: str | None
+    status: AdverseEventStatus
     recorded_at: datetime
     version: int
 
@@ -3720,6 +3746,310 @@ class ClinicalService:
         )
         return _medical_device_view(medical_device)
 
+    async def create_adverse_event(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        encounter_id: UUID | None,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        category: AdverseEventCategory,
+        code: CodeableConcept,
+        severity: AdverseEventSeverity,
+        medication_id: UUID | None,
+        medical_device_id: UUID | None,
+        procedure_id: UUID | None,
+        occurrence_at: datetime | None,
+        note_text: str | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> AdverseEventView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_ADVERSE_EVENT_CREATE,
+            resource_type="AdverseEvent",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        if (
+            IdentityLifecycle(identity.lifecycle_status) is IdentityLifecycle.ANONYMOUS
+            and encounter_id is None
+        ):
+            raise AppError(
+                "anonymous_adverse_event_requires_encounter",
+                "An anonymous identity may receive only an emergency encounter adverse event",
+                status_code=409,
+            )
+        encounter = None
+        bound_patient_id = identity.id
+        bound_facility_id = facility_id
+        if encounter_id is not None:
+            encounter = await self._visible_encounter(
+                principal, encounter_id, organization_id, for_update=True
+            )
+            if EncounterStatus(encounter.status) in {
+                EncounterStatus.CANCELLED,
+                EncounterStatus.ENTERED_IN_ERROR,
+            }:
+                raise AppError(
+                    "encounter_not_documentable",
+                    "A cancelled or erroneous encounter cannot receive adverse events",
+                    status_code=409,
+                )
+            if encounter.patient_identity_id != identity.id:
+                raise AppError(
+                    "adverse_event_patient_mismatch",
+                    "Adverse event patient must match the encounter patient",
+                    status_code=409,
+                )
+            if (
+                IdentityLifecycle(identity.lifecycle_status) is IdentityLifecycle.ANONYMOUS
+                and EncounterClass(encounter.encounter_class) is not EncounterClass.EMER
+            ):
+                raise AppError(
+                    "anonymous_encounter_not_emergency",
+                    "An anonymous identity may receive only an emergency encounter adverse event",
+                    status_code=409,
+                )
+            bound_patient_id = encounter.patient_identity_id
+            bound_facility_id = facility_id or encounter.facility_id
+        await self._require_related_adverse_event_fact(
+            principal,
+            organization_id=organization_id,
+            bound_patient_id=bound_patient_id,
+            medication_id=medication_id,
+            medical_device_id=medical_device_id,
+            procedure_id=procedure_id,
+        )
+        adverse_event_id = new_id()
+        provenance = await self._record_provenance(
+            subject_type=ClinicalProvenanceSubjectType.ADVERSE_EVENT,
+            subject_id=adverse_event_id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            actor_id=None if principal is None else principal.user.id,
+        )
+        adverse_event = AdverseEventModel(
+            id=adverse_event_id,
+            patient_identity_id=bound_patient_id,
+            encounter_id=None if encounter is None else encounter.id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            category=category.value,
+            code_system=code.system,
+            code=code.code,
+            code_display=code.display,
+            severity=severity.value,
+            medication_id=medication_id,
+            medical_device_id=medical_device_id,
+            procedure_id=procedure_id,
+            occurrence_at=occurrence_at,
+            note_text=None if note_text is None or note_text.strip() == "" else note_text.strip(),
+            status=AdverseEventStatus.ACTIVE.value,
+            recorded_at=utc_now(),
+            recorder_id=None if principal is None else principal.user.id,
+            version=1,
+            provenance_id=provenance.id,
+        )
+        await self._clinical.add_adverse_event(adverse_event)
+        await self._audit_success(
+            ClinicalAuditAction.ADVERSE_EVENT_CREATED,
+            principal,
+            organization_id,
+            adverse_event.facility_id,
+            adverse_event.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=adverse_event.id,
+            metadata={
+                "category": adverse_event.category,
+                "severity": adverse_event.severity,
+                "status": adverse_event.status,
+                "version": str(adverse_event.version),
+            },
+        )
+        return _adverse_event_view(adverse_event)
+
+    async def get_adverse_event(
+        self,
+        principal: Principal | None,
+        adverse_event_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> AdverseEventView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_ADVERSE_EVENT_READ,
+            resource_type="AdverseEvent",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        adverse_event = await self._visible_adverse_event(
+            principal, adverse_event_id, organization_id
+        )
+        return _adverse_event_view(adverse_event)
+
+    async def list_adverse_events(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        encounter_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> list[AdverseEventView]:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_ADVERSE_EVENT_READ,
+            resource_type="AdverseEvent",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        rows = await self._clinical.list_adverse_events_for_patient(
+            identity.id, organization_id, encounter_id=encounter_id
+        )
+        return [_adverse_event_view(item) for item in rows]
+
+    async def amend_adverse_event(
+        self,
+        principal: Principal | None,
+        adverse_event_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        severity: AdverseEventSeverity | None,
+        occurrence_at: datetime | None,
+        note_text: str | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> AdverseEventView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_ADVERSE_EVENT_UPDATE,
+            resource_type="AdverseEvent",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        adverse_event = await self._visible_adverse_event(
+            principal, adverse_event_id, organization_id, for_update=True
+        )
+        assert_adverse_event_can_amend(AdverseEventStatus(adverse_event.status))
+        next_severity = adverse_event.severity if severity is None else severity.value
+        next_note = None if note_text is None or note_text.strip() == "" else note_text.strip()
+        unchanged = (
+            adverse_event.severity == next_severity
+            and adverse_event.occurrence_at == occurrence_at
+            and adverse_event.note_text == next_note
+        )
+        if unchanged:
+            raise AppError(
+                "adverse_event_unchanged",
+                "Adverse event is already at the requested values",
+                status_code=409,
+            )
+        old_status = adverse_event.status
+        adverse_event.severity = next_severity
+        adverse_event.occurrence_at = occurrence_at
+        adverse_event.note_text = next_note
+        adverse_event.status = AdverseEventStatus.AMENDED.value
+        adverse_event.version = adverse_event.version + 1
+        await self._audit_success(
+            ClinicalAuditAction.ADVERSE_EVENT_AMENDED,
+            principal,
+            organization_id,
+            adverse_event.facility_id,
+            adverse_event.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=adverse_event.id,
+            metadata={
+                "old_status": old_status,
+                "new_status": adverse_event.status,
+                "category": adverse_event.category,
+                "severity": adverse_event.severity,
+                "status": adverse_event.status,
+                "version": str(adverse_event.version),
+            },
+        )
+        return _adverse_event_view(adverse_event)
+
+    async def mark_adverse_event_entered_in_error(
+        self,
+        principal: Principal | None,
+        adverse_event_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> AdverseEventView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_ADVERSE_EVENT_ENTERED_IN_ERROR,
+            resource_type="AdverseEvent",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        adverse_event = await self._visible_adverse_event(
+            principal, adverse_event_id, organization_id, for_update=True
+        )
+        assert_adverse_event_mutable(AdverseEventStatus(adverse_event.status))
+        old_status = adverse_event.status
+        adverse_event.status = AdverseEventStatus.ENTERED_IN_ERROR.value
+        await self._audit_success(
+            ClinicalAuditAction.ADVERSE_EVENT_ENTERED_IN_ERROR,
+            principal,
+            organization_id,
+            adverse_event.facility_id,
+            adverse_event.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=adverse_event.id,
+            metadata={
+                "old_status": old_status,
+                "new_status": adverse_event.status,
+                "category": adverse_event.category,
+                "severity": adverse_event.severity,
+                "status": adverse_event.status,
+                "version": str(adverse_event.version),
+            },
+        )
+        return _adverse_event_view(adverse_event)
+
     async def _require_canonical_identity(
         self,
         principal: Principal | None,
@@ -4085,6 +4415,77 @@ class ClinicalService:
         if medical_device.organization_id != organization_id:
             raise NotFoundError("Medical device not found")
         return medical_device
+
+    async def _visible_adverse_event(
+        self,
+        principal: Principal | None,
+        adverse_event_id: UUID,
+        organization_id: UUID,
+        *,
+        for_update: bool = False,
+    ) -> AdverseEventModel:
+        if for_update:
+            adverse_event = await self._clinical.get_adverse_event_for_update(adverse_event_id)
+        else:
+            adverse_event = await self._clinical.get_adverse_event(adverse_event_id)
+        if adverse_event is None:
+            raise NotFoundError("Adverse event not found")
+        if principal is not None and principal.has_platform_scope:
+            return adverse_event
+        if adverse_event.organization_id != organization_id:
+            raise NotFoundError("Adverse event not found")
+        return adverse_event
+
+    async def _require_related_adverse_event_fact(
+        self,
+        principal: Principal | None,
+        *,
+        organization_id: UUID,
+        bound_patient_id: UUID,
+        medication_id: UUID | None,
+        medical_device_id: UUID | None,
+        procedure_id: UUID | None,
+    ) -> None:
+        populated = sum(
+            1 for item in (medication_id, medical_device_id, procedure_id) if item is not None
+        )
+        if populated > 1:
+            raise AppError(
+                "adverse_event_related_fact_conflict",
+                "Adverse event may reference at most one related clinical fact",
+                status_code=422,
+            )
+        related_patient_id: UUID | None = None
+        related_status: str | None = None
+        if medication_id is not None:
+            medication = await self._visible_medication(principal, medication_id, organization_id)
+            related_patient_id = medication.patient_identity_id
+            related_status = medication.status
+        elif medical_device_id is not None:
+            device = await self._visible_medical_device(
+                principal, medical_device_id, organization_id
+            )
+            related_patient_id = device.patient_identity_id
+            related_status = device.status
+        elif procedure_id is not None:
+            procedure = await self._visible_procedure(principal, procedure_id, organization_id)
+            related_patient_id = procedure.patient_identity_id
+            related_status = procedure.status
+        if related_patient_id is None:
+            return
+        related_canonical = await self._mpi.resolve_canonical_identity(related_patient_id)
+        if related_canonical is None or related_canonical.id != bound_patient_id:
+            raise AppError(
+                "adverse_event_related_patient_mismatch",
+                "Related clinical fact must belong to the same patient",
+                status_code=409,
+            )
+        if related_status == "ENTERED_IN_ERROR":
+            raise AppError(
+                "adverse_event_related_entered_in_error",
+                "An entered-in-error clinical fact cannot be linked to an adverse event",
+                status_code=409,
+            )
 
     async def _record_provenance(
         self,
@@ -4599,6 +5000,31 @@ def _medical_device_view(model: MedicalDeviceModel) -> MedicalDeviceView:
         occurrence_at=model.occurrence_at,
         note_text=model.note_text,
         status=MedicalDeviceStatus(model.status),
+        recorded_at=model.recorded_at,
+        version=model.version,
+    )
+
+
+def _adverse_event_view(model: AdverseEventModel) -> AdverseEventView:
+    return AdverseEventView(
+        id=model.id,
+        patient_identity_id=model.patient_identity_id,
+        encounter_id=model.encounter_id,
+        organization_id=model.organization_id,
+        facility_id=model.facility_id,
+        category=AdverseEventCategory(model.category),
+        code=CodeableConcept(
+            system=model.code_system,
+            code=model.code,
+            display=model.code_display,
+        ),
+        severity=AdverseEventSeverity(model.severity),
+        medication_id=model.medication_id,
+        medical_device_id=model.medical_device_id,
+        procedure_id=model.procedure_id,
+        occurrence_at=model.occurrence_at,
+        note_text=model.note_text,
+        status=AdverseEventStatus(model.status),
         recorded_at=model.recorded_at,
         version=model.version,
     )

@@ -5,6 +5,7 @@ Wave 2B.2a adds observation permissions. Wave 2B.2b adds laboratory permissions.
 Wave 2B.3a adds medication permissions. Wave 2B.3b adds allergy permissions.
 Wave 2B.3c adds consent permissions. Wave 2B.4 adds immunization permissions.
 Wave 2B.5 adds procedure permissions. Wave 2B.6 adds medical device permissions.
+Wave 2B.7 adds adverse event permissions.
 FHIR remains absent.
 """
 
@@ -81,6 +82,10 @@ class Permission(StrEnum):
     CLINICAL_MEDICAL_DEVICE_READ = "clinical.medical_device.read"
     CLINICAL_MEDICAL_DEVICE_UPDATE = "clinical.medical_device.update"
     CLINICAL_MEDICAL_DEVICE_ENTERED_IN_ERROR = "clinical.medical_device.entered_in_error"
+    CLINICAL_ADVERSE_EVENT_CREATE = "clinical.adverse_event.create"
+    CLINICAL_ADVERSE_EVENT_READ = "clinical.adverse_event.read"
+    CLINICAL_ADVERSE_EVENT_UPDATE = "clinical.adverse_event.update"
+    CLINICAL_ADVERSE_EVENT_ENTERED_IN_ERROR = "clinical.adverse_event.entered_in_error"
 
 
 class RoleCode(StrEnum):
@@ -184,6 +189,14 @@ WAVE2B6_PERMISSIONS: frozenset[str] = frozenset(
         Permission.CLINICAL_MEDICAL_DEVICE_ENTERED_IN_ERROR,
     }
 )
+WAVE2B7_PERMISSIONS: frozenset[str] = frozenset(
+    {
+        Permission.CLINICAL_ADVERSE_EVENT_CREATE,
+        Permission.CLINICAL_ADVERSE_EVENT_READ,
+        Permission.CLINICAL_ADVERSE_EVENT_UPDATE,
+        Permission.CLINICAL_ADVERSE_EVENT_ENTERED_IN_ERROR,
+    }
+)
 WAVE1_PERMISSIONS: frozenset[str] = (
     frozenset(item.value for item in Permission)
     - WAVE2A_PERMISSIONS
@@ -196,6 +209,7 @@ WAVE1_PERMISSIONS: frozenset[str] = (
     - WAVE2B4_PERMISSIONS
     - WAVE2B5_PERMISSIONS
     - WAVE2B6_PERMISSIONS
+    - WAVE2B7_PERMISSIONS
 )
 CATALOG_PERMISSIONS: frozenset[str] = (
     WAVE1_PERMISSIONS
@@ -209,6 +223,7 @@ CATALOG_PERMISSIONS: frozenset[str] = (
     | WAVE2B4_PERMISSIONS
     | WAVE2B5_PERMISSIONS
     | WAVE2B6_PERMISSIONS
+    | WAVE2B7_PERMISSIONS
 )
 
 # Canonical permission *definitions* and the seed map used by Alembic.
@@ -237,6 +252,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.CLINICAL_IMMUNIZATION_READ,
             Permission.CLINICAL_PROCEDURE_READ,
             Permission.CLINICAL_MEDICAL_DEVICE_READ,
+            Permission.CLINICAL_ADVERSE_EVENT_READ,
         }
     ),
     RoleCode.REGISTRAR: frozenset(
@@ -286,6 +302,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.CLINICAL_IMMUNIZATION_READ,
             Permission.CLINICAL_PROCEDURE_READ,
             Permission.CLINICAL_MEDICAL_DEVICE_READ,
+            Permission.CLINICAL_ADVERSE_EVENT_READ,
         }
     ),
     RoleCode.CLINICIAN: frozenset(
@@ -346,6 +363,10 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.CLINICAL_MEDICAL_DEVICE_READ,
             Permission.CLINICAL_MEDICAL_DEVICE_UPDATE,
             Permission.CLINICAL_MEDICAL_DEVICE_ENTERED_IN_ERROR,
+            Permission.CLINICAL_ADVERSE_EVENT_CREATE,
+            Permission.CLINICAL_ADVERSE_EVENT_READ,
+            Permission.CLINICAL_ADVERSE_EVENT_UPDATE,
+            Permission.CLINICAL_ADVERSE_EVENT_ENTERED_IN_ERROR,
         }
     ),
 }

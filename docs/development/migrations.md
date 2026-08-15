@@ -83,3 +83,7 @@ Migration `20260814_0014` adds `procedures`. It extends `clinical_provenances.su
 ## Wave 2B.6 Medical Device schema
 
 Migration `20260814_0015` adds `medical_devices`. It extends `clinical_provenances.subject_type` with `MEDICAL_DEVICE` and seeds medical-device permissions. It does not add FHIR Device, inventory, Patient History, Adverse Event, VitalSign, CarePlan, or later clinical tables. After upgrade, re-run `scripts/grant_dev_privileges.sql` so `app_dml` can use the new table and so DELETE remains revoked. Do not edit `0001`–`0014`. Do not run destructive downgrade against a populated local database.
+
+## Wave 2B.7 Adverse Event schema
+
+Migration `20260814_0016` adds `adverse_events`. It extends `clinical_provenances.subject_type` with `ADVERSE_EVENT` and seeds adverse-event permissions. Optional FKs to `medications`, `medical_devices`, and `procedures` are additive on `adverse_events` only. It does not add FHIR AdverseEvent, pharmacovigilance, incident-management, Patient History, VitalSign, CarePlan, or later clinical tables. After upgrade, re-run `scripts/grant_dev_privileges.sql` so `app_dml` can use the new table and so DELETE remains revoked. Do not edit `0001`–`0015`. Do not run destructive downgrade against a populated local database.

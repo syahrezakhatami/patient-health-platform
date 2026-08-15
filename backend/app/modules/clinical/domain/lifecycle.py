@@ -2,6 +2,7 @@ from datetime import datetime
 
 from app.core.errors import AppError
 from app.modules.clinical.domain.enums import (
+    AdverseEventStatus,
     AllergyStatus,
     ClinicalRecordStatus,
     ConditionClinicalStatus,
@@ -503,6 +504,34 @@ def assert_medical_device_can_amend(status: MedicalDeviceStatus) -> None:
         raise AppError(
             "medical_device_not_amendable",
             "Only an ACTIVE or AMENDED medical device can be amended",
+            status_code=409,
+        )
+
+
+ADVERSE_EVENT_TRANSITIONS: dict[AdverseEventStatus, frozenset[AdverseEventStatus]] = {
+    AdverseEventStatus.ACTIVE: frozenset(
+        {AdverseEventStatus.AMENDED, AdverseEventStatus.ENTERED_IN_ERROR}
+    ),
+    AdverseEventStatus.AMENDED: frozenset({AdverseEventStatus.ENTERED_IN_ERROR}),
+    AdverseEventStatus.ENTERED_IN_ERROR: frozenset(),
+}
+
+
+def assert_adverse_event_mutable(status: AdverseEventStatus) -> None:
+    if status is AdverseEventStatus.ENTERED_IN_ERROR:
+        raise AppError(
+            "adverse_event_entered_in_error",
+            "An entered-in-error adverse event is immutable",
+            status_code=409,
+        )
+
+
+def assert_adverse_event_can_amend(status: AdverseEventStatus) -> None:
+    assert_adverse_event_mutable(status)
+    if status not in {AdverseEventStatus.ACTIVE, AdverseEventStatus.AMENDED}:
+        raise AppError(
+            "adverse_event_not_amendable",
+            "Only an ACTIVE or AMENDED adverse event can be amended",
             status_code=409,
         )
 

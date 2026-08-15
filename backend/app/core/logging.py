@@ -59,6 +59,9 @@ _REDACT_KEYS = frozenset(
         "device_display",
         "device_code",
         "medical_device_note",
+        "adverse_event_display",
+        "adverse_event_code",
+        "adverse_event_note",
     }
 )
 
