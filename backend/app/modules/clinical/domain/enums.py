@@ -244,6 +244,22 @@ class ProcedureStatus(StrEnum):
     ENTERED_IN_ERROR = "ENTERED_IN_ERROR"
 
 
+class MedicalDeviceCategory(StrEnum):
+    DOCUMENTED = "DOCUMENTED"
+    REPORTED = "REPORTED"
+
+
+class MedicalDeviceAssociationStatus(StrEnum):
+    IN_USE = "IN_USE"
+    NO_LONGER_USED = "NO_LONGER_USED"
+
+
+class MedicalDeviceStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+    AMENDED = "AMENDED"
+    ENTERED_IN_ERROR = "ENTERED_IN_ERROR"
+
+
 class ClinicalProvenanceSubjectType(StrEnum):
     ENCOUNTER = "ENCOUNTER"
     CLINICAL_NOTE = "CLINICAL_NOTE"
@@ -257,6 +273,7 @@ class ClinicalProvenanceSubjectType(StrEnum):
     CONSENT = "CONSENT"
     IMMUNIZATION = "IMMUNIZATION"
     PROCEDURE = "PROCEDURE"
+    MEDICAL_DEVICE = "MEDICAL_DEVICE"
 
 
 class ClinicalAuditAction(StrEnum):
@@ -298,3 +315,6 @@ class ClinicalAuditAction(StrEnum):
     PROCEDURE_CREATED = "PROCEDURE_CREATED"
     PROCEDURE_AMENDED = "PROCEDURE_AMENDED"
     PROCEDURE_ENTERED_IN_ERROR = "PROCEDURE_ENTERED_IN_ERROR"
+    MEDICAL_DEVICE_CREATED = "MEDICAL_DEVICE_CREATED"
+    MEDICAL_DEVICE_AMENDED = "MEDICAL_DEVICE_AMENDED"
+    MEDICAL_DEVICE_ENTERED_IN_ERROR = "MEDICAL_DEVICE_ENTERED_IN_ERROR"

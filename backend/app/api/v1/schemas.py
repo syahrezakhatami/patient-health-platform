@@ -33,6 +33,9 @@ from app.modules.clinical.domain.enums import (
     LaboratoryResultValueType,
     LaboratorySpecimenStatus,
     LaboratorySpecimenType,
+    MedicalDeviceAssociationStatus,
+    MedicalDeviceCategory,
+    MedicalDeviceStatus,
     MedicationCategory,
     MedicationRoute,
     MedicationStatus,
@@ -592,6 +595,38 @@ class ProcedureResponse(BaseModel):
     occurrence_at: datetime | None
     note_text: str | None
     status: ProcedureStatus
+    recorded_at: datetime
+    version: int
+
+
+class CreateMedicalDeviceRequest(BaseModel):
+    patient_identity_id: UUID
+    encounter_id: UUID | None = None
+    category: MedicalDeviceCategory
+    code: CodeableConceptRequest
+    association_status: MedicalDeviceAssociationStatus = MedicalDeviceAssociationStatus.IN_USE
+    occurrence_at: datetime | None = None
+    note_text: str | None = Field(default=None, max_length=2000)
+
+
+class AmendMedicalDeviceRequest(BaseModel):
+    association_status: MedicalDeviceAssociationStatus | None = None
+    occurrence_at: datetime | None = None
+    note_text: str | None = Field(default=None, max_length=2000)
+
+
+class MedicalDeviceResponse(BaseModel):
+    id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    category: MedicalDeviceCategory
+    code: CodeableConceptRequest
+    association_status: MedicalDeviceAssociationStatus
+    occurrence_at: datetime | None
+    note_text: str | None
+    status: MedicalDeviceStatus
     recorded_at: datetime
     version: int
 

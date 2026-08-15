@@ -43,6 +43,9 @@ from app.modules.clinical.domain.enums import (
     LaboratoryResultValueType,
     LaboratorySpecimenStatus,
     LaboratorySpecimenType,
+    MedicalDeviceAssociationStatus,
+    MedicalDeviceCategory,
+    MedicalDeviceStatus,
     MedicationCategory,
     MedicationRoute,
     MedicationStatus,
@@ -76,6 +79,8 @@ from app.modules.clinical.domain.lifecycle import (
     assert_lab_result_mutable,
     assert_lab_specimen_collectable,
     assert_lab_specimen_transition,
+    assert_medical_device_can_amend,
+    assert_medical_device_mutable,
     assert_medication_can_stop,
     assert_medication_mutable,
     assert_note_can_finalize,
@@ -104,6 +109,7 @@ from app.modules.clinical.infrastructure.models import (
     LaboratoryOrderModel,
     LaboratoryResultModel,
     LaboratorySpecimenModel,
+    MedicalDeviceModel,
     MedicationModel,
     ObservationModel,
     ProcedureModel,
@@ -327,6 +333,23 @@ class ProcedureView:
     occurrence_at: datetime | None
     note_text: str | None
     status: ProcedureStatus
+    recorded_at: datetime
+    version: int
+
+
+@dataclass(frozen=True, slots=True)
+class MedicalDeviceView:
+    id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    category: MedicalDeviceCategory
+    code: CodeableConcept
+    association_status: MedicalDeviceAssociationStatus
+    occurrence_at: datetime | None
+    note_text: str | None
+    status: MedicalDeviceStatus
     recorded_at: datetime
     version: int
 
@@ -3406,6 +3429,297 @@ class ClinicalService:
         )
         return _procedure_view(procedure)
 
+    async def create_medical_device(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        encounter_id: UUID | None,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        category: MedicalDeviceCategory,
+        code: CodeableConcept,
+        association_status: MedicalDeviceAssociationStatus,
+        occurrence_at: datetime | None,
+        note_text: str | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> MedicalDeviceView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_MEDICAL_DEVICE_CREATE,
+            resource_type="MedicalDevice",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        if (
+            IdentityLifecycle(identity.lifecycle_status) is IdentityLifecycle.ANONYMOUS
+            and encounter_id is None
+        ):
+            raise AppError(
+                "anonymous_medical_device_requires_encounter",
+                "An anonymous identity may receive only an emergency encounter medical device",
+                status_code=409,
+            )
+        encounter = None
+        bound_patient_id = identity.id
+        bound_facility_id = facility_id
+        if encounter_id is not None:
+            encounter = await self._visible_encounter(
+                principal, encounter_id, organization_id, for_update=True
+            )
+            if EncounterStatus(encounter.status) in {
+                EncounterStatus.CANCELLED,
+                EncounterStatus.ENTERED_IN_ERROR,
+            }:
+                raise AppError(
+                    "encounter_not_documentable",
+                    "A cancelled or erroneous encounter cannot receive medical devices",
+                    status_code=409,
+                )
+            if encounter.patient_identity_id != identity.id:
+                raise AppError(
+                    "medical_device_patient_mismatch",
+                    "Medical device patient must match the encounter patient",
+                    status_code=409,
+                )
+            if (
+                IdentityLifecycle(identity.lifecycle_status) is IdentityLifecycle.ANONYMOUS
+                and EncounterClass(encounter.encounter_class) is not EncounterClass.EMER
+            ):
+                raise AppError(
+                    "anonymous_encounter_not_emergency",
+                    "An anonymous identity may receive only an emergency encounter medical device",
+                    status_code=409,
+                )
+            bound_patient_id = encounter.patient_identity_id
+            bound_facility_id = facility_id or encounter.facility_id
+        medical_device_id = new_id()
+        provenance = await self._record_provenance(
+            subject_type=ClinicalProvenanceSubjectType.MEDICAL_DEVICE,
+            subject_id=medical_device_id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            actor_id=None if principal is None else principal.user.id,
+        )
+        medical_device = MedicalDeviceModel(
+            id=medical_device_id,
+            patient_identity_id=bound_patient_id,
+            encounter_id=None if encounter is None else encounter.id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            category=category.value,
+            code_system=code.system,
+            code=code.code,
+            code_display=code.display,
+            association_status=association_status.value,
+            occurrence_at=occurrence_at,
+            note_text=None if note_text is None or note_text.strip() == "" else note_text.strip(),
+            status=MedicalDeviceStatus.ACTIVE.value,
+            recorded_at=utc_now(),
+            recorder_id=None if principal is None else principal.user.id,
+            version=1,
+            provenance_id=provenance.id,
+        )
+        await self._clinical.add_medical_device(medical_device)
+        await self._audit_success(
+            ClinicalAuditAction.MEDICAL_DEVICE_CREATED,
+            principal,
+            organization_id,
+            medical_device.facility_id,
+            medical_device.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=medical_device.id,
+            metadata={
+                "category": medical_device.category,
+                "status": medical_device.status,
+                "association_status": medical_device.association_status,
+                "version": str(medical_device.version),
+            },
+        )
+        return _medical_device_view(medical_device)
+
+    async def get_medical_device(
+        self,
+        principal: Principal | None,
+        medical_device_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> MedicalDeviceView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_MEDICAL_DEVICE_READ,
+            resource_type="MedicalDevice",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        medical_device = await self._visible_medical_device(
+            principal, medical_device_id, organization_id
+        )
+        return _medical_device_view(medical_device)
+
+    async def list_medical_devices(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        encounter_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> list[MedicalDeviceView]:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_MEDICAL_DEVICE_READ,
+            resource_type="MedicalDevice",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        rows = await self._clinical.list_medical_devices_for_patient(
+            identity.id, organization_id, encounter_id=encounter_id
+        )
+        return [_medical_device_view(item) for item in rows]
+
+    async def amend_medical_device(
+        self,
+        principal: Principal | None,
+        medical_device_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        association_status: MedicalDeviceAssociationStatus | None,
+        occurrence_at: datetime | None,
+        note_text: str | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> MedicalDeviceView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_MEDICAL_DEVICE_UPDATE,
+            resource_type="MedicalDevice",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        medical_device = await self._visible_medical_device(
+            principal, medical_device_id, organization_id, for_update=True
+        )
+        assert_medical_device_can_amend(MedicalDeviceStatus(medical_device.status))
+        next_association = (
+            medical_device.association_status
+            if association_status is None
+            else association_status.value
+        )
+        next_note = None if note_text is None or note_text.strip() == "" else note_text.strip()
+        unchanged = (
+            medical_device.association_status == next_association
+            and medical_device.occurrence_at == occurrence_at
+            and medical_device.note_text == next_note
+        )
+        if unchanged:
+            raise AppError(
+                "medical_device_unchanged",
+                "Medical device is already at the requested values",
+                status_code=409,
+            )
+        old_status = medical_device.status
+        medical_device.association_status = next_association
+        medical_device.occurrence_at = occurrence_at
+        medical_device.note_text = next_note
+        medical_device.status = MedicalDeviceStatus.AMENDED.value
+        medical_device.version = medical_device.version + 1
+        await self._audit_success(
+            ClinicalAuditAction.MEDICAL_DEVICE_AMENDED,
+            principal,
+            organization_id,
+            medical_device.facility_id,
+            medical_device.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=medical_device.id,
+            metadata={
+                "old_status": old_status,
+                "new_status": medical_device.status,
+                "status": medical_device.status,
+                "association_status": medical_device.association_status,
+                "version": str(medical_device.version),
+            },
+        )
+        return _medical_device_view(medical_device)
+
+    async def mark_medical_device_entered_in_error(
+        self,
+        principal: Principal | None,
+        medical_device_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> MedicalDeviceView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_MEDICAL_DEVICE_ENTERED_IN_ERROR,
+            resource_type="MedicalDevice",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        medical_device = await self._visible_medical_device(
+            principal, medical_device_id, organization_id, for_update=True
+        )
+        assert_medical_device_mutable(MedicalDeviceStatus(medical_device.status))
+        old_status = medical_device.status
+        medical_device.status = MedicalDeviceStatus.ENTERED_IN_ERROR.value
+        await self._audit_success(
+            ClinicalAuditAction.MEDICAL_DEVICE_ENTERED_IN_ERROR,
+            principal,
+            organization_id,
+            medical_device.facility_id,
+            medical_device.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=medical_device.id,
+            metadata={
+                "old_status": old_status,
+                "new_status": medical_device.status,
+                "status": medical_device.status,
+                "association_status": medical_device.association_status,
+            },
+        )
+        return _medical_device_view(medical_device)
+
     async def _require_canonical_identity(
         self,
         principal: Principal | None,
@@ -3751,6 +4065,26 @@ class ClinicalService:
         if procedure.organization_id != organization_id:
             raise NotFoundError("Procedure not found")
         return procedure
+
+    async def _visible_medical_device(
+        self,
+        principal: Principal | None,
+        medical_device_id: UUID,
+        organization_id: UUID,
+        *,
+        for_update: bool = False,
+    ) -> MedicalDeviceModel:
+        if for_update:
+            medical_device = await self._clinical.get_medical_device_for_update(medical_device_id)
+        else:
+            medical_device = await self._clinical.get_medical_device(medical_device_id)
+        if medical_device is None:
+            raise NotFoundError("Medical device not found")
+        if principal is not None and principal.has_platform_scope:
+            return medical_device
+        if medical_device.organization_id != organization_id:
+            raise NotFoundError("Medical device not found")
+        return medical_device
 
     async def _record_provenance(
         self,
@@ -4243,6 +4577,28 @@ def _procedure_view(model: ProcedureModel) -> ProcedureView:
         occurrence_at=model.occurrence_at,
         note_text=model.note_text,
         status=ProcedureStatus(model.status),
+        recorded_at=model.recorded_at,
+        version=model.version,
+    )
+
+
+def _medical_device_view(model: MedicalDeviceModel) -> MedicalDeviceView:
+    return MedicalDeviceView(
+        id=model.id,
+        patient_identity_id=model.patient_identity_id,
+        encounter_id=model.encounter_id,
+        organization_id=model.organization_id,
+        facility_id=model.facility_id,
+        category=MedicalDeviceCategory(model.category),
+        code=CodeableConcept(
+            system=model.code_system,
+            code=model.code,
+            display=model.code_display,
+        ),
+        association_status=MedicalDeviceAssociationStatus(model.association_status),
+        occurrence_at=model.occurrence_at,
+        note_text=model.note_text,
+        status=MedicalDeviceStatus(model.status),
         recorded_at=model.recorded_at,
         version=model.version,
     )

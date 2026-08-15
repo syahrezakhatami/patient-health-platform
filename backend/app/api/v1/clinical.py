@@ -17,6 +17,7 @@ from app.api.v1.schemas import (
     AmendConsentRequest,
     AmendImmunizationRequest,
     AmendLaboratoryResultRequest,
+    AmendMedicalDeviceRequest,
     AmendObservationRequest,
     AmendProcedureRequest,
     ChangeConditionStatusRequest,
@@ -34,6 +35,7 @@ from app.api.v1.schemas import (
     CreateLaboratoryOrderRequest,
     CreateLaboratoryResultRequest,
     CreateLaboratorySpecimenRequest,
+    CreateMedicalDeviceRequest,
     CreateMedicationRequest,
     CreateObservationRequest,
     CreateProcedureRequest,
@@ -42,6 +44,7 @@ from app.api.v1.schemas import (
     LaboratoryOrderResponse,
     LaboratoryResultResponse,
     LaboratorySpecimenResponse,
+    MedicalDeviceResponse,
     MedicationResponse,
     ObservationResponse,
     ProcedureResponse,
@@ -60,6 +63,7 @@ from app.modules.clinical.application.services import (
     LaboratoryOrderView,
     LaboratoryResultView,
     LaboratorySpecimenView,
+    MedicalDeviceView,
     MedicationView,
     ObservationView,
     ProcedureView,
@@ -1952,3 +1956,161 @@ async def mark_procedure_entered_in_error(
         correlation_id=correlation_id,
     )
     return _procedure_response(view)
+
+
+def _medical_device_response(view: MedicalDeviceView) -> MedicalDeviceResponse:
+    return MedicalDeviceResponse(
+        id=view.id,
+        patient_identity_id=view.patient_identity_id,
+        encounter_id=view.encounter_id,
+        organization_id=view.organization_id,
+        facility_id=view.facility_id,
+        category=view.category,
+        code=_codeable(view.code),
+        association_status=view.association_status,
+        occurrence_at=view.occurrence_at,
+        note_text=view.note_text,
+        status=view.status,
+        recorded_at=view.recorded_at,
+        version=view.version,
+    )
+
+
+@router.post("/medical-devices", response_model=MedicalDeviceResponse)
+async def create_medical_device(
+    body: CreateMedicalDeviceRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> MedicalDeviceResponse:
+    code = parse_codeable_concept(body.code.model_dump())
+    if code is None:
+        raise AppError(
+            "invalid_codeable_concept",
+            "Codeable concept requires system and code",
+            status_code=422,
+        )
+    view = await _service(session, pdp, audit).create_medical_device(
+        principal,
+        patient_identity_id=body.patient_identity_id,
+        encounter_id=body.encounter_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        category=body.category,
+        code=code,
+        association_status=body.association_status,
+        occurrence_at=body.occurrence_at,
+        note_text=body.note_text,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _medical_device_response(view)
+
+
+@router.get("/medical-devices", response_model=list[MedicalDeviceResponse])
+async def list_medical_devices(
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+    patient_identity_id: Annotated[UUID, Query()],
+    encounter_id: Annotated[UUID | None, Query()] = None,
+) -> list[MedicalDeviceResponse]:
+    views = await _service(session, pdp, audit).list_medical_devices(
+        principal,
+        patient_identity_id=patient_identity_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        encounter_id=encounter_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return [_medical_device_response(item) for item in views]
+
+
+@router.get("/medical-devices/{medical_device_id}", response_model=MedicalDeviceResponse)
+async def get_medical_device(
+    medical_device_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> MedicalDeviceResponse:
+    view = await _service(session, pdp, audit).get_medical_device(
+        principal,
+        medical_device_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _medical_device_response(view)
+
+
+@router.post(
+    "/medical-devices/{medical_device_id}/amend",
+    response_model=MedicalDeviceResponse,
+)
+async def amend_medical_device(
+    medical_device_id: UUID,
+    body: AmendMedicalDeviceRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> MedicalDeviceResponse:
+    view = await _service(session, pdp, audit).amend_medical_device(
+        principal,
+        medical_device_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        association_status=body.association_status,
+        occurrence_at=body.occurrence_at,
+        note_text=body.note_text,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _medical_device_response(view)
+
+
+@router.post(
+    "/medical-devices/{medical_device_id}/entered-in-error",
+    response_model=MedicalDeviceResponse,
+)
+async def mark_medical_device_entered_in_error(
+    medical_device_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> MedicalDeviceResponse:
+    view = await _service(session, pdp, audit).mark_medical_device_entered_in_error(
+        principal,
+        medical_device_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _medical_device_response(view)

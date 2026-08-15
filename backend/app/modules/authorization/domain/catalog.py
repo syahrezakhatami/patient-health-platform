@@ -4,7 +4,8 @@ Authorization is permission-based, not ``if role == doctor``.
 Wave 2B.2a adds observation permissions. Wave 2B.2b adds laboratory permissions.
 Wave 2B.3a adds medication permissions. Wave 2B.3b adds allergy permissions.
 Wave 2B.3c adds consent permissions. Wave 2B.4 adds immunization permissions.
-Wave 2B.5 adds procedure permissions. FHIR remains absent.
+Wave 2B.5 adds procedure permissions. Wave 2B.6 adds medical device permissions.
+FHIR remains absent.
 """
 
 from enum import StrEnum
@@ -76,6 +77,10 @@ class Permission(StrEnum):
     CLINICAL_PROCEDURE_READ = "clinical.procedure.read"
     CLINICAL_PROCEDURE_UPDATE = "clinical.procedure.update"
     CLINICAL_PROCEDURE_ENTERED_IN_ERROR = "clinical.procedure.entered_in_error"
+    CLINICAL_MEDICAL_DEVICE_CREATE = "clinical.medical_device.create"
+    CLINICAL_MEDICAL_DEVICE_READ = "clinical.medical_device.read"
+    CLINICAL_MEDICAL_DEVICE_UPDATE = "clinical.medical_device.update"
+    CLINICAL_MEDICAL_DEVICE_ENTERED_IN_ERROR = "clinical.medical_device.entered_in_error"
 
 
 class RoleCode(StrEnum):
@@ -171,6 +176,14 @@ WAVE2B5_PERMISSIONS: frozenset[str] = frozenset(
         Permission.CLINICAL_PROCEDURE_ENTERED_IN_ERROR,
     }
 )
+WAVE2B6_PERMISSIONS: frozenset[str] = frozenset(
+    {
+        Permission.CLINICAL_MEDICAL_DEVICE_CREATE,
+        Permission.CLINICAL_MEDICAL_DEVICE_READ,
+        Permission.CLINICAL_MEDICAL_DEVICE_UPDATE,
+        Permission.CLINICAL_MEDICAL_DEVICE_ENTERED_IN_ERROR,
+    }
+)
 WAVE1_PERMISSIONS: frozenset[str] = (
     frozenset(item.value for item in Permission)
     - WAVE2A_PERMISSIONS
@@ -182,6 +195,7 @@ WAVE1_PERMISSIONS: frozenset[str] = (
     - WAVE2B3C_PERMISSIONS
     - WAVE2B4_PERMISSIONS
     - WAVE2B5_PERMISSIONS
+    - WAVE2B6_PERMISSIONS
 )
 CATALOG_PERMISSIONS: frozenset[str] = (
     WAVE1_PERMISSIONS
@@ -194,6 +208,7 @@ CATALOG_PERMISSIONS: frozenset[str] = (
     | WAVE2B3C_PERMISSIONS
     | WAVE2B4_PERMISSIONS
     | WAVE2B5_PERMISSIONS
+    | WAVE2B6_PERMISSIONS
 )
 
 # Canonical permission *definitions* and the seed map used by Alembic.
@@ -221,6 +236,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.CLINICAL_CONSENT_READ,
             Permission.CLINICAL_IMMUNIZATION_READ,
             Permission.CLINICAL_PROCEDURE_READ,
+            Permission.CLINICAL_MEDICAL_DEVICE_READ,
         }
     ),
     RoleCode.REGISTRAR: frozenset(
@@ -269,6 +285,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.CLINICAL_CONSENT_READ,
             Permission.CLINICAL_IMMUNIZATION_READ,
             Permission.CLINICAL_PROCEDURE_READ,
+            Permission.CLINICAL_MEDICAL_DEVICE_READ,
         }
     ),
     RoleCode.CLINICIAN: frozenset(
@@ -325,6 +342,10 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.CLINICAL_PROCEDURE_READ,
             Permission.CLINICAL_PROCEDURE_UPDATE,
             Permission.CLINICAL_PROCEDURE_ENTERED_IN_ERROR,
+            Permission.CLINICAL_MEDICAL_DEVICE_CREATE,
+            Permission.CLINICAL_MEDICAL_DEVICE_READ,
+            Permission.CLINICAL_MEDICAL_DEVICE_UPDATE,
+            Permission.CLINICAL_MEDICAL_DEVICE_ENTERED_IN_ERROR,
         }
     ),
 }

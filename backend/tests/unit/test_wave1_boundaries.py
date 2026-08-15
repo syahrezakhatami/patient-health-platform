@@ -13,6 +13,7 @@ from app.modules.clinical.infrastructure.models import (
     LaboratoryOrderModel,
     LaboratoryResultModel,
     LaboratorySpecimenModel,
+    MedicalDeviceModel,
     MedicationModel,
     ObservationModel,
     ProcedureModel,
@@ -181,6 +182,29 @@ def test_wave2b5_metadata_has_procedures_without_later_clinical_domains() -> Non
     assert tables.isdisjoint(FORBIDDEN_TABLES)
     assert "fhir_procedures" not in tables
     assert "care_plans" not in tables
+
+
+def test_wave2b6_metadata_has_medical_devices_without_later_clinical_domains() -> None:
+    assert MedicalDeviceModel.__tablename__ == "medical_devices"
+    tables = set(Base.metadata.tables)
+    assert {
+        "medical_devices",
+        "procedures",
+        "immunizations",
+        "consents",
+        "allergies",
+        "medications",
+        "laboratory_orders",
+        "laboratory_specimens",
+        "laboratory_results",
+        "observations",
+        "conditions",
+    }.issubset(tables)
+    assert tables.isdisjoint(FORBIDDEN_TABLES)
+    assert "fhir_devices" not in tables
+    assert "fhir_medical_devices" not in tables
+    assert "care_plans" not in tables
+    assert "vital_signs" not in tables
 
 
 def test_no_fhir_or_ai_modules_imported() -> None:

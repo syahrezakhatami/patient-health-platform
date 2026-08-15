@@ -16,6 +16,7 @@ from app.modules.clinical.infrastructure.models import (
     LaboratoryOrderModel,
     LaboratoryResultModel,
     LaboratorySpecimenModel,
+    MedicalDeviceModel,
     MedicationModel,
     ObservationModel,
     ProcedureModel,
@@ -411,5 +412,41 @@ class ClinicalRepository:
             query = query.where(ProcedureModel.encounter_id == encounter_id)
         result = await self._session.execute(
             query.order_by(ProcedureModel.recorded_at.desc()).limit(100)
+        )
+        return list(result.scalars().all())
+
+    async def add_medical_device(self, model: MedicalDeviceModel) -> MedicalDeviceModel:
+        self._session.add(model)
+        await self._session.flush()
+        return model
+
+    async def get_medical_device(self, medical_device_id: UUID) -> MedicalDeviceModel | None:
+        return await self._session.get(MedicalDeviceModel, medical_device_id)
+
+    async def get_medical_device_for_update(
+        self, medical_device_id: UUID
+    ) -> MedicalDeviceModel | None:
+        result = await self._session.execute(
+            select(MedicalDeviceModel)
+            .where(MedicalDeviceModel.id == medical_device_id)
+            .with_for_update()
+        )
+        return result.scalar_one_or_none()
+
+    async def list_medical_devices_for_patient(
+        self,
+        patient_identity_id: UUID,
+        organization_id: UUID,
+        *,
+        encounter_id: UUID | None = None,
+    ) -> list[MedicalDeviceModel]:
+        query = select(MedicalDeviceModel).where(
+            MedicalDeviceModel.patient_identity_id == patient_identity_id,
+            MedicalDeviceModel.organization_id == organization_id,
+        )
+        if encounter_id is not None:
+            query = query.where(MedicalDeviceModel.encounter_id == encounter_id)
+        result = await self._session.execute(
+            query.order_by(MedicalDeviceModel.recorded_at.desc()).limit(100)
         )
         return list(result.scalars().all())

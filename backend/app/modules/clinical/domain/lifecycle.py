@@ -12,6 +12,7 @@ from app.modules.clinical.domain.enums import (
     LaboratoryOrderStatus,
     LaboratoryResultStatus,
     LaboratorySpecimenStatus,
+    MedicalDeviceStatus,
     MedicationStatus,
     ObservationStatus,
     ProcedureStatus,
@@ -474,6 +475,34 @@ def assert_procedure_can_amend(status: ProcedureStatus) -> None:
         raise AppError(
             "procedure_not_amendable",
             "Only an ACTIVE or AMENDED procedure can be amended",
+            status_code=409,
+        )
+
+
+MEDICAL_DEVICE_TRANSITIONS: dict[MedicalDeviceStatus, frozenset[MedicalDeviceStatus]] = {
+    MedicalDeviceStatus.ACTIVE: frozenset(
+        {MedicalDeviceStatus.AMENDED, MedicalDeviceStatus.ENTERED_IN_ERROR}
+    ),
+    MedicalDeviceStatus.AMENDED: frozenset({MedicalDeviceStatus.ENTERED_IN_ERROR}),
+    MedicalDeviceStatus.ENTERED_IN_ERROR: frozenset(),
+}
+
+
+def assert_medical_device_mutable(status: MedicalDeviceStatus) -> None:
+    if status is MedicalDeviceStatus.ENTERED_IN_ERROR:
+        raise AppError(
+            "medical_device_entered_in_error",
+            "An entered-in-error medical device is immutable",
+            status_code=409,
+        )
+
+
+def assert_medical_device_can_amend(status: MedicalDeviceStatus) -> None:
+    assert_medical_device_mutable(status)
+    if status not in {MedicalDeviceStatus.ACTIVE, MedicalDeviceStatus.AMENDED}:
+        raise AppError(
+            "medical_device_not_amendable",
+            "Only an ACTIVE or AMENDED medical device can be amended",
             status_code=409,
         )
 

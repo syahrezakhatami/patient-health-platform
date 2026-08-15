@@ -56,6 +56,9 @@ _REDACT_KEYS = frozenset(
         "procedure_display",
         "procedure_note",
         "procedure_code",
+        "device_display",
+        "device_code",
+        "medical_device_note",
     }
 )
 

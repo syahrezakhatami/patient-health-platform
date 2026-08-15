@@ -1,0 +1,118 @@
+from uuid import uuid4
+
+import pytest
+from app.core.errors import AppError
+from app.core.logging import _redact_secrets
+from app.modules.authorization.application.wave1_pdp import Wave1PolicyPDP
+from app.modules.authorization.domain.catalog import Permission
+from app.modules.authorization.domain.models import AuthorizationContext
+from app.modules.clinical.domain.enums import MedicalDeviceStatus
+from app.modules.clinical.domain.lifecycle import (
+    MEDICAL_DEVICE_TRANSITIONS,
+    assert_medical_device_can_amend,
+    assert_medical_device_mutable,
+)
+from app.shared.enums import PrincipalType
+
+pytestmark = pytest.mark.unit
+
+
+def test_medical_device_lifecycle_and_immutability() -> None:
+    assert MedicalDeviceStatus.AMENDED in MEDICAL_DEVICE_TRANSITIONS[MedicalDeviceStatus.ACTIVE]
+    assert (
+        MedicalDeviceStatus.ENTERED_IN_ERROR
+        in MEDICAL_DEVICE_TRANSITIONS[MedicalDeviceStatus.ACTIVE]
+    )
+    assert (
+        MedicalDeviceStatus.ENTERED_IN_ERROR
+        in MEDICAL_DEVICE_TRANSITIONS[MedicalDeviceStatus.AMENDED]
+    )
+    assert MEDICAL_DEVICE_TRANSITIONS[MedicalDeviceStatus.ENTERED_IN_ERROR] == frozenset()
+    assert MedicalDeviceStatus.ACTIVE not in MEDICAL_DEVICE_TRANSITIONS[MedicalDeviceStatus.AMENDED]
+    assert_medical_device_can_amend(MedicalDeviceStatus.ACTIVE)
+    assert_medical_device_can_amend(MedicalDeviceStatus.AMENDED)
+    with pytest.raises(AppError, match="immutable"):
+        assert_medical_device_mutable(MedicalDeviceStatus.ENTERED_IN_ERROR)
+    with pytest.raises(AppError, match="immutable"):
+        assert_medical_device_can_amend(MedicalDeviceStatus.ENTERED_IN_ERROR)
+
+
+def test_pdp_allows_medical_device_permission_and_denies_unknown_aliases() -> None:
+    pdp = Wave1PolicyPDP()
+    org_id = uuid4()
+    allowed = pdp.evaluate(
+        AuthorizationContext(
+            actor_id=uuid4(),
+            principal_type=PrincipalType.STAFF,
+            organization_id=org_id,
+            facility_id=None,
+            roles=("CLINICIAN",),
+            scopes=(Permission.CLINICAL_MEDICAL_DEVICE_CREATE,),
+            patient_id=None,
+            purpose="TREATMENT",
+            emergency_access_id=None,
+            resource_type="MedicalDevice",
+            action=Permission.CLINICAL_MEDICAL_DEVICE_CREATE,
+            actor_organization_ids=(org_id,),
+        )
+    )
+    assert allowed.allowed is True
+    unknown = pdp.evaluate(
+        AuthorizationContext(
+            actor_id=uuid4(),
+            principal_type=PrincipalType.STAFF,
+            organization_id=org_id,
+            facility_id=None,
+            roles=("CLINICIAN",),
+            scopes=("clinical.care_plan.create",),
+            patient_id=None,
+            purpose="TREATMENT",
+            emergency_access_id=None,
+            resource_type="CarePlan",
+            action="clinical.care_plan.create",
+            actor_organization_ids=(org_id,),
+        )
+    )
+    assert unknown.allowed is False
+    assert unknown.reason == "deny_by_default"
+    unknown_dx = pdp.evaluate(
+        AuthorizationContext(
+            actor_id=uuid4(),
+            principal_type=PrincipalType.STAFF,
+            organization_id=org_id,
+            facility_id=None,
+            roles=("CLINICIAN",),
+            scopes=("clinical.diagnosis.create",),
+            patient_id=None,
+            purpose="TREATMENT",
+            emergency_access_id=None,
+            resource_type="Diagnosis",
+            action="clinical.diagnosis.create",
+            actor_organization_ids=(org_id,),
+        )
+    )
+    assert unknown_dx.allowed is False
+    assert unknown_dx.reason == "deny_by_default"
+
+
+def test_medical_device_values_are_redacted_from_log_events() -> None:
+    redacted = _redact_secrets(
+        None,  # type: ignore[arg-type]
+        "info",
+        {
+            "code_display": "Cardiac pacemaker",
+            "device_display": "Cardiac pacemaker",
+            "device_code": "14106009",
+            "note": "Implanted 2019",
+            "note_text": "Implanted 2019",
+            "medical_device_note": "Implanted 2019",
+            "event": "request",
+        },
+    )
+    assert redacted["code_display"] == "[REDACTED]"
+    assert redacted["device_display"] == "[REDACTED]"
+    assert redacted["device_code"] == "[REDACTED]"
+    assert redacted["note"] == "[REDACTED]"
+    assert redacted["note_text"] == "[REDACTED]"
+    assert redacted["medical_device_note"] == "[REDACTED]"
+    assert redacted["event"] == "request"

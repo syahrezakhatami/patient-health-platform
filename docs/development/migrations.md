@@ -79,3 +79,7 @@ Migration `20260814_0013` adds `immunizations`. It extends `clinical_provenances
 ## Wave 2B.5 Procedure schema
 
 Migration `20260814_0014` adds `procedures`. It extends `clinical_provenances.subject_type` with `PROCEDURE` and seeds procedure permissions. It does not add CarePlan, FHIR Procedure, order, schedule, inventory, or registry tables. After upgrade, re-run `scripts/grant_dev_privileges.sql` so `app_dml` can use the new table and so DELETE remains revoked. Do not edit `0001`–`0013`. Do not run destructive downgrade against a populated local database.
+
+## Wave 2B.6 Medical Device schema
+
+Migration `20260814_0015` adds `medical_devices`. It extends `clinical_provenances.subject_type` with `MEDICAL_DEVICE` and seeds medical-device permissions. It does not add FHIR Device, inventory, Patient History, Adverse Event, VitalSign, CarePlan, or later clinical tables. After upgrade, re-run `scripts/grant_dev_privileges.sql` so `app_dml` can use the new table and so DELETE remains revoked. Do not edit `0001`–`0014`. Do not run destructive downgrade against a populated local database.
