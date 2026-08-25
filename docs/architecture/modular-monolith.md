@@ -99,6 +99,14 @@ The backend is a single FastAPI process with explicit bounded-context packages u
 |---|---|
 | `clinical` | Adds native Family History (documented family-history fact). Not a FHIR FamilyMemberHistory store and not Patient History. |
 
+## Wave 2B closeout
+
+Wave 2B native clinical foundation is **complete**. Wave 2B.9 is **not required**.
+
+The `clinical` module owns Encounter through Family History as frozen source-of-truth facts. Patient History remains a later read model. Diagnosis belongs to Condition. Vital signs belong to Observation. Workflows, appointment, pharmacy, portal, frontend, AI, billing, subscription, emergency, and ambulance are not Wave 2B clinical facts.
+
+See `docs/gates/wave2b-clinical-foundation-completion-review.md` and `docs/gates/wave2b-native-clinical-foundation-final-closeout.md`.
+
 Timeline, FHIR clinical APIs, and AI remain out of scope.
 
 ## Async strategy
