@@ -32,6 +32,7 @@ from app.modules.clinical.infrastructure.models import (
     MedicationModel,
     ObservationModel,
     AdverseEventModel,
+    FamilyHistoryModel,
 )
 from app.modules.mpi.infrastructure.models import (
     IdentityClusterMemberModel,

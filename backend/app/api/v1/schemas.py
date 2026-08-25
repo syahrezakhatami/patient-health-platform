@@ -26,6 +26,9 @@ from app.modules.clinical.domain.enums import (
     ConsentStatus,
     EncounterClass,
     EncounterStatus,
+    FamilyHistoryCategory,
+    FamilyHistoryRelationship,
+    FamilyHistoryStatus,
     ImmunizationCategory,
     ImmunizationRoute,
     ImmunizationSite,
@@ -679,6 +682,37 @@ class AdverseEventResponse(BaseModel):
     occurrence_at: datetime | None
     note_text: str | None
     status: AdverseEventStatus
+    recorded_at: datetime
+    version: int
+
+
+class CreateFamilyHistoryRequest(BaseModel):
+    patient_identity_id: UUID
+    encounter_id: UUID | None = None
+    relationship: FamilyHistoryRelationship
+    category: FamilyHistoryCategory
+    code: CodeableConceptRequest
+    occurrence_at: datetime | None = None
+    note_text: str | None = Field(default=None, max_length=2000)
+
+
+class AmendFamilyHistoryRequest(BaseModel):
+    occurrence_at: datetime | None = None
+    note_text: str | None = Field(default=None, max_length=2000)
+
+
+class FamilyHistoryResponse(BaseModel):
+    id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    relationship: FamilyHistoryRelationship
+    category: FamilyHistoryCategory
+    code: CodeableConceptRequest
+    occurrence_at: datetime | None
+    note_text: str | None
+    status: FamilyHistoryStatus
     recorded_at: datetime
     version: int
 

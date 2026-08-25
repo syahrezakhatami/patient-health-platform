@@ -5,7 +5,7 @@ Wave 2B.2a adds observation permissions. Wave 2B.2b adds laboratory permissions.
 Wave 2B.3a adds medication permissions. Wave 2B.3b adds allergy permissions.
 Wave 2B.3c adds consent permissions. Wave 2B.4 adds immunization permissions.
 Wave 2B.5 adds procedure permissions. Wave 2B.6 adds medical device permissions.
-Wave 2B.7 adds adverse event permissions.
+Wave 2B.7 adds adverse event permissions. Wave 2B.8 adds family history permissions.
 FHIR remains absent.
 """
 
@@ -86,6 +86,10 @@ class Permission(StrEnum):
     CLINICAL_ADVERSE_EVENT_READ = "clinical.adverse_event.read"
     CLINICAL_ADVERSE_EVENT_UPDATE = "clinical.adverse_event.update"
     CLINICAL_ADVERSE_EVENT_ENTERED_IN_ERROR = "clinical.adverse_event.entered_in_error"
+    CLINICAL_FAMILY_HISTORY_CREATE = "clinical.family_history.create"
+    CLINICAL_FAMILY_HISTORY_READ = "clinical.family_history.read"
+    CLINICAL_FAMILY_HISTORY_UPDATE = "clinical.family_history.update"
+    CLINICAL_FAMILY_HISTORY_ENTERED_IN_ERROR = "clinical.family_history.entered_in_error"
 
 
 class RoleCode(StrEnum):
@@ -197,6 +201,14 @@ WAVE2B7_PERMISSIONS: frozenset[str] = frozenset(
         Permission.CLINICAL_ADVERSE_EVENT_ENTERED_IN_ERROR,
     }
 )
+WAVE2B8_PERMISSIONS: frozenset[str] = frozenset(
+    {
+        Permission.CLINICAL_FAMILY_HISTORY_CREATE,
+        Permission.CLINICAL_FAMILY_HISTORY_READ,
+        Permission.CLINICAL_FAMILY_HISTORY_UPDATE,
+        Permission.CLINICAL_FAMILY_HISTORY_ENTERED_IN_ERROR,
+    }
+)
 WAVE1_PERMISSIONS: frozenset[str] = (
     frozenset(item.value for item in Permission)
     - WAVE2A_PERMISSIONS
@@ -210,6 +222,7 @@ WAVE1_PERMISSIONS: frozenset[str] = (
     - WAVE2B5_PERMISSIONS
     - WAVE2B6_PERMISSIONS
     - WAVE2B7_PERMISSIONS
+    - WAVE2B8_PERMISSIONS
 )
 CATALOG_PERMISSIONS: frozenset[str] = (
     WAVE1_PERMISSIONS
@@ -224,6 +237,7 @@ CATALOG_PERMISSIONS: frozenset[str] = (
     | WAVE2B5_PERMISSIONS
     | WAVE2B6_PERMISSIONS
     | WAVE2B7_PERMISSIONS
+    | WAVE2B8_PERMISSIONS
 )
 
 # Canonical permission *definitions* and the seed map used by Alembic.
@@ -253,6 +267,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.CLINICAL_PROCEDURE_READ,
             Permission.CLINICAL_MEDICAL_DEVICE_READ,
             Permission.CLINICAL_ADVERSE_EVENT_READ,
+            Permission.CLINICAL_FAMILY_HISTORY_READ,
         }
     ),
     RoleCode.REGISTRAR: frozenset(
@@ -303,6 +318,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.CLINICAL_PROCEDURE_READ,
             Permission.CLINICAL_MEDICAL_DEVICE_READ,
             Permission.CLINICAL_ADVERSE_EVENT_READ,
+            Permission.CLINICAL_FAMILY_HISTORY_READ,
         }
     ),
     RoleCode.CLINICIAN: frozenset(
@@ -367,6 +383,10 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.CLINICAL_ADVERSE_EVENT_READ,
             Permission.CLINICAL_ADVERSE_EVENT_UPDATE,
             Permission.CLINICAL_ADVERSE_EVENT_ENTERED_IN_ERROR,
+            Permission.CLINICAL_FAMILY_HISTORY_CREATE,
+            Permission.CLINICAL_FAMILY_HISTORY_READ,
+            Permission.CLINICAL_FAMILY_HISTORY_UPDATE,
+            Permission.CLINICAL_FAMILY_HISTORY_ENTERED_IN_ERROR,
         }
     ),
 }

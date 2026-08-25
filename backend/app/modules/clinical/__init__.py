@@ -11,6 +11,7 @@ Wave 2B.4: native Immunization (documented vaccination fact).
 Wave 2B.5: native Procedure (documented performed or reported procedure fact).
 Wave 2B.6: native Medical Device (documented patient-device association).
 Wave 2B.7: native Adverse Event (documented coded adverse event).
+Wave 2B.8: native Family History (documented family-history fact).
 
 Does not own FHIR, PDP enforcement, or later clinical domains.
 """

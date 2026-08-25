@@ -62,6 +62,9 @@ _REDACT_KEYS = frozenset(
         "adverse_event_display",
         "adverse_event_code",
         "adverse_event_note",
+        "family_history_display",
+        "family_history_code",
+        "family_history_note",
     }
 )
 

@@ -1,0 +1,142 @@
+# Wave 2B.8 — Family History final freeze
+
+**Date:** 2026-08-26
+**Verdict:** PASS WITH P2
+**P0:** 0
+**P1:** 0
+**WAVE 2B.8 FAMILY HISTORY:** FROZEN
+**WAVE 2B.8 FAMILY HISTORY:** PUBLISHED
+**WAVE 2B.9:** NOT STARTED
+
+This freeze is not a HIPAA, ISO 27001, or SOC 2 certification. Family History is one documented or reported family-history fact associated with a patient: one controlled relative relationship plus one coded finding. It is **not** a FHIR FamilyMemberHistory resource, Patient History aggregate, Condition, Diagnosis, CarePlan, Vital Signs table, pedigree, clinical timeline, registry, or CDS object.
+
+Frozen Encounter, Clinical Note, Condition, Observation, Laboratory, Medication, Allergy, Consent, Immunization, Procedure, Medical Device, and Adverse Event were **not redesigned**.
+
+## A. Repository
+
+`git@github.com:syahrezakhatami/patient-health-platform.git`
+
+Family-History-only publication on the frozen Adverse Event baseline. Frozen Condition through Adverse Event behavior was not redesigned. Previous-wave tests only allow the new `family_histories` table (`patient_histories` remains a Patient History absence probe). `Wave1PolicyPDP`, `docker-compose.yml`, and migrations `0001`–`0016` are untouched. Test-only `rate_limit_per_minute` ceiling is 10000 (production remains 120).
+
+Native Family History fact. NOT FHIR FamilyMemberHistory. NOT Patient History. No Consent-as-PDP. No AI/RAG/CDS. No CarePlan. No Vital Signs table. No Diagnosis. No Condition FK. No pedigree. No scheduling. No registry. No break-glass. No portal.
+
+## B. Previous frozen baseline
+
+Commit `8d455b3dede07b9ada00205ff6c49b41b97a0895`  
+Tag `wave-2b7-adverse-event-frozen`  
+Alembic `20260814_0016`
+
+HEAD before this freeze commit was exactly that SHA. `main` tracked `origin/main` (0 ahead / 0 behind). The previous tag pointed at the Adverse Event freeze.
+
+## C. New commit
+
+This publication commit: `feat(clinical): freeze native family history`.  
+Recorded after commit as HEAD on `main`.
+
+## D. Parent commit
+
+`8d455b3dede07b9ada00205ff6c49b41b97a0895`
+
+## E. Branch
+
+`main` tracks `origin/main`.
+
+## F. Tag
+
+`wave-2b8-family-history-frozen` (annotated)
+
+## G. Tag target
+
+The Family History freeze commit (C). Verified with `git rev-list -n 1 wave-2b8-family-history-frozen` == HEAD.
+
+## H. Push result
+
+Normal push of `main` and `wave-2b8-family-history-frozen` only. No force-push. No history rewrite. The Adverse Event freeze commit was not amended.
+
+## I. Working tree
+
+Clean after publication. No `.env`, credentials, private keys, tokens, `.venv`, volumes, logs, or cache artifacts included.
+
+## J. Alembic current/head
+
+`current == heads == 20260814_0017` (exactly one head)
+
+Chain: `0001 → 0002 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008 → 0009 → 0010 → 0011 → 0012 → 0013 → 0014 → 0015 → 0016 → 0017`
+
+Migration `0017` is additive. Migrations `0001`–`0016` were not rewritten. No `0018`. `adverse_events` remain present and untouched. No `fhir_family_member_histories` table. No `patient_histories` table. No JSON payload column. No `condition_id`.
+
+## K. Test results
+
+`ruff check app tests` PASS. `ruff format --check app tests` PASS. `mypy app` PASS (105 app files). pytest **256 passed**. Family History unit: **4 passed**. Family History integration: **5 passed**. Family History hardening: **9 passed**. Frozen Condition / Observation / Laboratory / Medication / Allergy / Consent / Immunization / Procedure / Medical Device / Adverse Event plus their hardening: **89 passed**.
+
+## L. Runtime health
+
+| Check | Result |
+|---|---|
+| `/api/v1/health/live` | 200 alive |
+| `/api/v1/health/ready` | 200; postgres / redis / object_storage ok |
+| `OBJECT_STORAGE_ENDPOINT` | `http://minio:9000` |
+| Host ports | 9100 / 5433 / 6380 / 9101 / 9002 |
+| `gsai-minio` | Untouched |
+| Docker backend image on `:9100` | Does not expose Family History routes (P3 lag; working-tree tests cover the implementation) |
+
+## M. API boundary
+
+Under `/api/v1/clinical/`:
+
+- `POST /family-histories`
+- `GET /family-histories?patient_identity_id=`
+- `GET /family-histories/{id}`
+- `POST /family-histories/{id}/amend`
+- `POST /family-histories/{id}/entered-in-error`
+
+PUT = 405. PATCH = 405. DELETE = 405. No `/api/v2/`. No `/fhir/`. No `/fhir/FamilyMemberHistory/`. No Family History `/revoke` or `/stop`. No FHIR FamilyMemberHistory. No Patient History, CarePlan, Vital Signs, Diagnosis, AI, RAG, or CDS routes.
+
+Relationship (required, immutable): `PARENT` \| `SIBLING` \| `CHILD` \| `GRANDPARENT` \| `GRANDCHILD` \| `AUNT_UNCLE` \| `COUSIN` \| `OTHER`. Gender-neutral. No MOTHER/FATHER/SPOUSE values.  
+Category: `DOCUMENTED` \| `REPORTED`.  
+Finding: `code_system` + `code` + optional display. No Condition FK.  
+CREATE → ACTIVE, version 1. ACTIVE/AMENDED → AMENDED (version +1). ACTIVE/AMENDED → ENTERED_IN_ERROR (terminal; version does not increment). No-op amend = 409. Double EIE = 409. AMENDED → ACTIVE = 409. No DELETE. No generic PUT/PATCH. No revoke/stop/expire lifecycle.
+
+Amendable until EIE: `occurrence_at`, `note_text`, status, version. Immutable after create: patient, encounter, org, facility, relationship, category, code/display, recorder, recorded_at, provenance.
+
+## N. Security
+
+Unauthenticated 401. Unprovisioned JWT 403. Cross-org resource / identity 404. Wrong identity/encounter pair 409. Invalid purpose 422. Unauthorized responses do not leak family-history code, display, note, NIK, BPJS, tokens, secrets, or SQL details. Authorization is permission-based (`clinical.family_history.create|read|update|entered_in_error`). CLINICIAN / PLATFORM_ADMIN full. ORG_ADMIN / AUDITOR read. Registrar / IDENTITY_OFFICER denied. `Wave1PolicyPDP` is unchanged. Consent does not grant Family History access. Purpose does not grant authorization. Clinical concurrency uses PostgreSQL `SELECT FOR UPDATE`. Redis is not the clinical lock.
+
+Secret scan: no `.env`, private keys, GitHub tokens, production secrets, runtime volumes, logs, `.venv`, or cache artifacts in the publication tree. `.gitignore` unchanged. No vendor/test/doc false positives required ignore.
+
+## O. Clinical boundary
+
+Native `family_histories` is present. CarePlan, FHIR FamilyMemberHistory, Patient History, Vital Signs table, Diagnosis, Condition FK, pedigree, AI, RAG, CDS, break-glass, patient portal, Consent-as-PDP, scheduling, inventory, and registry remain absent. Frozen Adverse Event remains at `8d455b3`. WAVE 2B.9 is NOT STARTED.
+
+## P. P0 / P1 / P2 / P3 residuals
+
+| Sev | Finding |
+|---|---|
+| P0 | None |
+| P1 | None |
+| P2 | DENIED audit rows roll back with `ForbiddenError` (inherited Wave 1; not redesigned) |
+| P2 | Historical `patient_identity_id` is not rewritten after MPI merge (by design) |
+| P2 | Same-org UUID read remains org-scoped until a later PDP wave |
+| P3 | `app_dml` grants live in `grant_dev_privileges.sql` |
+| P3 | `provenance_id` nullable with FK present (service always sets it) |
+| P3 | Duplicate family-history facts are allowed |
+| P3 | Relative identity / deceased / age-at-onset deferred |
+| P3 | Test `rate_limit_per_minute` ceiling is 10000 (production remains 120) |
+| P3 | Docker backend image lags this working-tree publication |
+
+Residual P2/P3 are inherited or explicitly deferred. They were not silently fixed during this freeze. Independently re-verified on this pass.
+
+## Q. Scope and contract confirmation
+
+Wave 2B.8 scope is Native Family History only. Approved contract confirmed: one documented/reported family-history fact associated with a patient; table `family_histories`; relationship closed CHECK and immutable; category `DOCUMENTED` \| `REPORTED`; finding `system` + `code` + optional display; no Condition FK; lifecycle ACTIVE → AMENDED → ENTERED_IN_ERROR and ACTIVE → ENTERED_IN_ERROR; frozen MPI/encounter reuse; permission-based authorization; mandatory `X-Purpose`; audit `FAMILY_HISTORY_CREATED` / `AMENDED` / `ENTERED_IN_ERROR` without note/code/display/NIK/BPJS/tokens; provenance `subject_type=FAMILY_HISTORY`; PostgreSQL `SELECT FOR UPDATE`; history trigger blocks immutable UPDATE and DELETE; TRUNCATE denied.
+
+## R. Final verdict
+
+**PASS WITH P2**
+
+P0 = 0. P1 = 0. Approved contract deviations = 0. Quality gates pass. Migration chain is valid. Frozen-domain regression passes. Working tree scope is Family-History-only plus required migration, tests, grants, and previously approved Wave 2B.8 design documents. One freeze commit. One annotated tag. Normal push only.
+
+WAVE 2B.8 FAMILY HISTORY = FROZEN  
+WAVE 2B.8 FAMILY HISTORY = PUBLISHED  
+WAVE 2B.9 = NOT STARTED

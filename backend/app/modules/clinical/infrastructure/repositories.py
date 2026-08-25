@@ -13,6 +13,7 @@ from app.modules.clinical.infrastructure.models import (
     ConsentModel,
     EncounterModel,
     EncounterParticipantModel,
+    FamilyHistoryModel,
     ImmunizationModel,
     LaboratoryOrderModel,
     LaboratoryResultModel,
@@ -485,5 +486,41 @@ class ClinicalRepository:
             query = query.where(AdverseEventModel.encounter_id == encounter_id)
         result = await self._session.execute(
             query.order_by(AdverseEventModel.recorded_at.desc()).limit(100)
+        )
+        return list(result.scalars().all())
+
+    async def add_family_history(self, model: FamilyHistoryModel) -> FamilyHistoryModel:
+        self._session.add(model)
+        await self._session.flush()
+        return model
+
+    async def get_family_history(self, family_history_id: UUID) -> FamilyHistoryModel | None:
+        return await self._session.get(FamilyHistoryModel, family_history_id)
+
+    async def get_family_history_for_update(
+        self, family_history_id: UUID
+    ) -> FamilyHistoryModel | None:
+        result = await self._session.execute(
+            select(FamilyHistoryModel)
+            .where(FamilyHistoryModel.id == family_history_id)
+            .with_for_update()
+        )
+        return result.scalar_one_or_none()
+
+    async def list_family_histories_for_patient(
+        self,
+        patient_identity_id: UUID,
+        organization_id: UUID,
+        *,
+        encounter_id: UUID | None = None,
+    ) -> list[FamilyHistoryModel]:
+        query = select(FamilyHistoryModel).where(
+            FamilyHistoryModel.patient_identity_id == patient_identity_id,
+            FamilyHistoryModel.organization_id == organization_id,
+        )
+        if encounter_id is not None:
+            query = query.where(FamilyHistoryModel.encounter_id == encounter_id)
+        result = await self._session.execute(
+            query.order_by(FamilyHistoryModel.recorded_at.desc()).limit(100)
         )
         return list(result.scalars().all())

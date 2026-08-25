@@ -9,6 +9,7 @@ from app.modules.clinical.domain.enums import (
     ConditionVerificationStatus,
     ConsentStatus,
     EncounterStatus,
+    FamilyHistoryStatus,
     ImmunizationStatus,
     LaboratoryOrderStatus,
     LaboratoryResultStatus,
@@ -532,6 +533,34 @@ def assert_adverse_event_can_amend(status: AdverseEventStatus) -> None:
         raise AppError(
             "adverse_event_not_amendable",
             "Only an ACTIVE or AMENDED adverse event can be amended",
+            status_code=409,
+        )
+
+
+FAMILY_HISTORY_TRANSITIONS: dict[FamilyHistoryStatus, frozenset[FamilyHistoryStatus]] = {
+    FamilyHistoryStatus.ACTIVE: frozenset(
+        {FamilyHistoryStatus.AMENDED, FamilyHistoryStatus.ENTERED_IN_ERROR}
+    ),
+    FamilyHistoryStatus.AMENDED: frozenset({FamilyHistoryStatus.ENTERED_IN_ERROR}),
+    FamilyHistoryStatus.ENTERED_IN_ERROR: frozenset(),
+}
+
+
+def assert_family_history_mutable(status: FamilyHistoryStatus) -> None:
+    if status is FamilyHistoryStatus.ENTERED_IN_ERROR:
+        raise AppError(
+            "family_history_entered_in_error",
+            "An entered-in-error family history is immutable",
+            status_code=409,
+        )
+
+
+def assert_family_history_can_amend(status: FamilyHistoryStatus) -> None:
+    assert_family_history_mutable(status)
+    if status not in {FamilyHistoryStatus.ACTIVE, FamilyHistoryStatus.AMENDED}:
+        raise AppError(
+            "family_history_not_amendable",
+            "Only an ACTIVE or AMENDED family history can be amended",
             status_code=409,
         )
 

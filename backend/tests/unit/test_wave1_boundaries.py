@@ -10,6 +10,7 @@ from app.modules.clinical.infrastructure.models import (
     ConsentModel,
     EncounterModel,
     EncounterParticipantModel,
+    FamilyHistoryModel,
     ImmunizationModel,
     LaboratoryOrderModel,
     LaboratoryResultModel,
@@ -231,6 +232,35 @@ def test_wave2b7_metadata_has_adverse_events_without_later_clinical_domains() ->
     assert "care_plans" not in tables
     assert "vital_signs" not in tables
     assert "patient_histories" not in tables
+
+
+def test_wave2b8_metadata_has_family_histories_without_later_clinical_domains() -> None:
+    assert FamilyHistoryModel.__tablename__ == "family_histories"
+    tables = set(Base.metadata.tables)
+    assert {
+        "family_histories",
+        "adverse_events",
+        "medical_devices",
+        "procedures",
+        "immunizations",
+        "consents",
+        "allergies",
+        "medications",
+        "laboratory_orders",
+        "laboratory_specimens",
+        "laboratory_results",
+        "observations",
+        "conditions",
+    }.issubset(tables)
+    assert tables.isdisjoint(FORBIDDEN_TABLES)
+    assert "fhir_family_member_histories" not in tables
+    assert "fhir_adverse_events" not in tables
+    assert "care_plans" not in tables
+    assert "vital_signs" not in tables
+    assert "patient_histories" not in tables
+    assert "diagnoses" not in tables
+    assert "family_conditions" not in tables
+    assert "condition_family_history" not in tables
 
 
 def test_no_fhir_or_ai_modules_imported() -> None:

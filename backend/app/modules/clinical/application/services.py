@@ -36,6 +36,9 @@ from app.modules.clinical.domain.enums import (
     ConsentStatus,
     EncounterClass,
     EncounterStatus,
+    FamilyHistoryCategory,
+    FamilyHistoryRelationship,
+    FamilyHistoryStatus,
     ImmunizationCategory,
     ImmunizationRoute,
     ImmunizationSite,
@@ -76,6 +79,8 @@ from app.modules.clinical.domain.lifecycle import (
     assert_consent_mutable,
     assert_consent_period,
     assert_encounter_transition,
+    assert_family_history_can_amend,
+    assert_family_history_mutable,
     assert_immunization_can_amend,
     assert_immunization_mutable,
     assert_lab_order_open,
@@ -111,6 +116,7 @@ from app.modules.clinical.infrastructure.models import (
     ConsentModel,
     EncounterModel,
     EncounterParticipantModel,
+    FamilyHistoryModel,
     ImmunizationModel,
     LaboratoryOrderModel,
     LaboratoryResultModel,
@@ -376,6 +382,23 @@ class AdverseEventView:
     occurrence_at: datetime | None
     note_text: str | None
     status: AdverseEventStatus
+    recorded_at: datetime
+    version: int
+
+
+@dataclass(frozen=True, slots=True)
+class FamilyHistoryView:
+    id: UUID
+    patient_identity_id: UUID
+    encounter_id: UUID | None
+    organization_id: UUID
+    facility_id: UUID | None
+    relationship: FamilyHistoryRelationship
+    category: FamilyHistoryCategory
+    code: CodeableConcept
+    occurrence_at: datetime | None
+    note_text: str | None
+    status: FamilyHistoryStatus
     recorded_at: datetime
     version: int
 
@@ -4050,6 +4073,291 @@ class ClinicalService:
         )
         return _adverse_event_view(adverse_event)
 
+    async def create_family_history(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        encounter_id: UUID | None,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        relationship: FamilyHistoryRelationship,
+        category: FamilyHistoryCategory,
+        code: CodeableConcept,
+        occurrence_at: datetime | None,
+        note_text: str | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> FamilyHistoryView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_FAMILY_HISTORY_CREATE,
+            resource_type="FamilyHistory",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        if (
+            IdentityLifecycle(identity.lifecycle_status) is IdentityLifecycle.ANONYMOUS
+            and encounter_id is None
+        ):
+            raise AppError(
+                "anonymous_family_history_requires_encounter",
+                "An anonymous identity may receive only an emergency encounter family history",
+                status_code=409,
+            )
+        encounter = None
+        bound_patient_id = identity.id
+        bound_facility_id = facility_id
+        if encounter_id is not None:
+            encounter = await self._visible_encounter(
+                principal, encounter_id, organization_id, for_update=True
+            )
+            if EncounterStatus(encounter.status) in {
+                EncounterStatus.CANCELLED,
+                EncounterStatus.ENTERED_IN_ERROR,
+            }:
+                raise AppError(
+                    "encounter_not_documentable",
+                    "A cancelled or erroneous encounter cannot receive family histories",
+                    status_code=409,
+                )
+            if encounter.patient_identity_id != identity.id:
+                raise AppError(
+                    "family_history_patient_mismatch",
+                    "Family history patient must match the encounter patient",
+                    status_code=409,
+                )
+            if (
+                IdentityLifecycle(identity.lifecycle_status) is IdentityLifecycle.ANONYMOUS
+                and EncounterClass(encounter.encounter_class) is not EncounterClass.EMER
+            ):
+                raise AppError(
+                    "anonymous_encounter_not_emergency",
+                    "An anonymous identity may receive only an emergency encounter family history",
+                    status_code=409,
+                )
+            bound_patient_id = encounter.patient_identity_id
+            bound_facility_id = facility_id or encounter.facility_id
+        family_history_id = new_id()
+        provenance = await self._record_provenance(
+            subject_type=ClinicalProvenanceSubjectType.FAMILY_HISTORY,
+            subject_id=family_history_id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            actor_id=None if principal is None else principal.user.id,
+        )
+        family_history = FamilyHistoryModel(
+            id=family_history_id,
+            patient_identity_id=bound_patient_id,
+            encounter_id=None if encounter is None else encounter.id,
+            organization_id=organization_id,
+            facility_id=bound_facility_id,
+            relationship=relationship.value,
+            category=category.value,
+            code_system=code.system,
+            code=code.code,
+            code_display=code.display,
+            occurrence_at=occurrence_at,
+            note_text=None if note_text is None or note_text.strip() == "" else note_text.strip(),
+            status=FamilyHistoryStatus.ACTIVE.value,
+            recorded_at=utc_now(),
+            recorder_id=None if principal is None else principal.user.id,
+            version=1,
+            provenance_id=provenance.id,
+        )
+        await self._clinical.add_family_history(family_history)
+        await self._audit_success(
+            ClinicalAuditAction.FAMILY_HISTORY_CREATED,
+            principal,
+            organization_id,
+            family_history.facility_id,
+            family_history.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=family_history.id,
+            metadata={
+                "relationship": family_history.relationship,
+                "category": family_history.category,
+                "status": family_history.status,
+                "version": str(family_history.version),
+            },
+        )
+        return _family_history_view(family_history)
+
+    async def get_family_history(
+        self,
+        principal: Principal | None,
+        family_history_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> FamilyHistoryView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_FAMILY_HISTORY_READ,
+            resource_type="FamilyHistory",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        family_history = await self._visible_family_history(
+            principal, family_history_id, organization_id
+        )
+        return _family_history_view(family_history)
+
+    async def list_family_histories(
+        self,
+        principal: Principal | None,
+        *,
+        patient_identity_id: UUID,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        encounter_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> list[FamilyHistoryView]:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_FAMILY_HISTORY_READ,
+            resource_type="FamilyHistory",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            patient_id=patient_identity_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        identity = await self._require_canonical_identity(
+            principal, patient_identity_id, organization_id
+        )
+        rows = await self._clinical.list_family_histories_for_patient(
+            identity.id, organization_id, encounter_id=encounter_id
+        )
+        return [_family_history_view(item) for item in rows]
+
+    async def amend_family_history(
+        self,
+        principal: Principal | None,
+        family_history_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        occurrence_at: datetime | None,
+        note_text: str | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> FamilyHistoryView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_FAMILY_HISTORY_UPDATE,
+            resource_type="FamilyHistory",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        family_history = await self._visible_family_history(
+            principal, family_history_id, organization_id, for_update=True
+        )
+        assert_family_history_can_amend(FamilyHistoryStatus(family_history.status))
+        next_note = None if note_text is None or note_text.strip() == "" else note_text.strip()
+        unchanged = (
+            family_history.occurrence_at == occurrence_at and family_history.note_text == next_note
+        )
+        if unchanged:
+            raise AppError(
+                "family_history_unchanged",
+                "Family history is already at the requested values",
+                status_code=409,
+            )
+        old_status = family_history.status
+        family_history.occurrence_at = occurrence_at
+        family_history.note_text = next_note
+        family_history.status = FamilyHistoryStatus.AMENDED.value
+        family_history.version = family_history.version + 1
+        await self._audit_success(
+            ClinicalAuditAction.FAMILY_HISTORY_AMENDED,
+            principal,
+            organization_id,
+            family_history.facility_id,
+            family_history.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=family_history.id,
+            metadata={
+                "old_status": old_status,
+                "new_status": family_history.status,
+                "relationship": family_history.relationship,
+                "category": family_history.category,
+                "status": family_history.status,
+                "version": str(family_history.version),
+            },
+        )
+        return _family_history_view(family_history)
+
+    async def mark_family_history_entered_in_error(
+        self,
+        principal: Principal | None,
+        family_history_id: UUID,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> FamilyHistoryView:
+        await authorize(
+            self._pdp,
+            self._audit,
+            principal=principal,
+            action=Permission.CLINICAL_FAMILY_HISTORY_ENTERED_IN_ERROR,
+            resource_type="FamilyHistory",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        family_history = await self._visible_family_history(
+            principal, family_history_id, organization_id, for_update=True
+        )
+        assert_family_history_mutable(FamilyHistoryStatus(family_history.status))
+        old_status = family_history.status
+        family_history.status = FamilyHistoryStatus.ENTERED_IN_ERROR.value
+        await self._audit_success(
+            ClinicalAuditAction.FAMILY_HISTORY_ENTERED_IN_ERROR,
+            principal,
+            organization_id,
+            family_history.facility_id,
+            family_history.patient_identity_id,
+            purpose,
+            correlation_id,
+            resource_id=family_history.id,
+            metadata={
+                "old_status": old_status,
+                "new_status": family_history.status,
+                "relationship": family_history.relationship,
+                "category": family_history.category,
+                "status": family_history.status,
+                "version": str(family_history.version),
+            },
+        )
+        return _family_history_view(family_history)
+
     async def _require_canonical_identity(
         self,
         principal: Principal | None,
@@ -4435,6 +4743,26 @@ class ClinicalService:
         if adverse_event.organization_id != organization_id:
             raise NotFoundError("Adverse event not found")
         return adverse_event
+
+    async def _visible_family_history(
+        self,
+        principal: Principal | None,
+        family_history_id: UUID,
+        organization_id: UUID,
+        *,
+        for_update: bool = False,
+    ) -> FamilyHistoryModel:
+        if for_update:
+            family_history = await self._clinical.get_family_history_for_update(family_history_id)
+        else:
+            family_history = await self._clinical.get_family_history(family_history_id)
+        if family_history is None:
+            raise NotFoundError("Family history not found")
+        if principal is not None and principal.has_platform_scope:
+            return family_history
+        if family_history.organization_id != organization_id:
+            raise NotFoundError("Family history not found")
+        return family_history
 
     async def _require_related_adverse_event_fact(
         self,
@@ -5025,6 +5353,28 @@ def _adverse_event_view(model: AdverseEventModel) -> AdverseEventView:
         occurrence_at=model.occurrence_at,
         note_text=model.note_text,
         status=AdverseEventStatus(model.status),
+        recorded_at=model.recorded_at,
+        version=model.version,
+    )
+
+
+def _family_history_view(model: FamilyHistoryModel) -> FamilyHistoryView:
+    return FamilyHistoryView(
+        id=model.id,
+        patient_identity_id=model.patient_identity_id,
+        encounter_id=model.encounter_id,
+        organization_id=model.organization_id,
+        facility_id=model.facility_id,
+        relationship=FamilyHistoryRelationship(model.relationship),
+        category=FamilyHistoryCategory(model.category),
+        code=CodeableConcept(
+            system=model.code_system,
+            code=model.code,
+            display=model.code_display,
+        ),
+        occurrence_at=model.occurrence_at,
+        note_text=model.note_text,
+        status=FamilyHistoryStatus(model.status),
         recorded_at=model.recorded_at,
         version=model.version,
     )

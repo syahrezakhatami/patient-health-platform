@@ -93,6 +93,12 @@ The backend is a single FastAPI process with explicit bounded-context packages u
 |---|---|
 | `clinical` | Adds native Adverse Event (documented coded adverse event). Not a FHIR AdverseEvent store, not pharmacovigilance, and not incident management. |
 
+## Wave 2B.8 modules
+
+| Module | Why it exists now |
+|---|---|
+| `clinical` | Adds native Family History (documented family-history fact). Not a FHIR FamilyMemberHistory store and not Patient History. |
+
 Timeline, FHIR clinical APIs, and AI remain out of scope.
 
 ## Async strategy

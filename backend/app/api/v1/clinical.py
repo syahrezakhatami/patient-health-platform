@@ -17,6 +17,7 @@ from app.api.v1.schemas import (
     AmendAdverseEventRequest,
     AmendAllergyRequest,
     AmendConsentRequest,
+    AmendFamilyHistoryRequest,
     AmendImmunizationRequest,
     AmendLaboratoryResultRequest,
     AmendMedicalDeviceRequest,
@@ -34,6 +35,7 @@ from app.api.v1.schemas import (
     CreateConditionRequest,
     CreateConsentRequest,
     CreateEncounterRequest,
+    CreateFamilyHistoryRequest,
     CreateImmunizationRequest,
     CreateLaboratoryOrderRequest,
     CreateLaboratoryResultRequest,
@@ -43,6 +45,7 @@ from app.api.v1.schemas import (
     CreateObservationRequest,
     CreateProcedureRequest,
     EncounterResponse,
+    FamilyHistoryResponse,
     ImmunizationResponse,
     LaboratoryOrderResponse,
     LaboratoryResultResponse,
@@ -63,6 +66,7 @@ from app.modules.clinical.application.services import (
     ConditionView,
     ConsentView,
     EncounterView,
+    FamilyHistoryView,
     ImmunizationView,
     LaboratoryOrderView,
     LaboratoryResultView,
@@ -2282,3 +2286,160 @@ async def mark_adverse_event_entered_in_error(
         correlation_id=correlation_id,
     )
     return _adverse_event_response(view)
+
+
+def _family_history_response(view: FamilyHistoryView) -> FamilyHistoryResponse:
+    return FamilyHistoryResponse(
+        id=view.id,
+        patient_identity_id=view.patient_identity_id,
+        encounter_id=view.encounter_id,
+        organization_id=view.organization_id,
+        facility_id=view.facility_id,
+        relationship=view.relationship,
+        category=view.category,
+        code=_codeable(view.code),
+        occurrence_at=view.occurrence_at,
+        note_text=view.note_text,
+        status=view.status,
+        recorded_at=view.recorded_at,
+        version=view.version,
+    )
+
+
+@router.post("/family-histories", response_model=FamilyHistoryResponse)
+async def create_family_history(
+    body: CreateFamilyHistoryRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> FamilyHistoryResponse:
+    code = parse_codeable_concept(body.code.model_dump())
+    if code is None:
+        raise AppError(
+            "invalid_codeable_concept",
+            "Codeable concept requires system and code",
+            status_code=422,
+        )
+    view = await _service(session, pdp, audit).create_family_history(
+        principal,
+        patient_identity_id=body.patient_identity_id,
+        encounter_id=body.encounter_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        relationship=body.relationship,
+        category=body.category,
+        code=code,
+        occurrence_at=body.occurrence_at,
+        note_text=body.note_text,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _family_history_response(view)
+
+
+@router.get("/family-histories", response_model=list[FamilyHistoryResponse])
+async def list_family_histories(
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+    patient_identity_id: Annotated[UUID, Query()],
+    encounter_id: Annotated[UUID | None, Query()] = None,
+) -> list[FamilyHistoryResponse]:
+    views = await _service(session, pdp, audit).list_family_histories(
+        principal,
+        patient_identity_id=patient_identity_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        encounter_id=encounter_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return [_family_history_response(item) for item in views]
+
+
+@router.get("/family-histories/{family_history_id}", response_model=FamilyHistoryResponse)
+async def get_family_history(
+    family_history_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> FamilyHistoryResponse:
+    view = await _service(session, pdp, audit).get_family_history(
+        principal,
+        family_history_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _family_history_response(view)
+
+
+@router.post(
+    "/family-histories/{family_history_id}/amend",
+    response_model=FamilyHistoryResponse,
+)
+async def amend_family_history(
+    family_history_id: UUID,
+    body: AmendFamilyHistoryRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> FamilyHistoryResponse:
+    view = await _service(session, pdp, audit).amend_family_history(
+        principal,
+        family_history_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        occurrence_at=body.occurrence_at,
+        note_text=body.note_text,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _family_history_response(view)
+
+
+@router.post(
+    "/family-histories/{family_history_id}/entered-in-error",
+    response_model=FamilyHistoryResponse,
+)
+async def mark_family_history_entered_in_error(
+    family_history_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> FamilyHistoryResponse:
+    view = await _service(session, pdp, audit).mark_family_history_entered_in_error(
+        principal,
+        family_history_id,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _family_history_response(view)
