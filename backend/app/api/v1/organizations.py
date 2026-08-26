@@ -8,6 +8,7 @@ from app.api.v1.deps import (
     CurrentPrincipal,
     OptionalOrganizationId,
     RequestOrganizationId,
+    require_staff_audience,
     require_staff_or_platform_audience,
 )
 from app.api.v1.schemas import (
@@ -16,6 +17,8 @@ from app.api.v1.schemas import (
     OrganizationIdentifierRequest,
 )
 from app.core.dependencies import CurrentPDP, DbSession
+from app.modules.iam.application.shell_context import ShellContextService
+from app.modules.iam.application.shell_schemas import AccessibleFacilitiesResponse
 from app.modules.organization.application.services import OrganizationService
 
 router = APIRouter(
@@ -79,6 +82,32 @@ async def get_organization(
         "organization_type": organization.organization_type,
         "status": organization.status,
     }
+
+
+def _shell(session: DbSession, pdp: CurrentPDP, audit: CurrentAudit) -> ShellContextService:
+    return ShellContextService(session, pdp, audit)
+
+
+@router.get(
+    "/{organization_id}/facilities/accessible",
+    response_model=AccessibleFacilitiesResponse,
+    dependencies=[Depends(require_staff_audience)],
+)
+async def list_accessible_facilities(
+    organization_id: UUID,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    header_organization_id: RequestOrganizationId,
+    correlation_id: CorrelationId,
+) -> AccessibleFacilitiesResponse:
+    return await _shell(session, pdp, audit).list_accessible_facilities(
+        principal,
+        organization_id=organization_id,
+        header_organization_id=header_organization_id,
+        correlation_id=correlation_id,
+    )
 
 
 @router.post("/{organization_id}/facilities")

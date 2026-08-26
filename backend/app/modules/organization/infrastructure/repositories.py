@@ -59,6 +59,35 @@ class OrganizationRepository:
         )
         return [_to_facility(row) for row in result.scalars().all()]
 
+    async def list_organizations_by_ids(
+        self, organization_ids: tuple[UUID, ...]
+    ) -> list[Organization]:
+        if not organization_ids:
+            return []
+        result = await self._session.execute(
+            select(OrganizationModel).where(OrganizationModel.id.in_(organization_ids))
+        )
+        by_id = {row.id: _to_organization(row) for row in result.scalars().all()}
+        return [by_id[item_id] for item_id in organization_ids if item_id in by_id]
+
+    async def list_facilities_for_shell(
+        self,
+        organization_id: UUID,
+        *,
+        facility_ids: frozenset[UUID] | None = None,
+    ) -> list[Facility]:
+        stmt = select(FacilityModel).where(
+            FacilityModel.organization_id == organization_id,
+            FacilityModel.status == FacilityStatus.ACTIVE.value,
+        )
+        if facility_ids is not None:
+            if not facility_ids:
+                return []
+            stmt = stmt.where(FacilityModel.id.in_(facility_ids))
+        stmt = stmt.order_by(FacilityModel.name.asc(), FacilityModel.id.asc())
+        result = await self._session.execute(stmt)
+        return [_to_facility(row) for row in result.scalars().all()]
+
     async def list_identifiers(self, organization_id: UUID) -> list[OrganizationIdentifier]:
         result = await self._session.execute(
             select(OrganizationIdentifierModel).where(

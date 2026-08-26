@@ -41,6 +41,10 @@ async def get_principal(
     return principal.for_organization(organization_id)
 
 
+async def get_unscoped_principal(auth: CurrentAuth, session: DbSession) -> Principal | None:
+    return await IamRepository(session).load_principal(auth.subject)
+
+
 async def require_principal(
     principal: Annotated[Principal | None, Depends(get_principal)],
 ) -> Principal:
@@ -79,6 +83,7 @@ def request_correlation_id(request: Request) -> str:
 
 
 CurrentPrincipal = Annotated[Principal | None, Depends(get_principal)]
+UnscopedPrincipal = Annotated[Principal | None, Depends(get_unscoped_principal)]
 RequiredPrincipal = Annotated[Principal, Depends(require_principal)]
 CurrentAudit = Annotated[AuditSink, Depends(get_audit_sink)]
 RequestPurpose = Annotated[str, Depends(get_purpose)]

@@ -6,11 +6,18 @@ from app.api.v1.deps import (
     CurrentPrincipal,
     OptionalOrganizationId,
     RequestOrganizationId,
+    UnscopedPrincipal,
+    require_staff_audience,
     require_staff_or_platform_audience,
 )
 from app.api.v1.schemas import AssignMembershipRequest, ProvisionUserRequest
 from app.core.dependencies import CurrentPDP, DbSession
 from app.modules.iam.application.services import IamService
+from app.modules.iam.application.shell_context import ShellContextService
+from app.modules.iam.application.shell_schemas import (
+    StaffContextResponse,
+    StaffOrganizationsResponse,
+)
 
 router = APIRouter(
     prefix="/iam",
@@ -21,6 +28,39 @@ router = APIRouter(
 
 def _service(session: DbSession, pdp: CurrentPDP, audit: CurrentAudit) -> IamService:
     return IamService(session, pdp, audit)
+
+
+def _shell(session: DbSession, pdp: CurrentPDP, audit: CurrentAudit) -> ShellContextService:
+    return ShellContextService(session, pdp, audit)
+
+
+@router.get(
+    "/me/organizations",
+    response_model=StaffOrganizationsResponse,
+    dependencies=[Depends(require_staff_audience)],
+)
+async def list_my_organizations(
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: UnscopedPrincipal,
+) -> StaffOrganizationsResponse:
+    return await _shell(session, pdp, audit).list_organizations(principal)
+
+
+@router.get(
+    "/me/context",
+    response_model=StaffContextResponse,
+    dependencies=[Depends(require_staff_audience)],
+)
+async def get_my_context(
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+) -> StaffContextResponse:
+    return await _shell(session, pdp, audit).get_context(principal, organization_id)
 
 
 @router.post("/users")
