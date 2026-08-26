@@ -15,8 +15,30 @@ from app.modules.patient_access.application.services import PatientAccessService
 from app.modules.patient_access.domain.models import PatientPrincipal
 
 
-async def get_principal(auth: CurrentAuth, session: DbSession) -> Principal | None:
-    return await IamRepository(session).load_principal(auth.subject)
+def get_optional_organization_id(
+    x_organization_id: Annotated[str | None, Header()] = None,
+) -> UUID | None:
+    if x_organization_id is None or not x_organization_id.strip():
+        return None
+    try:
+        return UUID(x_organization_id)
+    except ValueError as exc:
+        raise AppError(
+            "invalid_organization",
+            "X-Organization-Id must be a UUID",
+            status_code=422,
+        ) from exc
+
+
+async def get_principal(
+    auth: CurrentAuth,
+    session: DbSession,
+    organization_id: Annotated[UUID | None, Depends(get_optional_organization_id)],
+) -> Principal | None:
+    principal = await IamRepository(session).load_principal(auth.subject)
+    if principal is None or organization_id is None:
+        return principal
+    return principal.for_organization(organization_id)
 
 
 async def require_principal(
@@ -33,21 +55,6 @@ def get_audit_sink(session: DbSession) -> AuditSink:
 
 def get_purpose(x_purpose: Annotated[str | None, Header()] = None) -> str:
     return parse_purpose(x_purpose).value
-
-
-def get_optional_organization_id(
-    x_organization_id: Annotated[str | None, Header()] = None,
-) -> UUID | None:
-    if x_organization_id is None or not x_organization_id.strip():
-        return None
-    try:
-        return UUID(x_organization_id)
-    except ValueError as exc:
-        raise AppError(
-            "invalid_organization",
-            "X-Organization-Id must be a UUID",
-            status_code=422,
-        ) from exc
 
 
 def get_organization_id(

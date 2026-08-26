@@ -12,6 +12,7 @@
 This gate is not a HIPAA, ISO 27001, or SOC 2 certification. It does not authorize production code, a web application, migration `0019`, Patient Mobile, Platform Admin Web, scheduling, notifications, pharmacy, AI, subscription, commit, tag, or push.
 
 Source: `docs/architecture/healthcare-web-clinical-chart-discovery.md`.  
+Follow-on shell design: `docs/architecture/healthcare-web-shell-iam-context-design.md`.  
 Companion canvas (review-only, outside git): [healthcare-web-clinical-chart-discovery.canvas.tsx](/Users/syahrezakhatami/.cursor/projects/Users-syahrezakhatami-Projects-patient-health-platform/canvases/healthcare-web-clinical-chart-discovery.canvas.tsx)
 
 ---
@@ -84,8 +85,8 @@ If this table were materially wrong, this pass would STOP.
 
 ## 5. Separate design approvals required before code
 
-1. Clinical Read Core (API names, pagination, cluster SQL, per-section auth, audit of chart open)
-2. Healthcare Web shell (auth session UX, org/facility picker APIs)
+1. Clinical Read Core — **done** (`clinical-read-core-frozen`)
+2. Healthcare Web shell (auth session UX, org/facility picker APIs) — `docs/architecture/healthcare-web-shell-iam-context-design.md`
 3. Nurse permission bundle (if nursing UI is in scope)
 4. Optional ORG_ADMIN chart tightening
 5. Optional “today’s in-progress encounters” index (still not scheduling)

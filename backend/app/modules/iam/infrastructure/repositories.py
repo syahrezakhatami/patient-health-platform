@@ -73,9 +73,13 @@ class IamRepository:
         if user is None or user.status is not UserStatus.ACTIVE:
             return None
         memberships = await self.list_active_memberships(user.id)
-        role_codes = frozenset(item.role_code for item in memberships)
-        permission_codes = await self._permission_codes_for_roles(
+        permissions_by_role_id = await self._permissions_by_role_id(
             [item.role_id for item in memberships]
+        )
+        permission_codes = (
+            frozenset().union(*permissions_by_role_id.values())
+            if permissions_by_role_id
+            else frozenset()
         )
         organization_ids = frozenset(
             item.organization_id for item in memberships if item.organization_id is not None
@@ -89,18 +93,22 @@ class IamRepository:
             permission_codes=permission_codes,
             organization_ids=organization_ids,
             facility_ids=facility_ids,
-            role_codes=role_codes,
+            role_codes=frozenset(item.role_code for item in memberships),
+            permissions_by_role_id=permissions_by_role_id,
         )
 
-    async def _permission_codes_for_roles(self, role_ids: list[UUID]) -> frozenset[str]:
+    async def _permissions_by_role_id(self, role_ids: list[UUID]) -> dict[UUID, frozenset[str]]:
         if not role_ids:
-            return frozenset()
+            return {}
         result = await self._session.execute(
-            select(PermissionModel.code)
-            .join(RolePermissionModel, RolePermissionModel.permission_id == PermissionModel.id)
+            select(RolePermissionModel.role_id, PermissionModel.code)
+            .join(PermissionModel, PermissionModel.id == RolePermissionModel.permission_id)
             .where(RolePermissionModel.role_id.in_(role_ids))
         )
-        return frozenset(result.scalars().all())
+        grouped: dict[UUID, set[str]] = {role_id: set() for role_id in role_ids}
+        for role_id, code in result.all():
+            grouped.setdefault(role_id, set()).add(code)
+        return {role_id: frozenset(codes) for role_id, codes in grouped.items()}
 
 
 def _to_user(row: UserModel) -> User:

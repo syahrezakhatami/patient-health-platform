@@ -12,7 +12,8 @@
 This document does not authorize frontend code, a web application, migration `0019`, production APIs, Patient Mobile, Platform Admin Web, subscription, entitlement, AI, scheduling, notifications, pharmacy, emergency, commit, tag, or push.
 
 Companion gate: `docs/gates/healthcare-web-clinical-chart-architecture-discovery.md`.  
-Approved follow-on design: `docs/architecture/clinical-read-core-design.md`.  
+Approved follow-on design: `docs/architecture/clinical-read-core-design.md` (Clinical Read Core is now frozen).  
+Healthcare Web shell / IAM context design: `docs/architecture/healthcare-web-shell-iam-context-design.md`.  
 Companion canvas (review-only, outside git): [healthcare-web-clinical-chart-discovery.canvas.tsx](/Users/syahrezakhatami/.cursor/projects/Users-syahrezakhatami-Projects-patient-health-platform/canvases/healthcare-web-clinical-chart-discovery.canvas.tsx)
 
 Frozen contracts that this pass must not reinterpret:
@@ -533,10 +534,10 @@ P0/P1: none unresolved on the frozen foundation.
 
 | Topic | Class |
 |---|---|
-| One Healthcare Web shell | READY FOR DESIGN |
+| One Healthcare Web shell | APPROVED FOR DESIGN (see `docs/architecture/healthcare-web-shell-iam-context-design.md`) |
 | Staff auth `php-api` | APPROVED BY FROZEN FOUNDATION |
 | Org/facility as request context | APPROVED BY FROZEN FOUNDATION |
-| Facility list + memberships-for-shell APIs | READY FOR DESIGN (thin IAM/org queries) |
+| Facility list + memberships-for-shell APIs | APPROVED FOR DESIGN (see shell IAM context contract) |
 | Exact identifier patient lookup | APPROVED BY FROZEN FOUNDATION |
 | Open name search | FORBIDDEN |
 | Patient chart read model (`clinical_read`) | READY FOR DESIGN |

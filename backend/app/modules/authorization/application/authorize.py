@@ -111,18 +111,30 @@ def _context(
             canonical_patient_identity_id=principal.canonical_patient_identity_id,
             cluster_identity_ids=tuple(sorted(principal.cluster_identity_ids)),
         )
+    staff = _staff_for_organization(
+        principal if isinstance(principal, Principal) else None,
+        organization_id,
+    )
     return AuthorizationContext(
-        actor_id=None if principal is None else principal.user.id,
+        actor_id=None if staff is None else staff.user.id,
         principal_type=PrincipalType.STAFF,
         organization_id=organization_id,
         facility_id=facility_id,
-        roles=() if principal is None else tuple(sorted(principal.role_codes)),
-        scopes=() if principal is None else tuple(sorted(principal.permission_codes)),
+        roles=() if staff is None else tuple(sorted(staff.role_codes)),
+        scopes=() if staff is None else tuple(sorted(staff.permission_codes)),
         patient_id=patient_id,
         purpose=purpose,
         emergency_access_id=None,
         resource_type=resource_type,
         action=action,
-        actor_organization_ids=() if principal is None else tuple(principal.organization_ids),
-        actor_facility_ids=() if principal is None else tuple(principal.facility_ids),
+        actor_organization_ids=() if staff is None else tuple(staff.organization_ids),
+        actor_facility_ids=() if staff is None else tuple(staff.facility_ids),
     )
+
+
+def _staff_for_organization(
+    principal: Principal | None, organization_id: UUID | None
+) -> Principal | None:
+    if principal is None or organization_id is None:
+        return principal
+    return principal.for_organization(organization_id)
