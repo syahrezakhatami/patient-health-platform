@@ -668,21 +668,18 @@ async def test_adverse_event_authz_denied_audit_consent_and_platform(db_client, 
         headers=platform.headers(purpose="TREATMENT"),
         json=_event(patient_id, note="platform", severity="MODERATE"),
     )
-    assert platform_created.status_code in {200, 201}
-    platform_id = platform_created.json()["id"]
+    assert platform_created.status_code == 403
     platform_amend = await db_client.post(
-        f"/api/v1/clinical/adverse-events/{platform_id}/amend",
+        f"/api/v1/clinical/adverse-events/{event_id}/amend",
         headers=platform.headers(purpose="TREATMENT"),
         json=_amend_body(note="platform", severity="SEVERE"),
     )
-    assert platform_amend.status_code == 200
-    assert platform_amend.json()["version"] == 2
+    assert platform_amend.status_code == 403
     platform_eie = await db_client.post(
-        f"/api/v1/clinical/adverse-events/{platform_id}/entered-in-error",
+        f"/api/v1/clinical/adverse-events/{event_id}/entered-in-error",
         headers=platform.headers(purpose="TREATMENT"),
     )
-    assert platform_eie.status_code == 200
-    assert platform_eie.json()["version"] == 2
+    assert platform_eie.status_code == 403
     async with db_engine.connect() as connection:
         denied_rows = await connection.execute(
             text(

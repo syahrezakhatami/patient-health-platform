@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.api.v1.deps import (
     CorrelationId,
@@ -8,6 +8,7 @@ from app.api.v1.deps import (
     CurrentPrincipal,
     OptionalOrganizationId,
     RequestOrganizationId,
+    require_staff_or_platform_audience,
 )
 from app.api.v1.schemas import (
     CreateFacilityRequest,
@@ -17,7 +18,11 @@ from app.api.v1.schemas import (
 from app.core.dependencies import CurrentPDP, DbSession
 from app.modules.organization.application.services import OrganizationService
 
-router = APIRouter(prefix="/organizations", tags=["organizations"])
+router = APIRouter(
+    prefix="/organizations",
+    tags=["organizations"],
+    dependencies=[Depends(require_staff_or_platform_audience)],
+)
 
 
 def _service(session: DbSession, pdp: CurrentPDP, audit: CurrentAudit) -> OrganizationService:

@@ -668,28 +668,30 @@ async def test_platform_admin_reported_occurrence_anonymous_and_encounters(
             occurrence_at="2026-04-01T01:00:00Z",
         ),
     )
-    assert reported.status_code in {200, 201}
-    assert reported.json()["category"] == "REPORTED"
-    assert reported.json()["status"] == "ACTIVE"
-    assert reported.json()["version"] == 1
-    procedure_id = reported.json()["id"]
+    assert reported.status_code == 403
+    clinician_reported = await db_client.post(
+        "/api/v1/clinical/procedures",
+        headers=clinician.headers(purpose="TREATMENT"),
+        json=_procedure(
+            patient_id,
+            note="clinician reported",
+            category="REPORTED",
+            occurrence_at="2026-04-01T01:00:00Z",
+        ),
+    )
+    assert clinician_reported.status_code in {200, 201}
+    procedure_id = clinician_reported.json()["id"]
     amended = await db_client.post(
         f"/api/v1/clinical/procedures/{procedure_id}/amend",
         headers=platform.headers(purpose="TREATMENT"),
         json=_amend_body(note="platform reported", occurrence_at="2026-04-02T02:00:00Z"),
     )
-    assert amended.status_code == 200
-    assert amended.json()["status"] == "AMENDED"
-    assert amended.json()["version"] == 2
-    assert amended.json()["occurrence_at"] is not None
-    assert "2026-04-02" in amended.json()["occurrence_at"]
+    assert amended.status_code == 403
     voided = await db_client.post(
         f"/api/v1/clinical/procedures/{procedure_id}/entered-in-error",
         headers=platform.headers(purpose="TREATMENT"),
     )
-    assert voided.status_code == 200
-    assert voided.json()["status"] == "ENTERED_IN_ERROR"
-    assert voided.json()["version"] == 2
+    assert voided.status_code == 403
 
     anonymous = await db_client.post(
         "/api/v1/mpi/identities/anonymous",

@@ -432,6 +432,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_ENCOUNTER_CREATE,
             resource_type="Encounter",
@@ -516,6 +517,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_ENCOUNTER_READ,
             resource_type="Encounter",
@@ -540,6 +542,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_ENCOUNTER_READ,
             resource_type="Encounter",
@@ -569,6 +572,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_ENCOUNTER_UPDATE_STATUS,
             resource_type="Encounter",
@@ -618,6 +622,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_NOTE_CREATE,
             resource_type="ClinicalNote",
@@ -690,6 +695,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_NOTE_READ,
             resource_type="ClinicalNote",
@@ -716,6 +722,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_NOTE_UPDATE_DRAFT,
             resource_type="ClinicalNote",
@@ -755,6 +762,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_NOTE_FINALIZE,
             resource_type="ClinicalNote",
@@ -793,6 +801,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_NOTE_FINALIZE,
             resource_type="ClinicalNote",
@@ -837,6 +846,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_CONDITION_CREATE,
             resource_type="Condition",
@@ -957,6 +967,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_CONDITION_READ,
             resource_type="Condition",
@@ -982,6 +993,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_CONDITION_READ,
             resource_type="Condition",
@@ -1014,6 +1026,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_CONDITION_UPDATE,
             resource_type="Condition",
@@ -1085,6 +1098,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_CONDITION_ENTERED_IN_ERROR,
             resource_type="Condition",
@@ -1129,6 +1143,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_OBSERVATION_CREATE,
             resource_type="Observation",
@@ -1237,6 +1252,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_OBSERVATION_READ,
             resource_type="Observation",
@@ -1262,6 +1278,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_OBSERVATION_READ,
             resource_type="Observation",
@@ -1294,6 +1311,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_OBSERVATION_UPDATE,
             resource_type="Observation",
@@ -1357,6 +1375,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_OBSERVATION_ENTERED_IN_ERROR,
             resource_type="Observation",
@@ -1398,6 +1417,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_LAB_ORDER_CREATE,
             resource_type="LaboratoryOrder",
@@ -1465,6 +1485,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_LAB_ORDER_READ,
             resource_type="LaboratoryOrder",
@@ -1489,6 +1510,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_LAB_ORDER_READ,
             resource_type="LaboratoryOrder",
@@ -1517,6 +1539,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_LAB_ORDER_UPDATE,
             resource_type="LaboratoryOrder",
@@ -1556,6 +1579,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_LAB_ORDER_ENTERED_IN_ERROR,
             resource_type="LaboratoryOrder",
@@ -1596,6 +1620,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_LAB_SPECIMEN_CREATE,
             resource_type="LaboratorySpecimen",
@@ -1674,6 +1699,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_LAB_SPECIMEN_READ,
             resource_type="LaboratorySpecimen",
@@ -1698,6 +1724,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_LAB_SPECIMEN_READ,
             resource_type="LaboratorySpecimen",
@@ -1726,6 +1753,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_LAB_SPECIMEN_UPDATE,
             resource_type="LaboratorySpecimen",
@@ -1766,6 +1794,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_LAB_SPECIMEN_ENTERED_IN_ERROR,
             resource_type="LaboratorySpecimen",
@@ -1810,6 +1839,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_LAB_RESULT_CREATE,
             resource_type="LaboratoryResult",
@@ -1882,6 +1912,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_LAB_RESULT_READ,
             resource_type="LaboratoryResult",
@@ -1906,6 +1937,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_LAB_RESULT_READ,
             resource_type="LaboratoryResult",
@@ -1937,6 +1969,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_LAB_RESULT_UPDATE,
             resource_type="LaboratoryResult",
@@ -2007,6 +2040,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_LAB_RESULT_ENTERED_IN_ERROR,
             resource_type="LaboratoryResult",
@@ -2053,6 +2087,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_MEDICATION_CREATE,
             resource_type="Medication",
@@ -2164,6 +2199,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_MEDICATION_READ,
             resource_type="Medication",
@@ -2189,6 +2225,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_MEDICATION_READ,
             resource_type="Medication",
@@ -2219,6 +2256,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_MEDICATION_UPDATE,
             resource_type="Medication",
@@ -2261,6 +2299,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_MEDICATION_ENTERED_IN_ERROR,
             resource_type="Medication",
@@ -2309,6 +2348,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_ALLERGY_CREATE,
             resource_type="Allergy",
@@ -2428,6 +2468,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_ALLERGY_READ,
             resource_type="Allergy",
@@ -2453,6 +2494,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_ALLERGY_READ,
             resource_type="Allergy",
@@ -2489,6 +2531,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_ALLERGY_UPDATE,
             resource_type="Allergy",
@@ -2564,6 +2607,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_ALLERGY_ENTERED_IN_ERROR,
             resource_type="Allergy",
@@ -2612,6 +2656,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_CONSENT_CREATE,
             resource_type="Consent",
@@ -2719,6 +2764,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_CONSENT_READ,
             resource_type="Consent",
@@ -2744,6 +2790,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_CONSENT_READ,
             resource_type="Consent",
@@ -2777,6 +2824,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_CONSENT_UPDATE,
             resource_type="Consent",
@@ -2839,6 +2887,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_CONSENT_REVOKE,
             resource_type="Consent",
@@ -2886,6 +2935,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_CONSENT_ENTERED_IN_ERROR,
             resource_type="Consent",
@@ -2937,6 +2987,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_IMMUNIZATION_CREATE,
             resource_type="Immunization",
@@ -3050,6 +3101,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_IMMUNIZATION_READ,
             resource_type="Immunization",
@@ -3075,6 +3127,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_IMMUNIZATION_READ,
             resource_type="Immunization",
@@ -3109,6 +3162,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_IMMUNIZATION_UPDATE,
             resource_type="Immunization",
@@ -3174,6 +3228,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_IMMUNIZATION_ENTERED_IN_ERROR,
             resource_type="Immunization",
@@ -3223,6 +3278,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_PROCEDURE_CREATE,
             resource_type="Procedure",
@@ -3334,6 +3390,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_PROCEDURE_READ,
             resource_type="Procedure",
@@ -3359,6 +3416,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_PROCEDURE_READ,
             resource_type="Procedure",
@@ -3391,6 +3449,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_PROCEDURE_UPDATE,
             resource_type="Procedure",
@@ -3447,6 +3506,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_PROCEDURE_ENTERED_IN_ERROR,
             resource_type="Procedure",
@@ -3497,6 +3557,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_MEDICAL_DEVICE_CREATE,
             resource_type="MedicalDevice",
@@ -3610,6 +3671,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_MEDICAL_DEVICE_READ,
             resource_type="MedicalDevice",
@@ -3637,6 +3699,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_MEDICAL_DEVICE_READ,
             resource_type="MedicalDevice",
@@ -3670,6 +3733,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_MEDICAL_DEVICE_UPDATE,
             resource_type="MedicalDevice",
@@ -3737,6 +3801,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_MEDICAL_DEVICE_ENTERED_IN_ERROR,
             resource_type="MedicalDevice",
@@ -3791,6 +3856,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_ADVERSE_EVENT_CREATE,
             resource_type="AdverseEvent",
@@ -3915,6 +3981,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_ADVERSE_EVENT_READ,
             resource_type="AdverseEvent",
@@ -3942,6 +4009,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_ADVERSE_EVENT_READ,
             resource_type="AdverseEvent",
@@ -3975,6 +4043,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_ADVERSE_EVENT_UPDATE,
             resource_type="AdverseEvent",
@@ -4039,6 +4108,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_ADVERSE_EVENT_ENTERED_IN_ERROR,
             resource_type="AdverseEvent",
@@ -4092,6 +4162,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_FAMILY_HISTORY_CREATE,
             resource_type="FamilyHistory",
@@ -4205,6 +4276,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_FAMILY_HISTORY_READ,
             resource_type="FamilyHistory",
@@ -4232,6 +4304,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_FAMILY_HISTORY_READ,
             resource_type="FamilyHistory",
@@ -4264,6 +4337,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_FAMILY_HISTORY_UPDATE,
             resource_type="FamilyHistory",
@@ -4324,6 +4398,7 @@ class ClinicalService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.CLINICAL_FAMILY_HISTORY_ENTERED_IN_ERROR,
             resource_type="FamilyHistory",

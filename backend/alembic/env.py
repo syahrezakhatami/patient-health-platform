@@ -49,6 +49,7 @@ from app.modules.organization.infrastructure.models import (
     OrganizationIdentifierModel,
     OrganizationModel,
 )
+from app.modules.patient_access.infrastructure.models import PatientAccountModel
 
 assert AuditEventModel.__tablename__ == "audit_events"
 assert UserModel.__tablename__ == "users"
@@ -59,6 +60,7 @@ assert OrganizationMembershipModel.__tablename__ == "organization_memberships"
 assert OrganizationModel.__tablename__ == "organizations"
 assert FacilityModel.__tablename__ == "facilities"
 assert OrganizationIdentifierModel.__tablename__ == "organization_identifiers"
+assert PatientAccountModel.__tablename__ == "patient_accounts"
 assert PatientIdentityModel.__tablename__ == "patient_identities"
 assert PatientIdentifierModel.__tablename__ == "patient_identifiers"
 assert IdentityClusterModel.__tablename__ == "identity_clusters"

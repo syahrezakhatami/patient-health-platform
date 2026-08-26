@@ -91,3 +91,7 @@ Migration `20260814_0016` adds `adverse_events`. It extends `clinical_provenance
 ## Wave 2B.8 Family History schema
 
 Migration `20260814_0017` adds `family_histories`. It extends `clinical_provenances.subject_type` with `FAMILY_HISTORY` and seeds family-history permissions. It does not add FHIR FamilyMemberHistory, Patient History, relative identity, Condition FK, CarePlan, or later clinical tables. After upgrade, re-run `scripts/grant_dev_privileges.sql` so `app_dml` can use the new table and so DELETE remains revoked. Do not edit `0001`–`0016`. Do not run destructive downgrade against a populated local database.
+
+## Product access and tenancy foundation schema
+
+Migration `20260814_0018` adds `patient_accounts` (1:1 UUID bind to `patient_identities.id`, never NIK/BPJS), seeds `patient.account.read` and `patient.record.read`, and strips `clinical.*` / `mpi.*` (and other non-retained) grants from `PLATFORM_ADMIN`. It does not add tenant, subscription, entitlement, AI, scheduling, notification, pharmacy, or patient-history tables. After upgrade, re-run `scripts/grant_dev_privileges.sql` so `app_dml` can use the new table and so DELETE remains revoked. Do not edit `0001`–`0017`. Do not run destructive downgrade against a populated local database.

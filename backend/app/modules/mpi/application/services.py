@@ -129,6 +129,7 @@ class MpiService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.MPI_IDENTITY_CREATE,
             resource_type="PatientIdentity",
@@ -197,6 +198,7 @@ class MpiService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.MPI_IDENTITY_CREATE,
             resource_type="PatientIdentity",
@@ -248,6 +250,7 @@ class MpiService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.MPI_IDENTITY_READ,
             resource_type="PatientIdentity",
@@ -278,6 +281,7 @@ class MpiService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.MPI_IDENTITY_READ,
             resource_type="PatientIdentity",
@@ -320,6 +324,7 @@ class MpiService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.MPI_IDENTIFIER_ADD,
             resource_type="PatientIdentifier",
@@ -428,6 +433,7 @@ class MpiService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.MPI_IDENTIFIER_ADD,
             resource_type="PatientIdentity",
@@ -520,6 +526,7 @@ class MpiService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.MPI_MATCH_EVALUATE,
             resource_type="IdentityMatch",
@@ -628,6 +635,7 @@ class MpiService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.MPI_MATCH_REVIEW,
             resource_type="IdentityMatchCandidate",
@@ -675,6 +683,7 @@ class MpiService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.MPI_MERGE_EXECUTE,
             resource_type="IdentityMerge",
@@ -801,6 +810,7 @@ class MpiService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.MPI_UNMERGE_EXECUTE,
             resource_type="IdentityUnmerge",
@@ -909,6 +919,7 @@ class MpiService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.MPI_IDENTIFIER_VERIFY,
             resource_type="PatientIdentifier",

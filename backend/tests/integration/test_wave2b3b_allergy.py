@@ -152,7 +152,7 @@ async def test_allergy_lifecycle_identity_and_authorization(db_client, db_engine
         f"/api/v1/clinical/allergies/{allergy_id}",
         headers=platform.headers(purpose="TREATMENT"),
     )
-    assert platform_read.status_code == 200
+    assert platform_read.status_code == 403
 
     amended = await db_client.post(
         f"/api/v1/clinical/allergies/{allergy_id}/amend",

@@ -6,6 +6,7 @@ Wave 2B.3a adds medication permissions. Wave 2B.3b adds allergy permissions.
 Wave 2B.3c adds consent permissions. Wave 2B.4 adds immunization permissions.
 Wave 2B.5 adds procedure permissions. Wave 2B.6 adds medical device permissions.
 Wave 2B.7 adds adverse event permissions. Wave 2B.8 adds family history permissions.
+Product access adds patient.* permissions.
 FHIR remains absent.
 """
 
@@ -90,6 +91,8 @@ class Permission(StrEnum):
     CLINICAL_FAMILY_HISTORY_READ = "clinical.family_history.read"
     CLINICAL_FAMILY_HISTORY_UPDATE = "clinical.family_history.update"
     CLINICAL_FAMILY_HISTORY_ENTERED_IN_ERROR = "clinical.family_history.entered_in_error"
+    PATIENT_ACCOUNT_READ = "patient.account.read"
+    PATIENT_RECORD_READ = "patient.record.read"
 
 
 class RoleCode(StrEnum):
@@ -209,6 +212,29 @@ WAVE2B8_PERMISSIONS: frozenset[str] = frozenset(
         Permission.CLINICAL_FAMILY_HISTORY_ENTERED_IN_ERROR,
     }
 )
+PATIENT_PERMISSIONS: frozenset[str] = frozenset(
+    {
+        Permission.PATIENT_ACCOUNT_READ,
+        Permission.PATIENT_RECORD_READ,
+    }
+)
+PLATFORM_ADMIN_PERMISSIONS: frozenset[str] = frozenset(
+    {
+        Permission.IAM_PLATFORM,
+        Permission.IAM_USER_READ,
+        Permission.IAM_USER_PROVISION,
+        Permission.IAM_MEMBERSHIP_MANAGE,
+        Permission.ORG_ORGANIZATION_CREATE,
+        Permission.ORG_ORGANIZATION_READ,
+    }
+)
+PLATFORM_BOOTSTRAP_ROLES: frozenset[str] = frozenset(
+    {
+        RoleCode.PLATFORM_ADMIN,
+        RoleCode.ORG_ADMIN,
+    }
+)
+PHI_ACTION_PREFIXES: tuple[str, ...] = ("clinical.", "mpi.")
 WAVE1_PERMISSIONS: frozenset[str] = (
     frozenset(item.value for item in Permission)
     - WAVE2A_PERMISSIONS
@@ -223,6 +249,7 @@ WAVE1_PERMISSIONS: frozenset[str] = (
     - WAVE2B6_PERMISSIONS
     - WAVE2B7_PERMISSIONS
     - WAVE2B8_PERMISSIONS
+    - PATIENT_PERMISSIONS
 )
 CATALOG_PERMISSIONS: frozenset[str] = (
     WAVE1_PERMISSIONS
@@ -238,12 +265,13 @@ CATALOG_PERMISSIONS: frozenset[str] = (
     | WAVE2B6_PERMISSIONS
     | WAVE2B7_PERMISSIONS
     | WAVE2B8_PERMISSIONS
+    | PATIENT_PERMISSIONS
 )
 
 # Canonical permission *definitions* and the seed map used by Alembic.
 # Runtime assignment is read from role_permissions, not this dict.
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
-    RoleCode.PLATFORM_ADMIN: CATALOG_PERMISSIONS,
+    RoleCode.PLATFORM_ADMIN: PLATFORM_ADMIN_PERMISSIONS,
     RoleCode.ORG_ADMIN: frozenset(
         {
             Permission.IAM_USER_READ,
@@ -391,11 +419,15 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     ),
 }
 
-ORG_SCOPED_PERMISSIONS: frozenset[str] = (CATALOG_PERMISSIONS) - frozenset(
-    {
-        Permission.IAM_PLATFORM,
-        Permission.IAM_USER_READ,
-        Permission.IAM_USER_PROVISION,
-        Permission.ORG_ORGANIZATION_CREATE,
-    }
+ORG_SCOPED_PERMISSIONS: frozenset[str] = (
+    (CATALOG_PERMISSIONS)
+    - frozenset(
+        {
+            Permission.IAM_PLATFORM,
+            Permission.IAM_USER_READ,
+            Permission.IAM_USER_PROVISION,
+            Permission.ORG_ORGANIZATION_CREATE,
+        }
+    )
+    - PATIENT_PERMISSIONS
 )

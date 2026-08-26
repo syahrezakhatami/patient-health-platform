@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.api.v1.deps import (
     CorrelationId,
@@ -9,6 +9,7 @@ from app.api.v1.deps import (
     RequestFacilityId,
     RequestOrganizationId,
     RequestPurpose,
+    require_staff_audience,
 )
 from app.api.v1.schemas import (
     CreateAnonymousIdentityRequest,
@@ -29,7 +30,11 @@ from app.api.v1.schemas import (
 from app.core.dependencies import CurrentPDP, DbSession
 from app.modules.mpi.application.services import IdentifierInput, IdentityView, MpiService
 
-router = APIRouter(prefix="/mpi", tags=["mpi"])
+router = APIRouter(
+    prefix="/mpi",
+    tags=["mpi"],
+    dependencies=[Depends(require_staff_audience)],
+)
 
 
 def _service(session: DbSession, pdp: CurrentPDP, audit: CurrentAudit) -> MpiService:

@@ -148,7 +148,7 @@ async def test_immunization_lifecycle_identity_and_authorization(db_client, db_e
         f"/api/v1/clinical/immunizations/{immunization_id}",
         headers=platform.headers(purpose="TREATMENT"),
     )
-    assert platform_read.status_code == 200
+    assert platform_read.status_code == 403
 
     amended = await db_client.post(
         f"/api/v1/clinical/immunizations/{immunization_id}/amend",

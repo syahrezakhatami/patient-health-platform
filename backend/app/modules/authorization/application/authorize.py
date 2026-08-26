@@ -1,19 +1,35 @@
 from uuid import UUID
 
-from app.core.errors import ForbiddenError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.errors import ForbiddenError, NotFoundError
 from app.modules.audit.application.ports import AuditSink
 from app.modules.audit.domain.events import AuditEvent
+from app.modules.authorization.application.facility_scope import facility_tenant_decision
 from app.modules.authorization.application.ports import PolicyDecisionPoint
 from app.modules.authorization.domain.models import AuthorizationContext, AuthorizationDecision
 from app.modules.iam.domain.models import Principal
+from app.modules.patient_access.domain.models import PatientPrincipal
 from app.shared.enums import AuditResult, PrincipalType
+
+_CONCEAL_REASONS = frozenset(
+    {
+        "patient_identity_mismatch",
+        "patient_not_found",
+        "facility_not_found",
+        "facility_organization_mismatch",
+    }
+)
+
+AccessPrincipal = Principal | PatientPrincipal | None
 
 
 async def authorize(
     pdp: PolicyDecisionPoint,
     audit: AuditSink,
     *,
-    principal: Principal | None,
+    session: AsyncSession,
+    principal: AccessPrincipal,
     action: str,
     resource_type: str,
     organization_id: UUID | None,
@@ -22,7 +38,80 @@ async def authorize(
     purpose: str | None = None,
     correlation_id: str | None = None,
 ) -> AuthorizationDecision:
-    context = AuthorizationContext(
+    context = _context(
+        principal,
+        action=action,
+        resource_type=resource_type,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        patient_id=patient_id,
+        purpose=purpose,
+    )
+    decision = pdp.evaluate(context)
+    if decision.allowed:
+        tenant = await facility_tenant_decision(
+            session, facility_id=facility_id, organization_id=organization_id
+        )
+        if tenant is not None:
+            decision = tenant
+    if not decision.allowed:
+        await audit.record(
+            AuditEvent(
+                action=action,
+                resource_type=resource_type,
+                result=AuditResult.DENIED,
+                actor_id=_actor_id(principal),
+                organization_id=organization_id,
+                facility_id=facility_id,
+                patient_id=patient_id,
+                purpose=purpose,
+                correlation_id=correlation_id,
+                metadata={"reason": decision.reason, "policy": decision.policy_reference},
+            )
+        )
+        if decision.reason in _CONCEAL_REASONS:
+            raise NotFoundError("Resource not found")
+        raise ForbiddenError("Not authorized")
+    return decision
+
+
+def _actor_id(principal: AccessPrincipal) -> UUID | None:
+    if principal is None:
+        return None
+    if isinstance(principal, PatientPrincipal):
+        return principal.account.id
+    return principal.user.id
+
+
+def _context(
+    principal: AccessPrincipal,
+    *,
+    action: str,
+    resource_type: str,
+    organization_id: UUID | None,
+    facility_id: UUID | None,
+    patient_id: UUID | None,
+    purpose: str | None,
+) -> AuthorizationContext:
+    if isinstance(principal, PatientPrincipal):
+        return AuthorizationContext(
+            actor_id=principal.account.id,
+            principal_type=PrincipalType.PATIENT,
+            organization_id=organization_id,
+            facility_id=facility_id,
+            roles=(),
+            scopes=tuple(sorted(principal.permission_codes)),
+            patient_id=patient_id,
+            purpose=purpose,
+            emergency_access_id=None,
+            resource_type=resource_type,
+            action=action,
+            actor_organization_ids=(),
+            actor_facility_ids=(),
+            canonical_patient_identity_id=principal.canonical_patient_identity_id,
+            cluster_identity_ids=tuple(sorted(principal.cluster_identity_ids)),
+        )
+    return AuthorizationContext(
         actor_id=None if principal is None else principal.user.id,
         principal_type=PrincipalType.STAFF,
         organization_id=organization_id,
@@ -37,21 +126,3 @@ async def authorize(
         actor_organization_ids=() if principal is None else tuple(principal.organization_ids),
         actor_facility_ids=() if principal is None else tuple(principal.facility_ids),
     )
-    decision = pdp.evaluate(context)
-    if not decision.allowed:
-        await audit.record(
-            AuditEvent(
-                action=action,
-                resource_type=resource_type,
-                result=AuditResult.DENIED,
-                actor_id=None if principal is None else principal.user.id,
-                organization_id=organization_id,
-                facility_id=facility_id,
-                patient_id=patient_id,
-                purpose=purpose,
-                correlation_id=correlation_id,
-                metadata={"reason": decision.reason, "policy": decision.policy_reference},
-            )
-        )
-        raise ForbiddenError("Not authorized")
-    return decision

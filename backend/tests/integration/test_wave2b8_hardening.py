@@ -596,21 +596,18 @@ async def test_family_history_authz_denied_audit_consent_and_platform(db_client,
         headers=platform.headers(purpose="TREATMENT"),
         json=_history(patient_id, note="platform", relationship="COUSIN"),
     )
-    assert platform_created.status_code in {200, 201}
-    platform_id = platform_created.json()["id"]
+    assert platform_created.status_code == 403
     platform_amend = await db_client.post(
-        f"/api/v1/clinical/family-histories/{platform_id}/amend",
+        f"/api/v1/clinical/family-histories/{history_id}/amend",
         headers=platform.headers(purpose="TREATMENT"),
         json=_amend_body(note="platform corrected"),
     )
-    assert platform_amend.status_code == 200
-    assert platform_amend.json()["version"] == 2
+    assert platform_amend.status_code == 403
     platform_eie = await db_client.post(
-        f"/api/v1/clinical/family-histories/{platform_id}/entered-in-error",
+        f"/api/v1/clinical/family-histories/{history_id}/entered-in-error",
         headers=platform.headers(purpose="TREATMENT"),
     )
-    assert platform_eie.status_code == 200
-    assert platform_eie.json()["version"] == 2
+    assert platform_eie.status_code == 403
     after_condition = await db_client.get(
         f"/api/v1/clinical/conditions/{condition_id}",
         headers=clinician.headers(purpose="TREATMENT"),

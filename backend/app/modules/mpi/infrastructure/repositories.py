@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.mpi.domain.canonical import MAX_SURVIVOR_HOPS, resolve_canonical_id
 from app.modules.mpi.domain.enums import (
+    ClusterMembershipStatus,
     IdentifierType,
     IdentifierVerificationStatus,
     IdentityKind,
@@ -170,6 +171,26 @@ class MpiRepository:
             )
         )
         return result.scalar_one_or_none()
+
+    async def list_cluster_identity_ids(self, canonical_identity_id: UUID) -> list[UUID]:
+        member = await self.active_cluster_member(canonical_identity_id)
+        if member is None:
+            return [canonical_identity_id]
+        result = await self._session.execute(
+            select(IdentityClusterMemberModel.identity_id).where(
+                IdentityClusterMemberModel.cluster_id == member.cluster_id,
+                IdentityClusterMemberModel.membership_status.in_(
+                    (
+                        ClusterMembershipStatus.ACTIVE,
+                        ClusterMembershipStatus.MERGED_IN,
+                    )
+                ),
+            )
+        )
+        found = list(result.scalars().all())
+        if canonical_identity_id not in found:
+            found.append(canonical_identity_id)
+        return found
 
     async def list_match_candidates_for_probe(
         self,

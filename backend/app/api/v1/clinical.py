@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
 from app.api.v1.deps import (
     CorrelationId,
@@ -10,6 +10,7 @@ from app.api.v1.deps import (
     RequestFacilityId,
     RequestOrganizationId,
     RequestPurpose,
+    require_staff_audience,
 )
 from app.api.v1.schemas import (
     AdverseEventResponse,
@@ -83,7 +84,11 @@ from app.modules.clinical.domain.laboratory_values import (
 from app.modules.clinical.domain.observation_values import ObservationValue, parse_observation_value
 from app.modules.clinical.domain.terminology import CodeableConcept, parse_codeable_concept
 
-router = APIRouter(prefix="/clinical", tags=["clinical"])
+router = APIRouter(
+    prefix="/clinical",
+    tags=["clinical"],
+    dependencies=[Depends(require_staff_audience)],
+)
 
 
 def _service(session: DbSession, pdp: CurrentPDP, audit: CurrentAudit) -> ClinicalService:

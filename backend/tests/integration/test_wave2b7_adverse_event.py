@@ -202,12 +202,12 @@ async def test_adverse_event_lifecycle_identity_and_authorization(db_client, db_
         headers=platform.headers(purpose="TREATMENT"),
         json=_event(patient_id),
     )
-    assert platform_created.status_code in {200, 201}
+    assert platform_created.status_code == 403
     platform_read = await db_client.get(
         f"/api/v1/clinical/adverse-events/{event_id}",
         headers=platform.headers(purpose="TREATMENT"),
     )
-    assert platform_read.status_code == 200
+    assert platform_read.status_code == 403
 
     amended = await db_client.post(
         f"/api/v1/clinical/adverse-events/{event_id}/amend",

@@ -188,12 +188,18 @@ async def test_family_history_lifecycle_identity_and_authorization(db_client, db
         headers=platform.headers(purpose="TREATMENT"),
         json=_history(patient_id, relationship="SIBLING"),
     )
-    assert platform_created.status_code in {200, 201}
+    assert platform_created.status_code == 403
     platform_read = await db_client.get(
         f"/api/v1/clinical/family-histories/{history_id}",
         headers=platform.headers(purpose="TREATMENT"),
     )
-    assert platform_read.status_code == 200
+    assert platform_read.status_code == 403
+    trigger_history = await db_client.post(
+        "/api/v1/clinical/family-histories",
+        headers=clinician.headers(purpose="TREATMENT"),
+        json=_history(patient_id, relationship="SIBLING"),
+    )
+    assert trigger_history.status_code in {200, 201}
 
     consent = await db_client.post(
         "/api/v1/clinical/consents",
@@ -347,17 +353,17 @@ async def test_family_history_lifecycle_identity_and_authorization(db_client, db
                     text("UPDATE family_histories SET status = 'ACTIVE' WHERE id = :id"),
                     {"id": history_id},
                 )
-        platform_id = platform_created.json()["id"]
+        trigger_id = trigger_history.json()["id"]
         async with connection.begin():
             await connection.execute(
                 text("UPDATE family_histories SET status = 'AMENDED' WHERE id = :id"),
-                {"id": platform_id},
+                {"id": trigger_id},
             )
         with pytest.raises(Exception, match="invalid family history status transition"):
             async with connection.begin():
                 await connection.execute(
                     text("UPDATE family_histories SET status = 'ACTIVE' WHERE id = :id"),
-                    {"id": platform_id},
+                    {"id": trigger_id},
                 )
         provenance = await connection.execute(
             text(

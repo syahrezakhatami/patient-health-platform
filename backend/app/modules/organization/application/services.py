@@ -42,6 +42,7 @@ class OrganizationService:
         pdp: PolicyDecisionPoint,
         audit: AuditSink,
     ) -> None:
+        self._session = session
         self._pdp = pdp
         self._audit = audit
         self._orgs = OrganizationRepository(session)
@@ -59,6 +60,7 @@ class OrganizationService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.ORG_ORGANIZATION_CREATE,
             resource_type="Organization",
@@ -109,6 +111,7 @@ class OrganizationService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.ORG_ORGANIZATION_READ,
             resource_type="Organization",
@@ -135,6 +138,7 @@ class OrganizationService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.ORG_FACILITY_CREATE,
             resource_type="Facility",
@@ -193,6 +197,7 @@ class OrganizationService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.ORG_IDENTIFIER_MANAGE,
             resource_type="OrganizationIdentifier",

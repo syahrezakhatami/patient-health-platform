@@ -43,6 +43,8 @@ class Settings(BaseSettings):
 
     auth_issuer: str = "http://localhost:8080/realms/php-dev"
     auth_audience: str = "php-api"
+    auth_platform_audience: str = "php-platform"
+    auth_patient_audience: str = "php-patient"
     auth_jwks_url: str = ""
     auth_dev_hs256_secret: SecretStr | None = None
 

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import UnauthorizedError
 from app.modules.authorization.application.ports import PolicyDecisionPoint
-from app.modules.authorization.application.wave1_pdp import Wave1PolicyPDP
+from app.modules.authorization.application.product_access_pdp import ProductAccessPDP
 from app.modules.iam.application.ports import AuthContext, TokenValidator
 
 
@@ -49,5 +49,5 @@ CurrentAuth = Annotated[AuthContext, Depends(get_auth_context)]
 CurrentPDP = Annotated[PolicyDecisionPoint, Depends(get_pdp)]
 
 
-def default_pdp() -> Wave1PolicyPDP:
-    return Wave1PolicyPDP()
+def default_pdp() -> ProductAccessPDP:
+    return ProductAccessPDP()

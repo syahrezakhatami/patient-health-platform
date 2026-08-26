@@ -19,6 +19,8 @@ class AuthorizationContext:
     action: str
     actor_organization_ids: tuple[UUID, ...] = ()
     actor_facility_ids: tuple[UUID, ...] = ()
+    canonical_patient_identity_id: UUID | None = None
+    cluster_identity_ids: tuple[UUID, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

@@ -54,8 +54,14 @@ class JwtOidcTokenValidator:
             raise UnauthorizedError("Token expiration is missing")
 
         audience = payload.get("aud")
-        audience_value = audience[0] if isinstance(audience, list) else audience
-        if not isinstance(audience_value, str):
+        if isinstance(audience, list):
+            values = [item for item in audience if isinstance(item, str) and item]
+            if len(values) != 1 or len(set(values)) != 1:
+                raise UnauthorizedError("Token audience is invalid")
+            audience_value = values[0]
+        elif isinstance(audience, str) and audience:
+            audience_value = audience
+        else:
             raise UnauthorizedError("Token audience is invalid")
 
         issuer = payload.get("iss")
@@ -89,7 +95,11 @@ class JwtOidcTokenValidator:
         }
         decode_kwargs: dict[str, Any] = {
             "issuer": self._settings.auth_issuer,
-            "audience": self._settings.auth_audience,
+            "audience": [
+                self._settings.auth_audience,
+                self._settings.auth_platform_audience,
+                self._settings.auth_patient_audience,
+            ],
             "options": options,
         }
         if self._jwk_client is not None:

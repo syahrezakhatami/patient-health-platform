@@ -3,12 +3,12 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import AppError, ConflictError, NotFoundError
+from app.core.errors import AppError, ConflictError, ForbiddenError, NotFoundError
 from app.modules.audit.application.ports import AuditSink
 from app.modules.audit.domain.events import AuditEvent
 from app.modules.authorization.application.authorize import authorize
 from app.modules.authorization.application.ports import PolicyDecisionPoint
-from app.modules.authorization.domain.catalog import Permission
+from app.modules.authorization.domain.catalog import PLATFORM_BOOTSTRAP_ROLES, Permission
 from app.modules.iam.domain.enums import MembershipStatus, UserStatus
 from app.modules.iam.domain.models import OrganizationMembership, Principal, User
 from app.modules.iam.infrastructure.models import OrganizationMembershipModel, UserModel
@@ -43,6 +43,7 @@ class IamService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.IAM_USER_PROVISION,
             resource_type="User",
@@ -98,6 +99,7 @@ class IamService:
         await authorize(
             self._pdp,
             self._audit,
+            session=self._session,
             principal=principal,
             action=Permission.IAM_MEMBERSHIP_MANAGE,
             resource_type="OrganizationMembership",
@@ -106,6 +108,9 @@ class IamService:
             purpose="iam_administration",
             correlation_id=correlation_id,
         )
+        if principal is not None and principal.has_platform_scope:
+            if role_code not in PLATFORM_BOOTSTRAP_ROLES:
+                raise ForbiddenError("Not authorized")
         user = await self._iam.get_user(user_id)
         if user is None:
             raise NotFoundError("User not found")

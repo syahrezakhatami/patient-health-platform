@@ -72,7 +72,7 @@ async def test_valid_token_returns_subject_and_deny_decision(client) -> None:
     body = response.json()
     assert body["subject"] == "user-1"
     assert body["authorization"]["allowed"] is False
-    assert body["authorization"]["reason"] == "deny_by_default"
+    assert body["authorization"]["reason"] == "principal_type_denied"
 
 
 async def test_payload_too_large(client) -> None:

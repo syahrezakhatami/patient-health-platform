@@ -316,7 +316,7 @@ async def test_immunization_authz_denied_audit_and_app_dml(db_client, db_engine)
         headers=platform.headers(purpose="TREATMENT"),
         json=_vaccine(patient_id, note="platform write"),
     )
-    assert platform_create.status_code in {200, 201}
+    assert platform_create.status_code == 403
     cross_org = await db_client.get(
         f"/api/v1/clinical/immunizations/{immunization_id}",
         headers=other.headers(purpose="TREATMENT"),
