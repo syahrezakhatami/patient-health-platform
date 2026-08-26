@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1.auth import router as auth_router
 from app.api.v1.clinical import router as clinical_router
+from app.api.v1.clinical_read import router as clinical_read_router
 from app.api.v1.health import router as health_router
 from app.api.v1.iam import router as iam_router
 from app.api.v1.mpi import router as mpi_router
@@ -15,4 +16,5 @@ api_v1_router.include_router(iam_router)
 api_v1_router.include_router(organization_router)
 api_v1_router.include_router(mpi_router)
 api_v1_router.include_router(clinical_router)
+api_v1_router.include_router(clinical_read_router)
 api_v1_router.include_router(patient_router)
