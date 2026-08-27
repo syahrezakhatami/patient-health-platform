@@ -1,0 +1,73 @@
+{
+  "app": {
+    "name": "Healthcare Web",
+    "skipToContent": "Lewati ke konten utama"
+  },
+  "auth": {
+    "signIn": "Masuk",
+    "signOut": "Keluar",
+    "signingIn": "Mengalihkan ke halaman masuk…",
+    "sessionExpiredTitle": "Sesi berakhir",
+    "sessionExpiredBody": "Sesi Anda telah berakhir. Masuk kembali untuk melanjutkan. Data terlindungi dari sesi sebelumnya tidak lagi tersedia.",
+    "loginTitle": "Masuk staf",
+    "loginBody": "Healthcare Web menggunakan penyedia identitas organisasi Anda. Aplikasi ini tidak mengumpulkan nama pengguna dan kata sandi.",
+    "oidcMissing": "Penyedia identitas belum dikonfigurasi. Atur VITE_OIDC_ISSUER dan VITE_OIDC_CLIENT_ID.",
+    "callbackTitle": "Menyelesaikan proses masuk",
+    "callbackError": "Proses masuk gagal. Coba lagi."
+  },
+  "org": {
+    "selectTitle": "Pilih organisasi",
+    "selectBody": "Pilih organisasi layanan kesehatan untuk tab ini. Tab lain dapat menggunakan organisasi berbeda.",
+    "continue": "Lanjutkan",
+    "unassignedTitle": "Tidak ada akses organisasi",
+    "unassignedBody": "Akun Anda sudah diprovision, tetapi belum ditugaskan ke organisasi layanan kesehatan. Aplikasi ini bukan Platform Admin.",
+    "activeOrganization": "Organisasi",
+    "switch": "Ganti organisasi",
+    "roles": "Peran"
+  },
+  "facility": {
+    "label": "Fasilitas kerja",
+    "unset": "Belum dipilih",
+    "requiredTitle": "Pilih fasilitas kerja",
+    "requiredBody": "Akses Anda di organisasi ini terbatas pada fasilitas tertentu. Pilih fasilitas kerja sebelum melanjutkan. Ini bukan filter rekam medis.",
+    "allInOrganizationHint": "Anda dapat bekerja di fasilitas yang dapat diakses dalam organisasi ini. Fasilitas kerja bersifat opsional dan tidak memfilter rekam medis di masa depan.",
+    "switch": "Fasilitas kerja"
+  },
+  "nav": {
+    "home": "Beranda",
+    "registration": "Registrasi",
+    "clinical": "Klinis",
+    "identity": "Identitas",
+    "audit": "Audit",
+    "admin": "Administrasi organisasi"
+  },
+  "workspace": {
+    "homeTitle": "Ruang kerja",
+    "homeBody": "Pilih ruang kerja dari navigasi. Pencarian pasien dan rekam medis klinis bukan bagian dari shell ini.",
+    "empty": "Ruang kerja ini belum diimplementasikan. Tidak ada data pasien atau klinis yang ditampilkan.",
+    "registrationTitle": "Ruang kerja registrasi",
+    "clinicalTitle": "Ruang kerja klinis",
+    "identityTitle": "Ruang kerja identitas",
+    "auditTitle": "Ruang kerja audit",
+    "adminTitle": "Ruang kerja administrasi",
+    "noWorkspaces": "Tidak ada ruang kerja yang tersedia berdasarkan izin organisasi ini."
+  },
+  "errors": {
+    "forbiddenTitle": "Izin ditolak",
+    "forbiddenBody": "Anda tidak dapat membuka area ini dengan izin organisasi saat ini. Server tetap menjadi otoritas keamanan.",
+    "notFoundTitle": "Tidak ditemukan",
+    "notFoundBody": "Halaman ini tidak ada.",
+    "loading": "Memuat…",
+    "generic": "Terjadi kesalahan.",
+    "retry": "Coba lagi"
+  },
+  "locale": {
+    "label": "Bahasa",
+    "en": "English",
+    "id": "Bahasa Indonesia"
+  },
+  "session": {
+    "user": "Masuk sebagai",
+    "unknownUser": "Pengguna staf"
+  }
+}

@@ -1,0 +1,359 @@
+{
+  "components": {
+    "schemas": {
+      "AccessibleFacilitiesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "facilities": {
+            "items": {
+              "$ref": "#/components/schemas/AccessibleFacilityDTO"
+            },
+            "title": "Facilities",
+            "type": "array"
+          },
+          "facility_scope": {
+            "$ref": "#/components/schemas/FacilityScopeKind"
+          },
+          "organization_id": {
+            "format": "uuid",
+            "title": "Organization Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_id",
+          "facility_scope",
+          "facilities"
+        ],
+        "title": "AccessibleFacilitiesResponse",
+        "type": "object"
+      },
+      "AccessibleFacilityDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "facility_type": {
+            "title": "Facility Type",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "code",
+          "facility_type",
+          "status"
+        ],
+        "title": "AccessibleFacilityDTO",
+        "type": "object"
+      },
+      "AccessibleOrganizationDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "organization_id": {
+            "format": "uuid",
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "organization_type": {
+            "title": "Organization Type",
+            "type": "string"
+          },
+          "role_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Role Codes",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_id",
+          "name",
+          "code",
+          "organization_type",
+          "status",
+          "role_codes"
+        ],
+        "title": "AccessibleOrganizationDTO",
+        "type": "object"
+      },
+      "FacilityScopeKind": {
+        "enum": [
+          "ALL_IN_ORGANIZATION",
+          "EXPLICIT"
+        ],
+        "title": "FacilityScopeKind",
+        "type": "string"
+      },
+      "StaffContextResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "effective_permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Effective Permissions",
+            "type": "array"
+          },
+          "facility_scope": {
+            "$ref": "#/components/schemas/FacilityScopeKind"
+          },
+          "organization": {
+            "$ref": "#/components/schemas/AccessibleOrganizationDTO"
+          },
+          "provisioned": {
+            "title": "Provisioned",
+            "type": "boolean"
+          },
+          "role_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Role Codes",
+            "type": "array"
+          },
+          "user": {
+            "$ref": "#/components/schemas/StaffSessionUserDTO"
+          },
+          "work_facility_required": {
+            "title": "Work Facility Required",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "provisioned",
+          "user",
+          "organization",
+          "role_codes",
+          "effective_permissions",
+          "facility_scope",
+          "work_facility_required"
+        ],
+        "title": "StaffContextResponse",
+        "type": "object"
+      },
+      "StaffOrganizationsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "organizations": {
+            "items": {
+              "$ref": "#/components/schemas/AccessibleOrganizationDTO"
+            },
+            "title": "Organizations",
+            "type": "array"
+          },
+          "provisioned": {
+            "title": "Provisioned",
+            "type": "boolean"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StaffSessionUserDTO"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "provisioned"
+        ],
+        "title": "StaffOrganizationsResponse",
+        "type": "object"
+      },
+      "StaffSessionUserDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "subject",
+          "display_name"
+        ],
+        "title": "StaffSessionUserDTO",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Generated from frozen FastAPI source, not live Docker OpenAPI.",
+    "title": "PHP IAM shell (Healthcare Web subset)",
+    "version": "iam-shell-context-frozen"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/iam/me/context": {
+      "get": {
+        "operationId": "get_my_context_api_v1_iam_me_context_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffContextResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get My Context",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/v1/iam/me/organizations": {
+      "get": {
+        "operationId": "list_my_organizations_api_v1_iam_me_organizations_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaffOrganizationsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List My Organizations",
+        "tags": [
+          "iam"
+        ]
+      }
+    },
+    "/api/v1/organizations/{organization_id}/facilities/accessible": {
+      "get": {
+        "operationId": "list_accessible_facilities_api_v1_organizations__organization_id__facilities_accessible_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "organization_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Organization Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessibleFacilitiesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Accessible Facilities",
+        "tags": [
+          "organizations"
+        ]
+      }
+    }
+  }
+}

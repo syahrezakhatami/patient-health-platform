@@ -1,0 +1,73 @@
+{
+  "app": {
+    "name": "Healthcare Web",
+    "skipToContent": "Skip to main content"
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "signingIn": "Redirecting to sign-in…",
+    "sessionExpiredTitle": "Session expired",
+    "sessionExpiredBody": "Your session ended. Sign in again to continue. Protected data from the previous session is no longer available.",
+    "loginTitle": "Staff sign-in",
+    "loginBody": "Healthcare Web uses your organization identity provider. Username and password are not collected in this application.",
+    "oidcMissing": "The identity provider is not configured for this environment. Set VITE_OIDC_ISSUER and VITE_OIDC_CLIENT_ID.",
+    "callbackTitle": "Completing sign-in",
+    "callbackError": "Sign-in could not be completed. Try again."
+  },
+  "org": {
+    "selectTitle": "Select organization",
+    "selectBody": "Choose the healthcare organization for this tab. Another tab can use a different organization.",
+    "continue": "Continue",
+    "unassignedTitle": "No healthcare organization access",
+    "unassignedBody": "Your account is provisioned, but you are not assigned to a healthcare organization. This application is not Platform Admin.",
+    "activeOrganization": "Organization",
+    "switch": "Switch organization",
+    "roles": "Roles"
+  },
+  "facility": {
+    "label": "Work facility",
+    "unset": "Not set",
+    "requiredTitle": "Select a work facility",
+    "requiredBody": "Your access in this organization is limited to specific facilities. Choose a work facility before continuing. This is not a chart filter.",
+    "allInOrganizationHint": "You may work across accessible facilities in this organization. A work facility is optional and does not filter the future clinical chart.",
+    "switch": "Work facility"
+  },
+  "nav": {
+    "home": "Home",
+    "registration": "Registration",
+    "clinical": "Clinical",
+    "identity": "Identity",
+    "audit": "Audit",
+    "admin": "Organization administration"
+  },
+  "workspace": {
+    "homeTitle": "Workspace",
+    "homeBody": "Select a workspace from the navigation. Patient lookup and clinical chart are not part of this shell.",
+    "empty": "This workspace is not implemented yet. No patient or clinical data is shown.",
+    "registrationTitle": "Registration workspace",
+    "clinicalTitle": "Clinical workspace",
+    "identityTitle": "Identity workspace",
+    "auditTitle": "Audit workspace",
+    "adminTitle": "Administration workspace",
+    "noWorkspaces": "No workspaces are available for your permissions in this organization."
+  },
+  "errors": {
+    "forbiddenTitle": "Permission denied",
+    "forbiddenBody": "You cannot open this area with your current organization permissions. The server remains the authority.",
+    "notFoundTitle": "Not found",
+    "notFoundBody": "This page does not exist.",
+    "loading": "Loading…",
+    "generic": "Something went wrong.",
+    "retry": "Try again"
+  },
+  "locale": {
+    "label": "Language",
+    "en": "English",
+    "id": "Bahasa Indonesia"
+  },
+  "session": {
+    "user": "Signed in as",
+    "unknownUser": "Staff user"
+  }
+}
