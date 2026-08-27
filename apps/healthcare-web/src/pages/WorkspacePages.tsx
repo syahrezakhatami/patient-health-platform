@@ -1,7 +1,10 @@
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 
 import { PatientLookupPanel } from "../patient/PatientLookupPanel";
+import { usePatientSelection } from "../patient/PatientSelectionContext";
 import { lookupPurposeForWorkspace } from "../patient/purpose";
+import { APP_PATHS } from "../routing/paths";
 import { hasPermission, type WorkspaceId } from "../tenant/permissions";
 import { useTenant } from "../tenant/TenantContext";
 
@@ -50,7 +53,20 @@ export function RegistrationWorkspacePage() {
 }
 
 export function ClinicalWorkspacePage() {
-  return <WorkspaceWithLookup titleKey="workspace.clinicalTitle" workspace="clinical" />;
+  const { t } = useTranslation();
+  const { selectedPatient } = usePatientSelection();
+  return (
+    <>
+      <WorkspaceWithLookup titleKey="workspace.clinicalTitle" workspace="clinical" />
+      {selectedPatient ? (
+        <p>
+          <Link className="button" to={APP_PATHS.clinicalChart}>
+            {t("chart.openChart")}
+          </Link>
+        </p>
+      ) : null}
+    </>
+  );
 }
 
 export function IdentityWorkspacePage() {

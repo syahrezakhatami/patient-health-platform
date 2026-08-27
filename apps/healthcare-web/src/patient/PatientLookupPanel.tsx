@@ -14,7 +14,8 @@ import { lookupPatients } from "../api/patients";
 import { isAbortError } from "../tenant/generation";
 import { useTenant } from "../tenant/TenantContext";
 import { patientLookupCoordinator } from "./lookupCoordinator";
-import { setSelectedPatient, summaryFromLookupResult } from "./selectionStore";
+import { selectPatientAndWipeChart } from "../chart/wipe";
+import { summaryFromLookupResult } from "./selectionStore";
 
 const LOOKUP_TYPES: PatientLookupType[] = ["MRN", "NIK", "BPJS", "PATIENT_IDENTITY_ID"];
 
@@ -117,7 +118,7 @@ export function PatientLookupPanel({ purpose }: { purpose: RequestPurpose }) {
     if (!organizationId || !hit.selectable) {
       return;
     }
-    setSelectedPatient(summaryFromLookupResult(hit, organizationId));
+    selectPatientAndWipeChart(summaryFromLookupResult(hit, organizationId));
     setLookupValue("");
     setResult(null);
     mutation.reset();

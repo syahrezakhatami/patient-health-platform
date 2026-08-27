@@ -6,6 +6,7 @@ import { LoadingBoundary } from "./components/LoadingBoundary";
 import { NotFound } from "./components/NotFound";
 import { PermissionGate } from "./components/PermissionGate";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { ClinicalChartPage } from "./chart/ClinicalChartPage";
 import { AppHomePage } from "./pages/AppHomePage";
 import { CallbackPage } from "./pages/CallbackPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -67,6 +68,14 @@ export function AppRoutes() {
             element={
               <PermissionGate workspace="clinical">
                 <ClinicalWorkspacePage />
+              </PermissionGate>
+            }
+          />
+          <Route
+            path={APP_PATHS.clinicalChart}
+            element={
+              <PermissionGate workspace="clinical">
+                <ClinicalChartPage />
               </PermissionGate>
             }
           />

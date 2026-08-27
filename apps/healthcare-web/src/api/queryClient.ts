@@ -28,6 +28,67 @@ export const queryKeys = {
 
 export const PATIENT_LOOKUP_MUTATION_KEY = ["patient-lookup"] as const;
 
+export const CLINICAL_GC_TIME_MS = 5 * 60_000;
+export const CLINICAL_STALE_TIME_MS = 30_000;
+
+export const clinicalKeys = {
+  chart: (organizationId: string, patientIdentityId: string) =>
+    ["clinical-chart", organizationId, patientIdentityId] as const,
+  summary: (organizationId: string, patientIdentityId: string) =>
+    ["clinical-summary", organizationId, patientIdentityId] as const,
+  section: (organizationId: string, patientIdentityId: string, section: string) =>
+    ["clinical-section", organizationId, patientIdentityId, section] as const,
+  timeline: (organizationId: string, patientIdentityId: string) =>
+    ["clinical-timeline", organizationId, patientIdentityId] as const,
+};
+
+export function isClinicalQueryKey(queryKey: readonly unknown[]): boolean {
+  const head = queryKey[0];
+  return (
+    head === "clinical-chart" ||
+    head === "clinical-summary" ||
+    head === "clinical-section" ||
+    head === "clinical-timeline"
+  );
+}
+
+export function clearClinicalQueries(client: QueryClient): void {
+  void client.cancelQueries({ predicate: (query) => isClinicalQueryKey(query.queryKey) });
+  client.removeQueries({ predicate: (query) => isClinicalQueryKey(query.queryKey) });
+}
+
+export function clearDownstreamClinicalQueries(client: QueryClient): void {
+  void client.cancelQueries({
+    predicate: (query) => {
+      const head = query.queryKey[0];
+      return head === "clinical-summary" || head === "clinical-section" || head === "clinical-timeline";
+    },
+  });
+  client.removeQueries({
+    predicate: (query) => {
+      const head = query.queryKey[0];
+      return head === "clinical-summary" || head === "clinical-section" || head === "clinical-timeline";
+    },
+  });
+}
+
+/** Drop clinical PHI for other patients after the current load token is committed. */
+export function retainCurrentClinicalQueries(
+  client: QueryClient,
+  organizationId: string,
+  patientIdentityIds: readonly string[],
+): void {
+  const keep = new Set(patientIdentityIds.filter(Boolean));
+  client.removeQueries({
+    predicate: (query) => {
+      if (!isClinicalQueryKey(query.queryKey)) {
+        return false;
+      }
+      return query.queryKey[1] !== organizationId || !keep.has(String(query.queryKey[2] ?? ""));
+    },
+  });
+}
+
 export function clearPatientLookupMutations(client: QueryClient): void {
   const cache = client.getMutationCache();
   for (const mutation of cache.getAll()) {
@@ -47,4 +108,5 @@ export function removeTenantScopedQueries(client: QueryClient, organizationId: s
     predicate: (query) => query.queryKey.includes(organizationId),
   });
   clearPatientLookupMutations(client);
+  clearClinicalQueries(client);
 }

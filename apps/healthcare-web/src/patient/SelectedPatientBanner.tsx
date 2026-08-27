@@ -1,6 +1,10 @@
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 
 import { usePatientSelection } from "../patient/PatientSelectionContext";
+import { APP_PATHS } from "../routing/paths";
+import { canOpenWorkspace } from "../tenant/permissions";
+import { useTenant } from "../tenant/TenantContext";
 
 function isAnonymousKind(kind: string): boolean {
   return kind === "ANONYMOUS" || kind === "TEMPORARY";
@@ -9,6 +13,8 @@ function isAnonymousKind(kind: string): boolean {
 export function SelectedPatientBanner() {
   const { t } = useTranslation();
   const { selectedPatient, clearSelection } = usePatientSelection();
+  const { effectivePermissions } = useTenant();
+  const canOpenChart = canOpenWorkspace(effectivePermissions, "clinical");
   if (!selectedPatient) {
     return null;
   }
@@ -24,9 +30,16 @@ export function SelectedPatientBanner() {
         {selectedPatient.administrativeSex ?? t("patient.unknown")} · {t("patient.mrn")}:{" "}
         {selectedPatient.organizationMrn ?? t("patient.unknown")}
       </p>
-      <button type="button" className="button secondary" onClick={clearSelection}>
-        {t("patient.clearSelection")}
-      </button>
+      <div className="chart-banner-actions">
+        {canOpenChart ? (
+          <Link className="button" to={APP_PATHS.clinicalChart}>
+            {t("chart.openChart")}
+          </Link>
+        ) : null}
+        <button type="button" className="button secondary" onClick={clearSelection}>
+          {t("patient.clearSelection")}
+        </button>
+      </div>
     </section>
   );
 }

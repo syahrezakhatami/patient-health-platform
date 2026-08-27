@@ -8,6 +8,7 @@
  */
 import { patientLookupCoordinator } from "../patient/lookupCoordinator";
 import { clearSelectedPatient } from "../patient/selectionStore";
+import { clinicalChartCoordinator } from "../chart/clinicalChartCoordinator";
 
 let selectedPatientId: string | null = null;
 let chartFacilityFilterId: string | null = null;
@@ -33,6 +34,7 @@ export function clearPatientAndChartFilter(): void {
   chartFacilityFilterId = null;
   clearSelectedPatient();
   patientLookupCoordinator.abortAndInvalidate();
+  clinicalChartCoordinator.abortAndInvalidate();
 }
 
 export function clearFacilityDependentCommandState(): void {

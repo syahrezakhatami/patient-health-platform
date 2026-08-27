@@ -102,8 +102,11 @@ export function parseApiError(status: number, body: unknown): ApiError {
   return new ApiError(status, code, userFacingMessage(code), correlationId);
 }
 
+/** Retry while failureCount < 2 → at most 3 attempts (initial + 2 retries). */
+export const TRANSIENT_RETRY_FAILURE_LIMIT = 2;
+
 export function shouldRetryRequest(failureCount: number, error: unknown): boolean {
-  if (error instanceof Error && error.name === "AbortError") {
+  if (typeof error === "object" && error !== null && "name" in error && (error as { name: string }).name === "AbortError") {
     return false;
   }
   if (error instanceof ApiError) {
@@ -111,9 +114,9 @@ export function shouldRetryRequest(failureCount: number, error: unknown): boolea
       return false;
     }
     if (error.status >= 500) {
-      return failureCount < 2;
+      return failureCount < TRANSIENT_RETRY_FAILURE_LIMIT;
     }
     return false;
   }
-  return failureCount < 2;
+  return failureCount < TRANSIENT_RETRY_FAILURE_LIMIT;
 }

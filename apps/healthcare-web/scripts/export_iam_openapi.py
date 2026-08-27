@@ -30,6 +30,10 @@ SHELL_PATHS = (
     "/api/v1/iam/me/context",
     "/api/v1/organizations/{organization_id}/facilities/accessible",
     "/api/v1/mpi/patients/lookup",
+    "/api/v1/clinical/patients/{patient_identity_id}/chart",
+    "/api/v1/clinical/patients/{patient_identity_id}/chart/summary",
+    "/api/v1/clinical/patients/{patient_identity_id}/chart/timeline",
+    "/api/v1/clinical/patients/{patient_identity_id}/chart/sections/{section}",
 )
 
 
@@ -62,6 +66,15 @@ def build_document() -> dict:
         "IdentityKind",
         "AdministrativeSex",
         "IdentifierVerificationStatus",
+        "ChartShellResponse",
+        "ClinicalSummaryResponse",
+        "TimelinePageResponse",
+        "SectionPageResponse",
+        "PatientHeaderDTO",
+        "SelectedEncounterDTO",
+        "SummaryItemDTO",
+        "TimelineItemDTO",
+        "ChartSection",
     }
     missing_schemas = sorted(name for name in used if name not in schemas)
     if missing_schemas:

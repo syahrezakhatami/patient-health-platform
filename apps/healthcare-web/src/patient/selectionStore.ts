@@ -14,7 +14,12 @@ export interface SelectedPatientSummary {
 }
 
 let selectedPatient: SelectedPatientSummary | null = null;
+let selectionEpoch = 0;
 const listeners = new Set<() => void>();
+
+export function getSelectionEpoch(): number {
+  return selectionEpoch;
+}
 
 export function getSelectedPatient(): SelectedPatientSummary | null {
   return selectedPatient;
@@ -28,10 +33,38 @@ export function subscribeSelectedPatient(listener: () => void): () => void {
 }
 
 export function setSelectedPatient(next: SelectedPatientSummary | null): void {
+  selectionEpoch += 1;
   selectedPatient = next;
   for (const listener of listeners) {
     listener();
   }
+}
+
+/** Update identity from Clinical Read canonical header without starting a new selection. */
+export function applyCanonicalChartPatient(
+  next: SelectedPatientSummary,
+  expected: { epoch: number; organizationId: string; requestedPatientId: string },
+): boolean {
+  if (selectionEpoch !== expected.epoch || !selectedPatient) {
+    return false;
+  }
+  if (selectedPatient.patientIdentityId === next.patientIdentityId) {
+    return false;
+  }
+  if (selectedPatient.organizationId !== expected.organizationId) {
+    return false;
+  }
+  if (
+    selectedPatient.patientIdentityId !== expected.requestedPatientId &&
+    selectedPatient.patientIdentityId !== next.patientIdentityId
+  ) {
+    return false;
+  }
+  selectedPatient = { ...next, selectedAt: selectedPatient.selectedAt };
+  for (const listener of listeners) {
+    listener();
+  }
+  return true;
 }
 
 export function clearSelectedPatient(): void {

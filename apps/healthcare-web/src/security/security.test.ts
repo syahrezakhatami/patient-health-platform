@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { shouldRetryRequest } from "../api/errors";
 import { ApiError } from "../api/errors";
-import { pathContainsForbiddenIdentifier, patientChartPath } from "../routing/paths";
+import { pathContainsForbiddenIdentifier, patientChartPath, APP_PATHS } from "../routing/paths";
 import { ORG_A } from "../test/fixtures";
 
 const srcRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -38,7 +38,7 @@ describe("security and privacy posture", () => {
     expect(blob).not.toMatch(/signinResourceOwnerCredentials/);
     expect(blob).not.toMatch(/client_secret\s*:/);
     expect(blob).not.toMatch(/audience:\s*["']php-patient["']/);
-    expect(blob).not.toMatch(/\/api\/v1\/clinical\/patients/);
+    expect(blob).not.toMatch(/\/api\/v1\/clinical\/notes/);
     expect(blob).not.toMatch(/indexedDB\.open|window\.indexedDB|caches\.open\(/);
     expect(blob).not.toMatch(/new BroadcastChannel/);
   });
@@ -50,14 +50,21 @@ describe("security and privacy posture", () => {
     expect(pathContainsForbiddenIdentifier("/app?patient_name=budi")).toBe(true);
     expect(pathContainsForbiddenIdentifier(`/app/clinical/patients/${ORG_A}`)).toBe(false);
     expect(patientChartPath(ORG_A)).toBe(`/app/clinical/patients/${ORG_A}`);
+    expect(APP_PATHS.clinicalChart).toBe("/app/clinical/chart");
+    expect(APP_PATHS.clinicalChart.includes(ORG_A)).toBe(false);
     expect(() => patientChartPath("not-a-uuid")).toThrow();
   });
 
-  it("does not retry 401/403/404/422", () => {
+  it("does not retry 401/403/404/409/422/429 and bounds 5xx to three attempts", () => {
     expect(shouldRetryRequest(0, new ApiError(401, "session_expired", "x", null))).toBe(false);
     expect(shouldRetryRequest(0, new ApiError(403, "permission_denied", "x", null))).toBe(false);
     expect(shouldRetryRequest(0, new ApiError(404, "not_found", "x", null))).toBe(false);
+    expect(shouldRetryRequest(0, new ApiError(409, "conflict", "x", null))).toBe(false);
     expect(shouldRetryRequest(0, new ApiError(422, "validation", "x", null))).toBe(false);
+    expect(shouldRetryRequest(0, new ApiError(429, "rate_limited", "x", null))).toBe(false);
     expect(shouldRetryRequest(0, new ApiError(500, "server_error", "x", null))).toBe(true);
+    expect(shouldRetryRequest(1, new ApiError(500, "server_error", "x", null))).toBe(true);
+    expect(shouldRetryRequest(2, new ApiError(500, "server_error", "x", null))).toBe(false);
+    expect(shouldRetryRequest(0, new DOMException("Aborted", "AbortError"))).toBe(false);
   });
 });

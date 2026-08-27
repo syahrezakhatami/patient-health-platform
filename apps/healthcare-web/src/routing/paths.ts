@@ -26,6 +26,7 @@ export const APP_PATHS = {
   patientSelect: "/app/patients/select",
   registration: "/app/registration",
   clinical: "/app/clinical",
+  clinicalChart: "/app/clinical/chart",
   identity: "/app/identity",
   audit: "/app/audit",
   admin: "/app/admin",

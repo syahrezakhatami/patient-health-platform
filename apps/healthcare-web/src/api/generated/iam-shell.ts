@@ -35,6 +35,26 @@ export interface AccessibleOrganizationDTO {
 
 export type AdministrativeSex = "MALE" | "FEMALE" | "OTHER" | "UNKNOWN";
 
+export type ChartSection = "encounters" | "notes" | "conditions" | "observations" | "laboratory" | "medications" | "allergies" | "consents" | "immunizations" | "procedures" | "medical-devices" | "adverse-events" | "family-histories";
+
+export interface ChartShellResponse {
+  authorized_sections: Array<ChartSection>;
+  canonical_patient_identity_id: string;
+  header: PatientHeaderDTO;
+  requested_patient_identity_id: string;
+}
+
+export interface ClinicalSummaryResponse {
+  active_allergies?: Array<SummaryItemDTO> | null;
+  active_conditions?: Array<SummaryItemDTO> | null;
+  active_medications?: Array<SummaryItemDTO> | null;
+  canonical_patient_identity_id: string;
+  recent_lab_results?: Array<SummaryItemDTO> | null;
+  recent_procedures?: Array<SummaryItemDTO> | null;
+  recent_vitals?: Array<SummaryItemDTO> | null;
+  requested_patient_identity_id: string;
+}
+
 export type FacilityScopeKind = "ALL_IN_ORGANIZATION" | "EXPLICIT";
 
 export type IdentifierVerificationStatus = "UNVERIFIED" | "VERIFIED" | "REJECTED" | "EXPIRED";
@@ -42,6 +62,9 @@ export type IdentifierVerificationStatus = "UNVERIFIED" | "VERIFIED" | "REJECTED
 export type IdentityKind = "STANDARD" | "ANONYMOUS" | "TEMPORARY";
 
 export type IdentityLifecycle = "ANONYMOUS" | "ACTIVE" | "MERGED" | "RETIRED";
+
+export interface PatientHeaderDTO {
+}
 
 export type PatientLookupOutcome = "none" | "one" | "ambiguous" | "review_required";
 
@@ -75,6 +98,25 @@ export interface PatientLookupResult {
 
 export type PatientLookupType = "MRN" | "NIK" | "BPJS" | "PATIENT_IDENTITY_ID";
 
+export interface SectionPageResponse {
+  canonical_patient_identity_id: string;
+  has_more: boolean;
+  items: Array<Record<string, unknown>>;
+  next_cursor?: string | null;
+  requested_patient_identity_id: string;
+  section: ChartSection;
+}
+
+export interface SelectedEncounterDTO {
+  display_label: string;
+  encounter_class: string;
+  ended_at: string | null;
+  facility_id: string | null;
+  id: string;
+  started_at: string;
+  status: string;
+}
+
 export interface StaffContextResponse {
   effective_permissions: Array<string>;
   facility_scope: FacilityScopeKind;
@@ -95,4 +137,37 @@ export interface StaffSessionUserDTO {
   display_name: string;
   id: string;
   subject: string;
+}
+
+export interface SummaryItemDTO {
+  code?: string | null;
+  code_display?: string | null;
+  code_system?: string | null;
+  occurred_at: string;
+  source_id: string;
+  source_type: string;
+  status: string;
+}
+
+export interface TimelineItemDTO {
+  canonical_patient_identity_id: string;
+  code?: string | null;
+  code_display?: string | null;
+  code_system?: string | null;
+  encounter_id?: string | null;
+  facility_id: string | null;
+  occurred_at: string;
+  organization_id: string;
+  source_id: string;
+  source_patient_identity_id: string;
+  source_type: string;
+  status?: string | null;
+}
+
+export interface TimelinePageResponse {
+  canonical_patient_identity_id: string;
+  has_more: boolean;
+  items: Array<TimelineItemDTO>;
+  next_cursor?: string | null;
+  requested_patient_identity_id: string;
 }

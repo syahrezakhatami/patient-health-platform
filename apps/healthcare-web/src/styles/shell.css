@@ -271,8 +271,96 @@ a {
   padding: 0.75rem;
 }
 
-.patient-lookup fieldset label {
-  display: block;
-  margin: 0.35rem 0;
+.chart-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.clinical-chart {
+  max-width: 72rem;
+}
+
+.patient-safety-banner,
+.chart-nav,
+.chart-summary,
+.chart-section,
+.chart-timeline {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+}
+
+.chart-banner-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.5rem 1rem;
+}
+
+.chart-banner-fields dt {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.chart-banner-fields dd {
+  margin: 0;
+}
+
+.chart-nav ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.chart-nav button {
+  appearance: none;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  font: inherit;
+  padding: 0.4rem 0.7rem;
+  border-radius: 6px;
+}
+
+.chart-nav-current {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+}
+
+.chart-summary-block {
+  margin: 1rem 0;
+}
+
+.chart-fact-card {
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.chart-timeline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.chart-timeline-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.5rem 0;
+}
+
+@media (max-width: 48rem) {
+  .clinical-chart {
+    max-width: 100%;
+  }
 }
 

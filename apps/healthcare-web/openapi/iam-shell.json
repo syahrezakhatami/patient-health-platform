@@ -116,6 +116,163 @@
         "title": "AdministrativeSex",
         "type": "string"
       },
+      "ChartSection": {
+        "enum": [
+          "encounters",
+          "notes",
+          "conditions",
+          "observations",
+          "laboratory",
+          "medications",
+          "allergies",
+          "consents",
+          "immunizations",
+          "procedures",
+          "medical-devices",
+          "adverse-events",
+          "family-histories"
+        ],
+        "title": "ChartSection",
+        "type": "string"
+      },
+      "ChartShellResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "authorized_sections": {
+            "items": {
+              "$ref": "#/components/schemas/ChartSection"
+            },
+            "title": "Authorized Sections",
+            "type": "array"
+          },
+          "canonical_patient_identity_id": {
+            "format": "uuid",
+            "title": "Canonical Patient Identity Id",
+            "type": "string"
+          },
+          "header": {
+            "$ref": "#/components/schemas/PatientHeaderDTO"
+          },
+          "requested_patient_identity_id": {
+            "format": "uuid",
+            "title": "Requested Patient Identity Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requested_patient_identity_id",
+          "canonical_patient_identity_id",
+          "header",
+          "authorized_sections"
+        ],
+        "title": "ChartShellResponse",
+        "type": "object"
+      },
+      "ClinicalSummaryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "active_allergies": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SummaryItemDTO"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Allergies"
+          },
+          "active_conditions": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SummaryItemDTO"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Conditions"
+          },
+          "active_medications": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SummaryItemDTO"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Medications"
+          },
+          "canonical_patient_identity_id": {
+            "format": "uuid",
+            "title": "Canonical Patient Identity Id",
+            "type": "string"
+          },
+          "recent_lab_results": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SummaryItemDTO"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recent Lab Results"
+          },
+          "recent_procedures": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SummaryItemDTO"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recent Procedures"
+          },
+          "recent_vitals": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SummaryItemDTO"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recent Vitals"
+          },
+          "requested_patient_identity_id": {
+            "format": "uuid",
+            "title": "Requested Patient Identity Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requested_patient_identity_id",
+          "canonical_patient_identity_id"
+        ],
+        "title": "ClinicalSummaryResponse",
+        "type": "object"
+      },
       "FacilityScopeKind": {
         "enum": [
           "ALL_IN_ORGANIZATION",
@@ -152,6 +309,10 @@
         ],
         "title": "IdentityLifecycle",
         "type": "string"
+      },
+      "PatientHeaderDTO": {
+        "additionalProperties": true,
+        "type": "object"
       },
       "PatientLookupOutcome": {
         "enum": [
@@ -337,6 +498,118 @@
         "title": "PatientLookupType",
         "type": "string"
       },
+      "SectionPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_patient_identity_id": {
+            "format": "uuid",
+            "title": "Canonical Patient Identity Id",
+            "type": "string"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "requested_patient_identity_id": {
+            "format": "uuid",
+            "title": "Requested Patient Identity Id",
+            "type": "string"
+          },
+          "section": {
+            "$ref": "#/components/schemas/ChartSection"
+          }
+        },
+        "required": [
+          "requested_patient_identity_id",
+          "canonical_patient_identity_id",
+          "section",
+          "items",
+          "has_more"
+        ],
+        "title": "SectionPageResponse",
+        "type": "object"
+      },
+      "SelectedEncounterDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "display_label": {
+            "title": "Display Label",
+            "type": "string"
+          },
+          "encounter_class": {
+            "title": "Encounter Class",
+            "type": "string"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "facility_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Facility Id"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "encounter_class",
+          "display_label",
+          "started_at",
+          "ended_at",
+          "facility_id"
+        ],
+        "title": "SelectedEncounterDTO",
+        "type": "object"
+      },
       "StaffContextResponse": {
         "additionalProperties": false,
         "properties": {
@@ -439,6 +712,228 @@
         ],
         "title": "StaffSessionUserDTO",
         "type": "object"
+      },
+      "SummaryItemDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "code_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code Display"
+          },
+          "code_system": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code System"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_type": {
+            "title": "Source Type",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_type",
+          "source_id",
+          "status",
+          "occurred_at"
+        ],
+        "title": "SummaryItemDTO",
+        "type": "object"
+      },
+      "TimelineItemDTO": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_patient_identity_id": {
+            "format": "uuid",
+            "title": "Canonical Patient Identity Id",
+            "type": "string"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "code_display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code Display"
+          },
+          "code_system": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code System"
+          },
+          "encounter_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encounter Id"
+          },
+          "facility_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Facility Id"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "organization_id": {
+            "format": "uuid",
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_patient_identity_id": {
+            "format": "uuid",
+            "title": "Source Patient Identity Id",
+            "type": "string"
+          },
+          "source_type": {
+            "title": "Source Type",
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "required": [
+          "source_type",
+          "source_id",
+          "occurred_at",
+          "organization_id",
+          "facility_id",
+          "canonical_patient_identity_id",
+          "source_patient_identity_id"
+        ],
+        "title": "TimelineItemDTO",
+        "type": "object"
+      },
+      "TimelinePageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_patient_identity_id": {
+            "format": "uuid",
+            "title": "Canonical Patient Identity Id",
+            "type": "string"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineItemDTO"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "requested_patient_identity_id": {
+            "format": "uuid",
+            "title": "Requested Patient Identity Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "requested_patient_identity_id",
+          "canonical_patient_identity_id",
+          "items",
+          "has_more"
+        ],
+        "title": "TimelinePageResponse",
+        "type": "object"
       }
     }
   },
@@ -449,6 +944,679 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/clinical/patients/{patient_identity_id}/chart": {
+      "get": {
+        "operationId": "get_chart_shell_api_v1_clinical_patients__patient_identity_id__chart_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_identity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Patient Identity Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "encounter_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Encounter Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "facility_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Facility Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-facility-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Facility-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-purpose",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Purpose"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChartShellResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Chart Shell",
+        "tags": [
+          "clinical-read"
+        ]
+      }
+    },
+    "/api/v1/clinical/patients/{patient_identity_id}/chart/sections/{section}": {
+      "get": {
+        "operationId": "get_chart_section_api_v1_clinical_patients__patient_identity_id__chart_sections__section__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_identity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Patient Identity Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "section",
+            "required": true,
+            "schema": {
+              "title": "Section",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "encounter_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Encounter Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "facility_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Facility Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "in": "query",
+            "name": "recorded_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Recorded From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "recorded_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Recorded To"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-facility-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Facility-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-purpose",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Purpose"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectionPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Chart Section",
+        "tags": [
+          "clinical-read"
+        ]
+      }
+    },
+    "/api/v1/clinical/patients/{patient_identity_id}/chart/summary": {
+      "get": {
+        "operationId": "get_chart_summary_api_v1_clinical_patients__patient_identity_id__chart_summary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_identity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Patient Identity Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "encounter_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Encounter Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "facility_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Facility Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-facility-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Facility-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-purpose",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Purpose"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicalSummaryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Chart Summary",
+        "tags": [
+          "clinical-read"
+        ]
+      }
+    },
+    "/api/v1/clinical/patients/{patient_identity_id}/chart/timeline": {
+      "get": {
+        "operationId": "get_chart_timeline_api_v1_clinical_patients__patient_identity_id__chart_timeline_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_identity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Patient Identity Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "encounter_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Encounter Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "facility_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Facility Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
+            }
+          },
+          {
+            "in": "query",
+            "name": "recorded_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Recorded From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "recorded_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Recorded To"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-facility-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Facility-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-purpose",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Purpose"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelinePageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Chart Timeline",
+        "tags": [
+          "clinical-read"
+        ]
+      }
+    },
     "/api/v1/iam/me/context": {
       "get": {
         "operationId": "get_my_context_api_v1_iam_me_context_get",
