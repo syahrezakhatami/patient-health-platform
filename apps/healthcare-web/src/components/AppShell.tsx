@@ -3,6 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
+import { SelectedPatientBanner } from "../patient/SelectedPatientBanner";
 import { useTenant } from "../tenant/TenantContext";
 import { Navigation } from "./Navigation";
 import { TopBar } from "./TopBar";
@@ -37,6 +38,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
             <p>{t("facility.requiredBody")}</p>
           </div>
         ) : null}
+        <SelectedPatientBanner />
         {children ?? <Outlet />}
       </main>
     </div>

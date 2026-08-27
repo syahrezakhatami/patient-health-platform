@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { createAppQueryClient } from "./api/queryClient";
 import { AuthProvider } from "./auth/AuthProvider";
 import { registerQueryClient } from "./auth/sessionLifecycle";
+import { PatientSelectionProvider } from "./patient/PatientSelectionProvider";
 import { TenantProvider } from "./tenant/TenantProvider";
 import { AppRoutes } from "./AppRoutes";
 
@@ -17,7 +18,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={client}>
       <AuthProvider>
-        <TenantProvider>{children}</TenantProvider>
+        <TenantProvider>
+          <PatientSelectionProvider>{children}</PatientSelectionProvider>
+        </TenantProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

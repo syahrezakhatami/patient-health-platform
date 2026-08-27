@@ -39,11 +39,12 @@
     "clinical": "Klinis",
     "identity": "Identitas",
     "audit": "Audit",
-    "admin": "Administrasi organisasi"
+    "admin": "Administrasi organisasi",
+    "selectPatient": "Pilih pasien"
   },
   "workspace": {
     "homeTitle": "Ruang kerja",
-    "homeBody": "Pilih ruang kerja dari navigasi. Pencarian pasien dan rekam medis klinis bukan bagian dari shell ini.",
+    "homeBody": "Pilih ruang kerja dari navigasi. Pencarian pasien tersedia jika Anda memiliki izin baca identitas. Rekam medis klinis belum termasuk dalam tahap ini.",
     "empty": "Ruang kerja ini belum diimplementasikan. Tidak ada data pasien atau klinis yang ditampilkan.",
     "registrationTitle": "Ruang kerja registrasi",
     "clinicalTitle": "Ruang kerja klinis",
@@ -59,7 +60,8 @@
     "notFoundBody": "Halaman ini tidak ada.",
     "loading": "Memuat…",
     "generic": "Terjadi kesalahan.",
-    "retry": "Coba lagi"
+    "retry": "Coba lagi",
+    "rateLimited": "Terlalu banyak percobaan. Coba lagi nanti."
   },
   "locale": {
     "label": "Bahasa",
@@ -69,5 +71,44 @@
   "session": {
     "user": "Masuk sebagai",
     "unknownUser": "Pengguna staf"
+  },
+  "patient": {
+    "selectTitle": "Pilih pasien",
+    "selectBody": "Cari dengan nomor rekam medis, NIK, BPJS, atau identitas pasien yang persis. Konfirmasi orang yang benar sebelum melanjutkan. Ini tidak membuka rekam medis klinis.",
+    "lookupTitle": "Pencarian pasien",
+    "lookupForbidden": "Anda tidak memiliki izin untuk mencari pasien di organisasi ini.",
+    "lookupType": "Jenis identifikasi",
+    "lookupValue": "Nilai identifikasi",
+    "search": "Cari",
+    "searching": "Mencari…",
+    "workflow": "Alur kerja",
+    "chooseWorkflow": "Pilih alur kerja ruang kerja untuk pencarian ini. Tujuan mengikuti ruang kerja tersebut dan tidak memberikan izin tambahan.",
+    "noWorkflow": "Tidak ada alur pencarian yang disetujui untuk izin Anda.",
+    "resultsTitle": "Hasil pencarian",
+    "confirmPrompt": "Pastikan ini pasien yang benar sebelum memilih.",
+    "noMatch": "Tidak ada pasien yang cocok.",
+    "noMatchBody": "Tidak ada pasien yang dipilih. Ini tidak membuat registrasi baru.",
+    "ambiguous": "Lebih dari satu pasien cocok. Jangan memilih dari layar ini.",
+    "ambiguousBody": "Serahkan kasus ini ke tinjauan identitas. Pencarian umum tidak dapat menggabungkan atau memilih untuk Anda.",
+    "reviewRequired": "Identifikasi ini memerlukan tinjauan identitas sebelum pemilihan klinis.",
+    "reviewRequiredBody": "Nomor identitas nasional belum terverifikasi untuk pemilihan deterministik.",
+    "retired": "Identitas ini tidak dapat dipilih.",
+    "invalidLookup": "Nilai pencarian tidak valid untuk jenis identifikasi yang dipilih.",
+    "selected": "Pasien dipilih untuk sesi organisasi ini.",
+    "selectedTitle": "Pasien terpilih",
+    "selectPatient": "Pilih pasien ini",
+    "clearSelection": "Hapus pasien terpilih",
+    "name": "Nama",
+    "dob": "Tanggal lahir",
+    "sex": "Jenis kelamin",
+    "mrn": "Nomor rekam medis",
+    "unknown": "Tidak tercatat",
+    "anonymous": "Identitas sementara / anonim",
+    "types": {
+      "MRN": "Nomor rekam medis",
+      "NIK": "NIK",
+      "BPJS": "BPJS",
+      "PATIENT_IDENTITY_ID": "Identitas pasien"
+    }
   }
 }

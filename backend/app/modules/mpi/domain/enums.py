@@ -14,6 +14,20 @@ class IdentityKind(StrEnum):
     TEMPORARY = "TEMPORARY"
 
 
+class PatientLookupType(StrEnum):
+    MRN = "MRN"
+    NIK = "NIK"
+    BPJS = "BPJS"
+    PATIENT_IDENTITY_ID = "PATIENT_IDENTITY_ID"
+
+
+class PatientLookupOutcome(StrEnum):
+    NONE = "none"
+    ONE = "one"
+    AMBIGUOUS = "ambiguous"
+    REVIEW_REQUIRED = "review_required"
+
+
 class IdentifierType(StrEnum):
     NIK = "NIK"
     BPJS = "BPJS"
@@ -108,3 +122,4 @@ class AuditAction(StrEnum):
     PATIENT_UNMERGED = "PATIENT_UNMERGED"
     IDENTITY_STATUS_CHANGED = "IDENTITY_STATUS_CHANGED"
     IDENTITY_RESOLUTION_COMPLETED = "IDENTITY_RESOLUTION_COMPLETED"
+    PATIENT_LOOKUP_ACCESSED = "PATIENT_LOOKUP_ACCESSED"

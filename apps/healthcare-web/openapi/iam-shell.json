@@ -106,12 +106,235 @@
         "title": "AccessibleOrganizationDTO",
         "type": "object"
       },
+      "AdministrativeSex": {
+        "enum": [
+          "MALE",
+          "FEMALE",
+          "OTHER",
+          "UNKNOWN"
+        ],
+        "title": "AdministrativeSex",
+        "type": "string"
+      },
       "FacilityScopeKind": {
         "enum": [
           "ALL_IN_ORGANIZATION",
           "EXPLICIT"
         ],
         "title": "FacilityScopeKind",
+        "type": "string"
+      },
+      "IdentifierVerificationStatus": {
+        "enum": [
+          "UNVERIFIED",
+          "VERIFIED",
+          "REJECTED",
+          "EXPIRED"
+        ],
+        "title": "IdentifierVerificationStatus",
+        "type": "string"
+      },
+      "IdentityKind": {
+        "enum": [
+          "STANDARD",
+          "ANONYMOUS",
+          "TEMPORARY"
+        ],
+        "title": "IdentityKind",
+        "type": "string"
+      },
+      "IdentityLifecycle": {
+        "enum": [
+          "ANONYMOUS",
+          "ACTIVE",
+          "MERGED",
+          "RETIRED"
+        ],
+        "title": "IdentityLifecycle",
+        "type": "string"
+      },
+      "PatientLookupOutcome": {
+        "enum": [
+          "none",
+          "one",
+          "ambiguous",
+          "review_required"
+        ],
+        "title": "PatientLookupOutcome",
+        "type": "string"
+      },
+      "PatientLookupRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "lookup_type": {
+            "$ref": "#/components/schemas/PatientLookupType"
+          },
+          "lookup_value": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Lookup Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lookup_type",
+          "lookup_value"
+        ],
+        "title": "PatientLookupRequest",
+        "type": "object"
+      },
+      "PatientLookupResponse": {
+        "properties": {
+          "outcome": {
+            "$ref": "#/components/schemas/PatientLookupOutcome"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/PatientLookupResult"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "outcome",
+          "truncated",
+          "results"
+        ],
+        "title": "PatientLookupResponse",
+        "type": "object"
+      },
+      "PatientLookupResult": {
+        "properties": {
+          "administrative_sex": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AdministrativeSex"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "birth_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birth Date"
+          },
+          "display_label": {
+            "title": "Display Label",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "identifier_verification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IdentifierVerificationStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "identity_kind": {
+            "$ref": "#/components/schemas/IdentityKind"
+          },
+          "lifecycle_status": {
+            "$ref": "#/components/schemas/IdentityLifecycle"
+          },
+          "masked_identifier": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Masked Identifier"
+          },
+          "organization_mrn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Organization Mrn"
+          },
+          "patient_identity_id": {
+            "format": "uuid",
+            "title": "Patient Identity Id",
+            "type": "string"
+          },
+          "requested_patient_identity_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested Patient Identity Id"
+          },
+          "resolved_from_merged": {
+            "title": "Resolved From Merged",
+            "type": "boolean"
+          },
+          "review_required": {
+            "title": "Review Required",
+            "type": "boolean"
+          },
+          "selectable": {
+            "title": "Selectable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "patient_identity_id",
+          "requested_patient_identity_id",
+          "lifecycle_status",
+          "identity_kind",
+          "display_name",
+          "display_label",
+          "birth_date",
+          "administrative_sex",
+          "organization_mrn",
+          "masked_identifier",
+          "identifier_verification",
+          "resolved_from_merged",
+          "review_required",
+          "selectable"
+        ],
+        "title": "PatientLookupResult",
+        "type": "object"
+      },
+      "PatientLookupType": {
+        "enum": [
+          "MRN",
+          "NIK",
+          "BPJS",
+          "PATIENT_IDENTITY_ID"
+        ],
+        "title": "PatientLookupType",
         "type": "string"
       },
       "StaffContextResponse": {
@@ -293,6 +516,97 @@
         "summary": "List My Organizations",
         "tags": [
           "iam"
+        ]
+      }
+    },
+    "/api/v1/mpi/patients/lookup": {
+      "post": {
+        "operationId": "lookup_patients_api_v1_mpi_patients_lookup_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-facility-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Facility-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-purpose",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Purpose"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientLookupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientLookupResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Lookup Patients",
+        "tags": [
+          "mpi"
         ]
       }
     },

@@ -58,6 +58,8 @@ from app.modules.mpi.domain.enums import (
     IdentityKind,
     IdentityLifecycle,
     MatchDecision,
+    PatientLookupOutcome,
+    PatientLookupType,
 )
 from app.modules.organization.domain.enums import FacilityType, OrganizationType
 
@@ -136,6 +138,36 @@ class LookupIdentityRequest(BaseModel):
     identifier_type: IdentifierType
     identifier_value: str = Field(min_length=1, max_length=255)
     identifier_organization_id: UUID | None = None
+
+
+class PatientLookupRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    lookup_type: PatientLookupType
+    lookup_value: str = Field(min_length=1, max_length=255)
+
+
+class PatientLookupResult(BaseModel):
+    patient_identity_id: UUID
+    requested_patient_identity_id: UUID | None
+    lifecycle_status: IdentityLifecycle
+    identity_kind: IdentityKind
+    display_name: str
+    display_label: str
+    birth_date: date | None
+    administrative_sex: AdministrativeSex | None
+    organization_mrn: str | None
+    masked_identifier: str | None
+    identifier_verification: IdentifierVerificationStatus | None
+    resolved_from_merged: bool
+    review_required: bool
+    selectable: bool
+
+
+class PatientLookupResponse(BaseModel):
+    outcome: PatientLookupOutcome
+    truncated: bool
+    results: list[PatientLookupResult]
 
 
 class MatchRequest(BaseModel):

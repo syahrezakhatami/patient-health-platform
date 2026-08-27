@@ -4,6 +4,7 @@ export type ApiErrorCode =
   | "not_found"
   | "conflict"
   | "validation"
+  | "rate_limited"
   | "server_error"
   | "network"
   | "unknown";
@@ -28,6 +29,7 @@ const STATUS_CODE: Record<number, ApiErrorCode> = {
   404: "not_found",
   409: "conflict",
   422: "validation",
+  429: "rate_limited",
 };
 
 export function mapStatusToCode(status: number): ApiErrorCode {
@@ -55,6 +57,8 @@ export function userFacingMessage(code: ApiErrorCode): string {
       return "The record changed. Refresh and try again.";
     case "validation":
       return "The request could not be processed with the current context.";
+    case "rate_limited":
+      return "Too many attempts. Try again later.";
     case "server_error":
       return "The service is temporarily unavailable.";
     case "network":
@@ -103,7 +107,7 @@ export function shouldRetryRequest(failureCount: number, error: unknown): boolea
     return false;
   }
   if (error instanceof ApiError) {
-    if ([401, 403, 404, 409, 422].includes(error.status)) {
+    if ([401, 403, 404, 409, 422, 429].includes(error.status)) {
       return false;
     }
     if (error.status >= 500) {

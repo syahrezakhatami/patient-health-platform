@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { fetchAccessibleFacilities, fetchMyContext, fetchMyOrganizations } from "../api/iam";
 import { ApiError } from "../api/errors";
-import { queryKeys, removeTenantScopedQueries } from "../api/queryClient";
+import { clearPatientLookupMutations, queryKeys, removeTenantScopedQueries } from "../api/queryClient";
 import type {
   AccessibleFacilityDTO,
   AccessibleOrganizationDTO,
@@ -78,9 +78,10 @@ function AuthenticatedTenantProvider({ children }: TenantProviderProps) {
     setAccessibleFacilities([]);
     setWorkFacilityId(null);
     setErrorMessage(null);
+    clearPatientLookupMutations(queryClient);
     clearPatientAndChartFilter();
     clearFacilityDependentCommandState();
-  }, []);
+  }, [queryClient]);
 
   const activateOrganization = useCallback(
     async (organizationId: string, previousOrganizationId: string | null) => {
@@ -91,6 +92,7 @@ function AuthenticatedTenantProvider({ children }: TenantProviderProps) {
         removeTenantScopedQueries(queryClient, previousOrganizationId);
         writeStoredWorkFacilityId(null);
         setWorkFacilityId(null);
+        clearPatientLookupMutations(queryClient);
         clearPatientAndChartFilter();
         clearFacilityDependentCommandState();
         setContext(null);

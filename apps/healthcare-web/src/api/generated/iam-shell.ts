@@ -33,7 +33,47 @@ export interface AccessibleOrganizationDTO {
   status: string;
 }
 
+export type AdministrativeSex = "MALE" | "FEMALE" | "OTHER" | "UNKNOWN";
+
 export type FacilityScopeKind = "ALL_IN_ORGANIZATION" | "EXPLICIT";
+
+export type IdentifierVerificationStatus = "UNVERIFIED" | "VERIFIED" | "REJECTED" | "EXPIRED";
+
+export type IdentityKind = "STANDARD" | "ANONYMOUS" | "TEMPORARY";
+
+export type IdentityLifecycle = "ANONYMOUS" | "ACTIVE" | "MERGED" | "RETIRED";
+
+export type PatientLookupOutcome = "none" | "one" | "ambiguous" | "review_required";
+
+export interface PatientLookupRequest {
+  lookup_type: PatientLookupType;
+  lookup_value: string;
+}
+
+export interface PatientLookupResponse {
+  outcome: PatientLookupOutcome;
+  results: Array<PatientLookupResult>;
+  truncated: boolean;
+}
+
+export interface PatientLookupResult {
+  administrative_sex: AdministrativeSex | null;
+  birth_date: string | null;
+  display_label: string;
+  display_name: string;
+  identifier_verification: IdentifierVerificationStatus | null;
+  identity_kind: IdentityKind;
+  lifecycle_status: IdentityLifecycle;
+  masked_identifier: string | null;
+  organization_mrn: string | null;
+  patient_identity_id: string;
+  requested_patient_identity_id: string | null;
+  resolved_from_merged: boolean;
+  review_required: boolean;
+  selectable: boolean;
+}
+
+export type PatientLookupType = "MRN" | "NIK" | "BPJS" | "PATIENT_IDENTITY_ID";
 
 export interface StaffContextResponse {
   effective_permissions: Array<string>;

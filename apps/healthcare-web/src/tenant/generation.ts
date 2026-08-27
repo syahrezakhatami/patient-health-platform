@@ -17,6 +17,11 @@ export class TenantLoadCoordinator {
     this.controller?.abort();
     this.controller = null;
   }
+
+  abortAndInvalidate(): void {
+    this.abort();
+    this.generation += 1;
+  }
 }
 
 export function isAbortError(error: unknown): boolean {

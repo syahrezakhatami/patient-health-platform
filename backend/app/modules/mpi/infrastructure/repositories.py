@@ -152,6 +152,51 @@ class MpiRepository:
         result = await self._session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def find_active_identifiers_for_lookup(
+        self,
+        *,
+        identifier_type: IdentifierType,
+        normalized_value: str,
+        organization_id: UUID | None,
+        identifier_system: str | None = None,
+        limit: int = 6,
+    ) -> list[PatientIdentifierModel]:
+        """Exact active identifier rows for Healthcare Web patient lookup.
+
+        Equality only. Bounded fetch (limit) so this cannot become a directory
+        scan. NIK/BPJS pass canonical ``identifier_system`` so the unique
+        ``(identifier_system, normalized_value)`` global index is used. MRN
+        queries ``identifier_type`` + selected ``organization_id`` +
+        ``normalized_value`` using ``ix_patient_identifiers_organization_id``.
+        """
+        stmt = (
+            select(PatientIdentifierModel)
+            .where(
+                PatientIdentifierModel.identifier_type == identifier_type.value,
+                PatientIdentifierModel.normalized_value == normalized_value,
+                PatientIdentifierModel.valid_to.is_(None),
+                PatientIdentifierModel.verification_status.notin_(
+                    [
+                        IdentifierVerificationStatus.REJECTED,
+                        IdentifierVerificationStatus.EXPIRED,
+                    ]
+                ),
+            )
+            .order_by(
+                PatientIdentifierModel.patient_identity_id,
+                PatientIdentifierModel.id,
+            )
+            .limit(limit)
+        )
+        if identifier_system is not None:
+            stmt = stmt.where(PatientIdentifierModel.identifier_system == identifier_system)
+        if organization_id is None:
+            stmt = stmt.where(PatientIdentifierModel.organization_id.is_(None))
+        else:
+            stmt = stmt.where(PatientIdentifierModel.organization_id == organization_id)
+        result = await self._session.execute(stmt)
+        return list(result.scalars().all())
+
     async def find_match_pair(
         self, left_id: UUID, right_id: UUID
     ) -> IdentityMatchCandidateModel | None:

@@ -2,7 +2,7 @@ import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { APP_PATHS } from "../routing/paths";
-import { visibleWorkspaces, type WorkspaceId } from "../tenant/permissions";
+import { hasPermission, visibleWorkspaces, type WorkspaceId } from "../tenant/permissions";
 import { useTenant } from "../tenant/TenantContext";
 
 const WORKSPACE_PATH: Record<WorkspaceId, string> = {
@@ -25,6 +25,7 @@ export function Navigation() {
   const { t } = useTranslation();
   const { effectivePermissions } = useTenant();
   const workspaces = visibleWorkspaces(effectivePermissions);
+  const canLookup = hasPermission(effectivePermissions, "mpi.identity.read");
 
   return (
     <nav aria-label={t("app.name")}>
@@ -34,6 +35,11 @@ export function Navigation() {
             {t("nav.home")}
           </NavLink>
         </li>
+        {canLookup ? (
+          <li>
+            <NavLink to={APP_PATHS.patientSelect}>{t("nav.selectPatient")}</NavLink>
+          </li>
+        ) : null}
         {workspaces.map((workspace) => (
           <li key={workspace}>
             <NavLink to={WORKSPACE_PATH[workspace]}>{t(WORKSPACE_LABEL[workspace])}</NavLink>

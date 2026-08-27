@@ -60,4 +60,12 @@ describe("stale organization response strategy", () => {
     await Promise.all([select("A1", 25), select("A2", 5)]);
     expect(facility).toBe("A2");
   });
+
+  it("invalidates in-flight work when abortAndInvalidate() runs without begin()", async () => {
+    const coordinator = new TenantLoadCoordinator();
+    const first = coordinator.begin();
+    coordinator.abortAndInvalidate();
+    expect(coordinator.isCurrent(first.generation)).toBe(false);
+    expect(first.signal.aborted).toBe(true);
+  });
 });

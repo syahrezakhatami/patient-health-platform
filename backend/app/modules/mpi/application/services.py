@@ -11,6 +11,7 @@ from app.modules.audit.domain.events import AuditEvent
 from app.modules.authorization.application.authorize import authorize
 from app.modules.authorization.application.ports import PolicyDecisionPoint
 from app.modules.authorization.domain.catalog import Permission
+from app.modules.authorization.domain.purpose import Purpose
 from app.modules.iam.domain.models import Principal
 from app.modules.mpi.domain.enums import (
     AdministrativeSex,
@@ -26,6 +27,8 @@ from app.modules.mpi.domain.enums import (
     MatchProbeStatus,
     MergeOperationStatus,
     MergeOperationType,
+    PatientLookupOutcome,
+    PatientLookupType,
     ProvenanceSubjectType,
 )
 from app.modules.mpi.domain.evidence import parse_merge_evidence
@@ -44,6 +47,15 @@ from app.modules.mpi.domain.matching import (
     MatchResult,
 )
 from app.modules.mpi.domain.merge import MergeValidation, validate_merge, validate_unmerge
+from app.modules.mpi.domain.patient_lookup import (
+    CANONICAL_LOOKUP_SYSTEM,
+    LOOKUP_TYPE_TO_IDENTIFIER,
+    MAX_PATIENT_LOOKUP_RESULTS,
+    NATIONAL_LOOKUP_TYPES,
+    PATIENT_LOOKUP_FETCH_LIMIT,
+    lookup_system_for,
+    parse_patient_identity_uuid,
+)
 from app.modules.mpi.infrastructure.models import (
     IdentityClusterMemberModel,
     IdentityClusterModel,
@@ -94,6 +106,31 @@ class IdentifierView:
     verification_status: IdentifierVerificationStatus
     organization_id: UUID | None
     facility_id: UUID | None
+
+
+@dataclass(frozen=True, slots=True)
+class PatientLookupHit:
+    patient_identity_id: UUID
+    requested_patient_identity_id: UUID | None
+    lifecycle_status: IdentityLifecycle
+    identity_kind: IdentityKind
+    display_name: str
+    display_label: str
+    birth_date: date | None
+    administrative_sex: AdministrativeSex | None
+    organization_mrn: str | None
+    masked_identifier: str | None
+    identifier_verification: IdentifierVerificationStatus | None
+    resolved_from_merged: bool
+    review_required: bool
+    selectable: bool
+
+
+@dataclass(frozen=True, slots=True)
+class PatientLookupView:
+    outcome: PatientLookupOutcome
+    truncated: bool
+    results: tuple[PatientLookupHit, ...]
 
 
 class MpiService:
@@ -308,6 +345,221 @@ class MpiService:
             facility_id=facility_id,
             purpose=purpose,
             correlation_id=correlation_id,
+        )
+
+    async def lookup_patients(
+        self,
+        principal: Principal | None,
+        *,
+        organization_id: UUID,
+        facility_id: UUID | None,
+        lookup_type: PatientLookupType,
+        lookup_value: str,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> PatientLookupView:
+        if purpose == Purpose.PATIENT_ACCESS.value:
+            raise AppError(
+                "purpose_principal_mismatch",
+                "PATIENT_ACCESS is not valid for staff patient lookup",
+                status_code=403,
+            )
+        await authorize(
+            self._pdp,
+            self._audit,
+            session=self._session,
+            principal=principal,
+            action=Permission.MPI_IDENTITY_READ,
+            resource_type="PatientIdentity",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        if lookup_type is PatientLookupType.PATIENT_IDENTITY_ID:
+            view = await self._lookup_patients_by_uuid(
+                principal,
+                organization_id=organization_id,
+                lookup_value=lookup_value,
+            )
+        else:
+            view = await self._lookup_patients_by_identifier(
+                principal,
+                organization_id=organization_id,
+                lookup_type=lookup_type,
+                lookup_value=lookup_value,
+            )
+        canonical_id = None
+        if view.outcome is PatientLookupOutcome.ONE:
+            canonical_id = view.results[0].patient_identity_id
+        await self._audit_success(
+            AuditAction.PATIENT_LOOKUP_ACCESSED,
+            principal,
+            organization_id,
+            facility_id,
+            canonical_id,
+            purpose,
+            correlation_id,
+            resource_id=canonical_id,
+            metadata={
+                "lookup_type": lookup_type.value,
+                "outcome": view.outcome.value,
+                "result_count": str(len(view.results)),
+                "truncated": "true" if view.truncated else "false",
+            },
+        )
+        return view
+
+    async def _lookup_patients_by_uuid(
+        self,
+        principal: Principal | None,
+        *,
+        organization_id: UUID,
+        lookup_value: str,
+    ) -> PatientLookupView:
+        try:
+            identity_id = parse_patient_identity_uuid(lookup_value)
+        except ValueError as exc:
+            raise AppError(
+                "invalid_identifier",
+                "Patient identity id must be a UUID",
+                status_code=422,
+            ) from exc
+        source = await self._mpi.get_identity(identity_id)
+        if source is None or not await self._is_org_visible(principal, source, organization_id):
+            return _empty_lookup()
+        lifecycle = IdentityLifecycle(source.lifecycle_status)
+        if lifecycle is IdentityLifecycle.RETIRED:
+            raise AppError(
+                "identity_not_usable",
+                "This identity cannot be selected",
+                status_code=409,
+            )
+        canonical = await self._mpi.resolve_canonical_identity(identity_id)
+        if canonical is None:
+            raise AppError(
+                "identity_not_usable",
+                "This identity cannot be selected",
+                status_code=409,
+            )
+        if not await self._is_org_visible(principal, canonical, organization_id):
+            return _empty_lookup()
+        if IdentityLifecycle(canonical.lifecycle_status) is IdentityLifecycle.RETIRED:
+            raise AppError(
+                "identity_not_usable",
+                "This identity cannot be selected",
+                status_code=409,
+            )
+        hit = await self._to_lookup_hit(
+            canonical,
+            requested_id=identity_id,
+            organization_id=organization_id,
+            lookup_type=PatientLookupType.PATIENT_IDENTITY_ID,
+            hit_identifier=None,
+        )
+        return PatientLookupView(
+            outcome=PatientLookupOutcome.ONE,
+            truncated=False,
+            results=(hit,),
+        )
+
+    async def _lookup_patients_by_identifier(
+        self,
+        principal: Principal | None,
+        *,
+        organization_id: UUID,
+        lookup_type: PatientLookupType,
+        lookup_value: str,
+    ) -> PatientLookupView:
+        identifier_type = LOOKUP_TYPE_TO_IDENTIFIER[lookup_type]
+        system = lookup_system_for(lookup_type, identifier_type)
+        normalized = normalize_identifier(system, identifier_type, lookup_value)
+        scoped_org = organization_id if requires_organization(identifier_type) else None
+        rows = await self._mpi.find_active_identifiers_for_lookup(
+            identifier_type=identifier_type,
+            normalized_value=normalized.normalized_value,
+            organization_id=scoped_org,
+            identifier_system=CANONICAL_LOOKUP_SYSTEM.get(lookup_type),
+            limit=PATIENT_LOOKUP_FETCH_LIMIT,
+        )
+        hits_by_canonical: dict[UUID, PatientLookupHit] = {}
+        for row in rows:
+            source = await self._mpi.get_identity(row.patient_identity_id)
+            if source is None or not await self._is_org_visible(principal, source, organization_id):
+                continue
+            if IdentityLifecycle(source.lifecycle_status) is IdentityLifecycle.RETIRED:
+                continue
+            canonical = await self._mpi.resolve_canonical_identity(source.id)
+            if canonical is None:
+                continue
+            if not await self._is_org_visible(principal, canonical, organization_id):
+                continue
+            if IdentityLifecycle(canonical.lifecycle_status) is IdentityLifecycle.RETIRED:
+                continue
+            if canonical.id in hits_by_canonical:
+                continue
+            hits_by_canonical[canonical.id] = await self._to_lookup_hit(
+                canonical,
+                requested_id=source.id,
+                organization_id=organization_id,
+                lookup_type=lookup_type,
+                hit_identifier=row,
+            )
+        ordered = tuple(hits_by_canonical.values())
+        truncated = len(ordered) > MAX_PATIENT_LOOKUP_RESULTS or (
+            len(rows) >= PATIENT_LOOKUP_FETCH_LIMIT and len(ordered) >= MAX_PATIENT_LOOKUP_RESULTS
+        )
+        bounded = ordered[:MAX_PATIENT_LOOKUP_RESULTS]
+        if not bounded:
+            return _empty_lookup()
+        if len(bounded) == 1 and bounded[0].selectable:
+            outcome = PatientLookupOutcome.ONE
+        elif len(bounded) == 1:
+            outcome = PatientLookupOutcome.REVIEW_REQUIRED
+        elif any(item.selectable for item in bounded):
+            outcome = PatientLookupOutcome.AMBIGUOUS
+        else:
+            outcome = PatientLookupOutcome.REVIEW_REQUIRED
+        return PatientLookupView(outcome=outcome, truncated=truncated, results=bounded)
+
+    async def _to_lookup_hit(
+        self,
+        canonical: PatientIdentityModel,
+        *,
+        requested_id: UUID,
+        organization_id: UUID,
+        lookup_type: PatientLookupType,
+        hit_identifier: PatientIdentifierModel | None,
+    ) -> PatientLookupHit:
+        identifiers = await self._mpi.list_identifiers(canonical.id)
+        sex = canonical.administrative_sex
+        verification = None
+        masked = None
+        review_required = False
+        if hit_identifier is not None:
+            verification = IdentifierVerificationStatus(hit_identifier.verification_status)
+            if lookup_type in NATIONAL_LOOKUP_TYPES:
+                masked = mask_identifier(hit_identifier.normalized_value)
+                review_required = verification is not IdentifierVerificationStatus.VERIFIED
+        selectable = not review_required
+        given = (canonical.given_name or "").strip()
+        family = (canonical.family_name or "").strip()
+        display_name = " ".join(part for part in (given, family) if part) or canonical.display_label
+        return PatientLookupHit(
+            patient_identity_id=canonical.id,
+            requested_patient_identity_id=None if requested_id == canonical.id else requested_id,
+            lifecycle_status=IdentityLifecycle(canonical.lifecycle_status),
+            identity_kind=IdentityKind(canonical.identity_kind),
+            display_name=display_name,
+            display_label=canonical.display_label,
+            birth_date=canonical.birth_date,
+            administrative_sex=None if sex is None else AdministrativeSex(sex),
+            organization_mrn=_organization_mrn(identifiers, organization_id, hit_identifier),
+            masked_identifier=masked,
+            identifier_verification=verification,
+            resolved_from_merged=requested_id != canonical.id,
+            review_required=review_required,
+            selectable=selectable,
         )
 
     async def add_identifier(
@@ -1264,6 +1516,20 @@ class MpiService:
         identifiers = await self._mpi.list_identifiers(identity.id)
         return any(item.organization_id == organization_id for item in identifiers)
 
+    async def _is_org_visible(
+        self,
+        principal: Principal | None,
+        identity: PatientIdentityModel,
+        organization_id: UUID,
+    ) -> bool:
+        """Tenant visibility for Healthcare Web lookup. No platform superuser bypass."""
+        del principal
+        provenances = await self._mpi.list_provenances(identity.id)
+        if any(item.source_organization_id == organization_id for item in provenances):
+            return True
+        identifiers = await self._mpi.list_identifiers(identity.id)
+        return any(item.organization_id == organization_id for item in identifiers)
+
     async def _to_view(self, identity: PatientIdentityModel) -> IdentityView:
         identifiers = await self._mpi.list_identifiers(identity.id)
         sex = identity.administrative_sex
@@ -1351,3 +1617,30 @@ def _model_to_probe(model: PatientIdentifierModel) -> IdentifierProbe:
         organization_id=model.organization_id,
         verification_status=IdentifierVerificationStatus(model.verification_status),
     )
+
+
+def _empty_lookup() -> PatientLookupView:
+    return PatientLookupView(outcome=PatientLookupOutcome.NONE, truncated=False, results=())
+
+
+def _organization_mrn(
+    identifiers: list[PatientIdentifierModel],
+    organization_id: UUID,
+    hit_identifier: PatientIdentifierModel | None,
+) -> str | None:
+    org_mrns = [
+        item.identifier_value
+        for item in identifiers
+        if item.identifier_type == IdentifierType.MRN.value
+        and item.organization_id == organization_id
+        and item.valid_to is None
+    ]
+    if org_mrns:
+        return org_mrns[0]
+    if (
+        hit_identifier is not None
+        and hit_identifier.identifier_type == IdentifierType.MRN.value
+        and hit_identifier.organization_id == organization_id
+    ):
+        return hit_identifier.identifier_value
+    return None

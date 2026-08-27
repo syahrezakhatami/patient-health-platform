@@ -228,3 +228,51 @@ a {
   text-align: left;
   width: 100%;
 }
+
+.patient-lookup {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  max-width: 40rem;
+}
+
+.patient-lookup-status p {
+  margin-top: 1rem;
+}
+
+.patient-confirmation-card,
+.patient-selected-banner {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+}
+
+.patient-confirmation-card dl,
+.patient-selected-banner p {
+  margin: 0.35rem 0;
+}
+
+.patient-confirmation-card dt {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.patient-confirmation-card dd {
+  margin: 0 0 0.5rem;
+}
+
+.patient-lookup fieldset.field {
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 0.75rem;
+}
+
+.patient-lookup fieldset label {
+  display: block;
+  margin: 0.35rem 0;
+}
+

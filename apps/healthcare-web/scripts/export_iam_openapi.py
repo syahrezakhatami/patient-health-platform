@@ -29,6 +29,7 @@ SHELL_PATHS = (
     "/api/v1/iam/me/organizations",
     "/api/v1/iam/me/context",
     "/api/v1/organizations/{organization_id}/facilities/accessible",
+    "/api/v1/mpi/patients/lookup",
 )
 
 
@@ -52,6 +53,15 @@ def build_document() -> dict:
         "StaffSessionUserDTO",
         "FacilityScopeKind",
         "AccessibleFacilityDTO",
+        "PatientLookupRequest",
+        "PatientLookupResponse",
+        "PatientLookupResult",
+        "PatientLookupType",
+        "PatientLookupOutcome",
+        "IdentityLifecycle",
+        "IdentityKind",
+        "AdministrativeSex",
+        "IdentifierVerificationStatus",
     }
     missing_schemas = sorted(name for name in used if name not in schemas)
     if missing_schemas:

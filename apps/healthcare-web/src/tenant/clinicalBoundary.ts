@@ -6,6 +6,9 @@
  * Work facility is independent of any future clinical chart facility filter.
  * Never copy workFacilityId into chartFacilityFilterId.
  */
+import { patientLookupCoordinator } from "../patient/lookupCoordinator";
+import { clearSelectedPatient } from "../patient/selectionStore";
+
 let selectedPatientId: string | null = null;
 let chartFacilityFilterId: string | null = null;
 
@@ -28,6 +31,8 @@ export function setChartFacilityFilterId(facilityId: string | null): void {
 export function clearPatientAndChartFilter(): void {
   selectedPatientId = null;
   chartFacilityFilterId = null;
+  clearSelectedPatient();
+  patientLookupCoordinator.abortAndInvalidate();
 }
 
 export function clearFacilityDependentCommandState(): void {

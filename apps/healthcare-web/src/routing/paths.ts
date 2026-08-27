@@ -23,6 +23,7 @@ export const APP_PATHS = {
   selectOrganization: "/select-organization",
   unassigned: "/unassigned",
   app: "/app",
+  patientSelect: "/app/patients/select",
   registration: "/app/registration",
   clinical: "/app/clinical",
   identity: "/app/identity",

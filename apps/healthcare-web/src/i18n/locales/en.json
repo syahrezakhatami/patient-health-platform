@@ -39,11 +39,12 @@
     "clinical": "Clinical",
     "identity": "Identity",
     "audit": "Audit",
-    "admin": "Organization administration"
+    "admin": "Organization administration",
+    "selectPatient": "Select patient"
   },
   "workspace": {
     "homeTitle": "Workspace",
-    "homeBody": "Select a workspace from the navigation. Patient lookup and clinical chart are not part of this shell.",
+    "homeBody": "Select a workspace from the navigation. Patient lookup is available when you have identity-read permission. Clinical chart is not part of this pass.",
     "empty": "This workspace is not implemented yet. No patient or clinical data is shown.",
     "registrationTitle": "Registration workspace",
     "clinicalTitle": "Clinical workspace",
@@ -59,7 +60,8 @@
     "notFoundBody": "This page does not exist.",
     "loading": "Loading…",
     "generic": "Something went wrong.",
-    "retry": "Try again"
+    "retry": "Try again",
+    "rateLimited": "Too many attempts. Try again later."
   },
   "locale": {
     "label": "Language",
@@ -69,5 +71,44 @@
   "session": {
     "user": "Signed in as",
     "unknownUser": "Staff user"
+  },
+  "patient": {
+    "selectTitle": "Select patient",
+    "selectBody": "Search by exact medical record number, NIK, BPJS number, or patient identity. Confirm the person before continuing. This does not open a clinical chart.",
+    "lookupTitle": "Patient lookup",
+    "lookupForbidden": "You do not have permission to look up patients in this organization.",
+    "lookupType": "Identifier type",
+    "lookupValue": "Identifier value",
+    "search": "Search",
+    "searching": "Searching…",
+    "workflow": "Workflow",
+    "chooseWorkflow": "Choose the workspace workflow for this lookup. Purpose follows that workspace and does not grant extra permission.",
+    "noWorkflow": "No approved lookup workflow is available for your permissions.",
+    "resultsTitle": "Lookup result",
+    "confirmPrompt": "Confirm this is the correct patient before selecting.",
+    "noMatch": "No matching patient was found.",
+    "noMatchBody": "No patient was selected. This does not create a new registration.",
+    "ambiguous": "More than one patient matched. Do not select from this screen.",
+    "ambiguousBody": "Send this case to identity review. Generic lookup cannot merge or choose for you.",
+    "reviewRequired": "This identifier needs identity review before clinical selection.",
+    "reviewRequiredBody": "The national identifier is not verified for deterministic selection.",
+    "retired": "This identity cannot be selected.",
+    "invalidLookup": "The lookup value is not valid for the selected identifier type.",
+    "selected": "Patient selected for this organization session.",
+    "selectedTitle": "Selected patient",
+    "selectPatient": "Select this patient",
+    "clearSelection": "Clear selected patient",
+    "name": "Name",
+    "dob": "Date of birth",
+    "sex": "Sex",
+    "mrn": "Medical record number",
+    "unknown": "Not recorded",
+    "anonymous": "Temporary / anonymous identity",
+    "types": {
+      "MRN": "Medical record number",
+      "NIK": "NIK",
+      "BPJS": "BPJS",
+      "PATIENT_IDENTITY_ID": "Patient identity"
+    }
   }
 }

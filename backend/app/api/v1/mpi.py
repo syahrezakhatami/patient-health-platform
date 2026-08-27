@@ -23,12 +23,21 @@ from app.api.v1.schemas import (
     MatchResultResponse,
     MergeOperationResponse,
     MergeRequest,
+    PatientLookupRequest,
+    PatientLookupResponse,
+    PatientLookupResult,
     ReviewMatchRequest,
     UnmergeRequest,
     VerifyIdentifierRequest,
 )
 from app.core.dependencies import CurrentPDP, DbSession
-from app.modules.mpi.application.services import IdentifierInput, IdentityView, MpiService
+from app.modules.mpi.application.services import (
+    IdentifierInput,
+    IdentityView,
+    MpiService,
+    PatientLookupHit,
+    PatientLookupView,
+)
 
 router = APIRouter(
     prefix="/mpi",
@@ -157,6 +166,57 @@ async def lookup_identity(
         correlation_id=correlation_id,
     )
     return _identity_response(view)
+
+
+def _patient_lookup_result(hit: PatientLookupHit) -> PatientLookupResult:
+    return PatientLookupResult(
+        patient_identity_id=hit.patient_identity_id,
+        requested_patient_identity_id=hit.requested_patient_identity_id,
+        lifecycle_status=hit.lifecycle_status,
+        identity_kind=hit.identity_kind,
+        display_name=hit.display_name,
+        display_label=hit.display_label,
+        birth_date=hit.birth_date,
+        administrative_sex=hit.administrative_sex,
+        organization_mrn=hit.organization_mrn,
+        masked_identifier=hit.masked_identifier,
+        identifier_verification=hit.identifier_verification,
+        resolved_from_merged=hit.resolved_from_merged,
+        review_required=hit.review_required,
+        selectable=hit.selectable,
+    )
+
+
+def _patient_lookup_response(view: PatientLookupView) -> PatientLookupResponse:
+    return PatientLookupResponse(
+        outcome=view.outcome,
+        truncated=view.truncated,
+        results=[_patient_lookup_result(item) for item in view.results],
+    )
+
+
+@router.post("/patients/lookup", response_model=PatientLookupResponse)
+async def lookup_patients(
+    body: PatientLookupRequest,
+    session: DbSession,
+    pdp: CurrentPDP,
+    audit: CurrentAudit,
+    principal: CurrentPrincipal,
+    organization_id: RequestOrganizationId,
+    facility_id: RequestFacilityId,
+    purpose: RequestPurpose,
+    correlation_id: CorrelationId,
+) -> PatientLookupResponse:
+    view = await _service(session, pdp, audit).lookup_patients(
+        principal,
+        organization_id=organization_id,
+        facility_id=facility_id,
+        lookup_type=body.lookup_type,
+        lookup_value=body.lookup_value,
+        purpose=purpose,
+        correlation_id=correlation_id,
+    )
+    return _patient_lookup_response(view)
 
 
 @router.get("/identities/{identity_id}", response_model=IdentityResponse)

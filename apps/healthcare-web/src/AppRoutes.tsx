@@ -9,6 +9,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AppHomePage } from "./pages/AppHomePage";
 import { CallbackPage } from "./pages/CallbackPage";
 import { LoginPage } from "./pages/LoginPage";
+import { PatientSelectPage } from "./pages/PatientSelectPage";
 import { SelectOrganizationPage } from "./pages/SelectOrganizationPage";
 import { SessionExpiredPage } from "./pages/SessionExpiredPage";
 import { UnassignedPage } from "./pages/UnassignedPage";
@@ -52,6 +53,7 @@ export function AppRoutes() {
         <Route path={APP_PATHS.unassigned} element={<UnassignedPage />} />
         <Route element={<TenantLayout />}>
           <Route path={APP_PATHS.app} element={<AppHomePage />} />
+          <Route path={APP_PATHS.patientSelect} element={<PatientSelectPage />} />
           <Route
             path={APP_PATHS.registration}
             element={

@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { createAppQueryClient } from "../api/queryClient";
 import { AuthProvider } from "../auth/AuthProvider";
 import { registerQueryClient } from "../auth/sessionLifecycle";
+import { PatientSelectionProvider } from "../patient/PatientSelectionProvider";
 import { TenantProvider } from "../tenant/TenantProvider";
 
 export function TestAppHarness({
@@ -23,7 +24,9 @@ export function TestAppHarness({
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[initialPath]}>
         <AuthProvider>
-          <TenantProvider>{children}</TenantProvider>
+          <TenantProvider>
+            <PatientSelectionProvider>{children}</PatientSelectionProvider>
+          </TenantProvider>
         </AuthProvider>
       </MemoryRouter>
     </QueryClientProvider>
