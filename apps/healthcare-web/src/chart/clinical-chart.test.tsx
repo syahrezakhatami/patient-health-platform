@@ -338,6 +338,25 @@ describe("clinical chart ui", () => {
             has_more: false,
           });
         }
+        if (call.url.includes("/sections/encounters")) {
+          return jsonResponse({
+            requested_patient_identity_id: PATIENT_A,
+            canonical_patient_identity_id: PATIENT_A,
+            section: "encounters",
+            items: [
+              {
+                id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1",
+                encounter_class: "AMB",
+                status: "IN_PROGRESS",
+                display_label: "ENC-TEST",
+                started_at: "2020-01-01T00:00:00Z",
+                ended_at: null,
+                facility_id: null,
+              },
+            ],
+            has_more: false,
+          });
+        }
         if (call.url.endsWith("/chart")) {
           return jsonResponse(shell());
         }
@@ -351,9 +370,14 @@ describe("clinical chart ui", () => {
     expect(await screen.findByText(/metadata only|hanya judul/i)).toBeInTheDocument();
     expect(screen.queryByText("SECRET")).not.toBeInTheDocument();
     expect(calls.some((call) => call.url.includes("/clinical/notes/"))).toBe(false);
-    const sectionCalls = calls.filter((call) => call.url.includes("/sections/"));
-    expect(sectionCalls).toHaveLength(1);
-    expect(sectionCalls[0]?.url).toContain("/sections/notes");
+    expect(calls.some((call) => /\/clinical\/encounters\?/.test(call.url))).toBe(false);
+    await waitFor(() => {
+      const sectionCalls = calls.filter((call) => call.url.includes("/sections/"));
+      expect(sectionCalls).toHaveLength(2);
+    });
+    expect(calls.some((call) => call.url.includes("/sections/notes"))).toBe(true);
+    expect(calls.some((call) => call.url.includes("/sections/encounters"))).toBe(true);
+    expect(await screen.findByTestId("clinical-note-form")).toBeInTheDocument();
   });
 
   it("loads timeline only when opened and uses Load More with an opaque cursor", async () => {

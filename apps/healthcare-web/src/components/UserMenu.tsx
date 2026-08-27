@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 
 import { useAuth } from "../auth/AuthContext";
 import { useTenant } from "../tenant/TenantContext";
+import { confirmDiscardUnsavedWork, hasUnsavedWork } from "../tenant/unsavedWork";
 
 export function UserMenu() {
   const { t } = useTranslation();
@@ -14,7 +15,21 @@ export function UserMenu() {
       <span>
         {t("session.user")} <strong>{label}</strong>
       </span>
-      <button type="button" className="button danger" onClick={() => void logout()}>
+      <button
+        type="button"
+        className="button danger"
+        onClick={() => {
+          if (!hasUnsavedWork()) {
+            void logout();
+            return;
+          }
+          void confirmDiscardUnsavedWork("logout").then((ok) => {
+            if (ok) {
+              void logout();
+            }
+          });
+        }}
+      >
         {t("auth.signOut")}
       </button>
     </div>

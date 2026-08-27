@@ -10,6 +10,7 @@ import { isAbortError, mergeAbortSignals } from "../tenant/generation";
 import { SECTION_LABEL_KEY } from "./catalog";
 import { clinicalChartCoordinator } from "./clinicalChartCoordinator";
 import { asFact, factFields, factTitle, isVitalObservation, nestedRecords } from "./facts";
+import { ClinicalNoteForm } from "./notes/ClinicalNoteForm";
 import { clinicalQueryPolicy } from "./queryPolicy";
 import {
   SectionEmptyState,
@@ -115,7 +116,7 @@ export function ClinicalSectionView({
     return <SectionErrorState onRetry={() => void query.refetch()} />;
   }
   const items = (query.data?.items ?? []).map(asFact);
-  if (items.length === 0) {
+  if (items.length === 0 && section !== "notes") {
     return <SectionEmptyState messageKey="chart.sectionEmpty" />;
   }
 
@@ -125,7 +126,17 @@ export function ClinicalSectionView({
   return (
     <div className="chart-section">
       <h2>{t(SECTION_LABEL_KEY[section])}</h2>
+      {section === "notes" ? (
+        <ClinicalNoteForm
+          organizationId={organizationId}
+          facilityId={facilityId}
+          patientIdentityId={patientIdentityId}
+          generation={generation}
+          signal={signal}
+        />
+      ) : null}
       {section === "notes" ? <p className="muted">{t("chart.notesMetadataOnly")}</p> : null}
+      {section === "notes" && items.length === 0 ? <SectionEmptyState messageKey="chart.sectionEmpty" /> : null}
       {section === "observations" && vitals.length > 0 ? (
         <section>
           <h3>{t("chart.vitals")}</h3>

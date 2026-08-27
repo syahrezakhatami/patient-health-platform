@@ -44,6 +44,24 @@ export interface ChartShellResponse {
   requested_patient_identity_id: string;
 }
 
+export interface ClinicalNoteResponse {
+  authored_at: string;
+  body_text: string;
+  encounter_id: string;
+  facility_id: string | null;
+  finalized_at: string | null;
+  id: string;
+  note_type: ClinicalNoteType;
+  organization_id: string;
+  patient_identity_id: string;
+  record_status: ClinicalRecordStatus;
+  version: number;
+}
+
+export type ClinicalNoteType = "PROGRESS" | "ADMISSION" | "ED" | "DISCHARGE" | "OTHER";
+
+export type ClinicalRecordStatus = "DRAFT" | "FINAL" | "ENTERED_IN_ERROR";
+
 export interface ClinicalSummaryResponse {
   active_allergies?: Array<SummaryItemDTO> | null;
   active_conditions?: Array<SummaryItemDTO> | null;
@@ -55,7 +73,18 @@ export interface ClinicalSummaryResponse {
   requested_patient_identity_id: string;
 }
 
+export interface CreateClinicalNoteRequest {
+  body_text: string;
+  encounter_id: string;
+  expected_patient_identity_id: string;
+  note_type: ClinicalNoteType;
+}
+
 export type FacilityScopeKind = "ALL_IN_ORGANIZATION" | "EXPLICIT";
+
+export interface FinalizeClinicalNoteRequest {
+  expected_patient_identity_id: string;
+}
 
 export type IdentifierVerificationStatus = "UNVERIFIED" | "VERIFIED" | "REJECTED" | "EXPIRED";
 
@@ -170,4 +199,10 @@ export interface TimelinePageResponse {
   items: Array<TimelineItemDTO>;
   next_cursor?: string | null;
   requested_patient_identity_id: string;
+}
+
+export interface UpdateClinicalNoteRequest {
+  body_text: string;
+  expected_patient_identity_id: string;
+  expected_version: number;
 }

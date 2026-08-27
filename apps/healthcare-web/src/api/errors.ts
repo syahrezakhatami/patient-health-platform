@@ -12,13 +12,21 @@ export type ApiErrorCode =
 export class ApiError extends Error {
   readonly status: number;
   readonly code: ApiErrorCode;
+  readonly backendCode: string | null;
   readonly correlationId: string | null;
 
-  constructor(status: number, code: ApiErrorCode, message: string, correlationId: string | null) {
+  constructor(
+    status: number,
+    code: ApiErrorCode,
+    message: string,
+    correlationId: string | null,
+    backendCode: string | null = null,
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.backendCode = backendCode;
     this.correlationId = correlationId;
   }
 }
@@ -93,13 +101,17 @@ interface BackendErrorBody {
 export function parseApiError(status: number, body: unknown): ApiError {
   const code = mapStatusToCode(status);
   let correlationId: string | null = null;
+  let backendCode: string | null = null;
   if (body && typeof body === "object") {
     const error = (body as BackendErrorBody).error;
     if (error && typeof error.correlation_id === "string") {
       correlationId = error.correlation_id;
     }
+    if (error && typeof error.code === "string") {
+      backendCode = error.code;
+    }
   }
-  return new ApiError(status, code, userFacingMessage(code), correlationId);
+  return new ApiError(status, code, userFacingMessage(code), correlationId, backendCode);
 }
 
 /** Retry while failureCount < 2 → at most 3 attempts (initial + 2 retries). */

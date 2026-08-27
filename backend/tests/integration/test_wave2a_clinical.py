@@ -3,6 +3,13 @@ from uuid import uuid4
 import pytest
 from app.modules.authorization.domain.catalog import RoleCode
 from sqlalchemy import text
+from tests.integration.clinical_notes import (
+    create_note_body,
+    finalize_note_body,
+    new_idempotency_key,
+    note_write_headers,
+    update_note_body,
+)
 from tests.integration.conftest import requires_db, seed_actor
 from tests.integration.test_wave1_mpi import _identity_payload, unique_nik
 
@@ -36,12 +43,13 @@ async def test_emergency_encounter_and_note_lifecycle(db_client, db_engine) -> N
 
     note = await db_client.post(
         "/api/v1/clinical/notes",
-        headers=clinician.headers(purpose="TREATMENT"),
-        json={
-            "encounter_id": encounter_id,
-            "note_type": "ED",
-            "body_text": "Anonymous trauma assessment. Airway clear.",
-        },
+        headers=note_write_headers(clinician, idempotency_key=new_idempotency_key("create")),
+        json=create_note_body(
+            patient_id,
+            encounter_id,
+            note_type="ED",
+            body_text="Anonymous trauma assessment. Airway clear.",
+        ),
     )
     assert note.status_code in {200, 201}
     assert note.json()["record_status"] == "DRAFT"
@@ -50,19 +58,24 @@ async def test_emergency_encounter_and_note_lifecycle(db_client, db_engine) -> N
     updated = await db_client.post(
         f"/api/v1/clinical/notes/{note_id}",
         headers=clinician.headers(purpose="TREATMENT"),
-        json={"body_text": "Anonymous trauma assessment. Airway clear. IV started."},
+        json=update_note_body(
+            patient_id,
+            note.json()["version"],
+            "Anonymous trauma assessment. Airway clear. IV started.",
+        ),
     )
     assert updated.status_code == 200
     finalized = await db_client.post(
         f"/api/v1/clinical/notes/{note_id}/finalize",
-        headers=clinician.headers(purpose="TREATMENT"),
+        headers=note_write_headers(clinician, idempotency_key=new_idempotency_key("finalize")),
+        json=finalize_note_body(patient_id),
     )
     assert finalized.status_code == 200
     assert finalized.json()["record_status"] == "FINAL"
     blocked = await db_client.post(
         f"/api/v1/clinical/notes/{note_id}",
         headers=clinician.headers(purpose="TREATMENT"),
-        json={"body_text": "should not overwrite final"},
+        json=update_note_body(patient_id, updated.json()["version"], "should not overwrite final"),
     )
     assert blocked.status_code == 409
 
@@ -118,8 +131,8 @@ async def test_clinical_authorization_and_cross_org(db_client, db_engine) -> Non
     encounter_id = encounter.json()["id"]
     denied_note = await db_client.post(
         "/api/v1/clinical/notes",
-        headers=registrar.headers(purpose="TREATMENT"),
-        json={"encounter_id": encounter_id, "note_type": "PROGRESS", "body_text": "not allowed"},
+        headers=note_write_headers(registrar, idempotency_key=new_idempotency_key("denied")),
+        json=create_note_body(patient_id, encounter_id, body_text="not allowed"),
     )
     assert denied_note.status_code == 403
     missing_purpose = await db_client.get(

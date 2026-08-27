@@ -33,7 +33,7 @@ export interface TenantContextValue {
   errorMessage: string | null;
   selectOrganization: (organizationId: string) => Promise<void>;
   switchOrganization: (organizationId: string) => Promise<void>;
-  selectWorkFacility: (facilityId: string | null) => void;
+  selectWorkFacility: (facilityId: string | null) => Promise<void>;
   refreshContext: () => Promise<void>;
   handleMembershipLoss: () => Promise<void>;
 }

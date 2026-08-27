@@ -18,6 +18,7 @@ from app.modules.iam.infrastructure.models import (
 )
 from app.modules.clinical.infrastructure.models import (
     ClinicalNoteModel,
+    ClinicalNoteWriteIdempotencyModel,
     ClinicalProvenanceModel,
     ConditionModel,
     EncounterModel,
@@ -72,6 +73,7 @@ assert IdentityProvenanceModel.__tablename__ == "identity_provenances"
 assert EncounterModel.__tablename__ == "encounters"
 assert EncounterParticipantModel.__tablename__ == "encounter_participants"
 assert ClinicalNoteModel.__tablename__ == "clinical_notes"
+assert ClinicalNoteWriteIdempotencyModel.__tablename__ == "clinical_note_write_idempotency"
 assert ClinicalProvenanceModel.__tablename__ == "clinical_provenances"
 assert ConditionModel.__tablename__ == "conditions"
 assert ObservationModel.__tablename__ == "observations"

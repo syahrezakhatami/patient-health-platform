@@ -34,6 +34,9 @@ SHELL_PATHS = (
     "/api/v1/clinical/patients/{patient_identity_id}/chart/summary",
     "/api/v1/clinical/patients/{patient_identity_id}/chart/timeline",
     "/api/v1/clinical/patients/{patient_identity_id}/chart/sections/{section}",
+    "/api/v1/clinical/notes",
+    "/api/v1/clinical/notes/{note_id}",
+    "/api/v1/clinical/notes/{note_id}/finalize",
 )
 
 
@@ -75,6 +78,12 @@ def build_document() -> dict:
         "SummaryItemDTO",
         "TimelineItemDTO",
         "ChartSection",
+        "CreateClinicalNoteRequest",
+        "UpdateClinicalNoteRequest",
+        "FinalizeClinicalNoteRequest",
+        "ClinicalNoteResponse",
+        "ClinicalNoteType",
+        "ClinicalRecordStatus",
     }
     missing_schemas = sorted(name for name in used if name not in schemas)
     if missing_schemas:

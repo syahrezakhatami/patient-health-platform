@@ -168,6 +168,108 @@
         "title": "ChartShellResponse",
         "type": "object"
       },
+      "ClinicalNoteResponse": {
+        "properties": {
+          "authored_at": {
+            "format": "date-time",
+            "title": "Authored At",
+            "type": "string"
+          },
+          "body_text": {
+            "title": "Body Text",
+            "type": "string"
+          },
+          "encounter_id": {
+            "format": "uuid",
+            "title": "Encounter Id",
+            "type": "string"
+          },
+          "facility_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Facility Id"
+          },
+          "finalized_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finalized At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "note_type": {
+            "$ref": "#/components/schemas/ClinicalNoteType"
+          },
+          "organization_id": {
+            "format": "uuid",
+            "title": "Organization Id",
+            "type": "string"
+          },
+          "patient_identity_id": {
+            "format": "uuid",
+            "title": "Patient Identity Id",
+            "type": "string"
+          },
+          "record_status": {
+            "$ref": "#/components/schemas/ClinicalRecordStatus"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "patient_identity_id",
+          "encounter_id",
+          "organization_id",
+          "facility_id",
+          "note_type",
+          "body_text",
+          "record_status",
+          "version",
+          "authored_at",
+          "finalized_at"
+        ],
+        "title": "ClinicalNoteResponse",
+        "type": "object"
+      },
+      "ClinicalNoteType": {
+        "enum": [
+          "PROGRESS",
+          "ADMISSION",
+          "ED",
+          "DISCHARGE",
+          "OTHER"
+        ],
+        "title": "ClinicalNoteType",
+        "type": "string"
+      },
+      "ClinicalRecordStatus": {
+        "enum": [
+          "DRAFT",
+          "FINAL",
+          "ENTERED_IN_ERROR"
+        ],
+        "title": "ClinicalRecordStatus",
+        "type": "string"
+      },
       "ClinicalSummaryResponse": {
         "additionalProperties": false,
         "properties": {
@@ -273,6 +375,38 @@
         "title": "ClinicalSummaryResponse",
         "type": "object"
       },
+      "CreateClinicalNoteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body_text": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Body Text",
+            "type": "string"
+          },
+          "encounter_id": {
+            "format": "uuid",
+            "title": "Encounter Id",
+            "type": "string"
+          },
+          "expected_patient_identity_id": {
+            "format": "uuid",
+            "title": "Expected Patient Identity Id",
+            "type": "string"
+          },
+          "note_type": {
+            "$ref": "#/components/schemas/ClinicalNoteType"
+          }
+        },
+        "required": [
+          "expected_patient_identity_id",
+          "encounter_id",
+          "note_type",
+          "body_text"
+        ],
+        "title": "CreateClinicalNoteRequest",
+        "type": "object"
+      },
       "FacilityScopeKind": {
         "enum": [
           "ALL_IN_ORGANIZATION",
@@ -280,6 +414,21 @@
         ],
         "title": "FacilityScopeKind",
         "type": "string"
+      },
+      "FinalizeClinicalNoteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_patient_identity_id": {
+            "format": "uuid",
+            "title": "Expected Patient Identity Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "expected_patient_identity_id"
+        ],
+        "title": "FinalizeClinicalNoteRequest",
+        "type": "object"
       },
       "IdentifierVerificationStatus": {
         "enum": [
@@ -934,6 +1083,34 @@
         ],
         "title": "TimelinePageResponse",
         "type": "object"
+      },
+      "UpdateClinicalNoteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body_text": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Body Text",
+            "type": "string"
+          },
+          "expected_patient_identity_id": {
+            "format": "uuid",
+            "title": "Expected Patient Identity Id",
+            "type": "string"
+          },
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_patient_identity_id",
+          "expected_version",
+          "body_text"
+        ],
+        "title": "UpdateClinicalNoteRequest",
+        "type": "object"
       }
     }
   },
@@ -944,6 +1121,420 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/clinical/notes": {
+      "post": {
+        "operationId": "create_note_api_v1_clinical_notes_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-facility-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Facility-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-purpose",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Purpose"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateClinicalNoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicalNoteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Note",
+        "tags": [
+          "clinical"
+        ]
+      }
+    },
+    "/api/v1/clinical/notes/{note_id}": {
+      "get": {
+        "operationId": "get_note_api_v1_clinical_notes__note_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-facility-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Facility-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-purpose",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Purpose"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicalNoteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Note",
+        "tags": [
+          "clinical"
+        ]
+      },
+      "post": {
+        "operationId": "update_draft_note_api_v1_clinical_notes__note_id__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-facility-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Facility-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-purpose",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Purpose"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateClinicalNoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicalNoteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Draft Note",
+        "tags": [
+          "clinical"
+        ]
+      }
+    },
+    "/api/v1/clinical/notes/{note_id}/finalize": {
+      "post": {
+        "operationId": "finalize_note_api_v1_clinical_notes__note_id__finalize_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Organization-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-facility-id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Facility-Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-purpose",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Purpose"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FinalizeClinicalNoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicalNoteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finalize Note",
+        "tags": [
+          "clinical"
+        ]
+      }
+    },
     "/api/v1/clinical/patients/{patient_identity_id}/chart": {
       "get": {
         "operationId": "get_chart_shell_api_v1_clinical_patients__patient_identity_id__chart_get",

@@ -10,6 +10,13 @@ from app.modules.organization.infrastructure.models import FacilityModel
 from app.shared.types.ids import new_id
 from sqlalchemy import select, text
 from tests.conftest import mint_token
+from tests.integration.clinical_notes import (
+    create_note_body,
+    finalize_note_body,
+    new_idempotency_key,
+    note_write_headers,
+    update_note_body,
+)
 from tests.integration.conftest import SeededActor, requires_db, seed_actor
 from tests.integration.test_wave1_mpi import (
     _identity_payload,
@@ -162,8 +169,8 @@ async def test_purpose_does_not_grant_clinical_access(db_client, db_engine) -> N
     encounter_id = created.json()["id"]
     valid_unauth = await db_client.post(
         "/api/v1/clinical/notes",
-        headers=registrar.headers(purpose="TREATMENT"),
-        json={"encounter_id": encounter_id, "note_type": "PROGRESS", "body_text": "bypass?"},
+        headers=note_write_headers(registrar, idempotency_key=new_idempotency_key("unauth")),
+        json=create_note_body(patient_id, encounter_id, body_text="bypass?"),
     )
     assert valid_unauth.status_code == 403
     assert "bypass?" not in valid_unauth.text
@@ -184,27 +191,28 @@ async def test_note_immutability_api_and_database(db_client, db_engine) -> None:
     encounter_id = (await _open_encounter(db_client, clinician, patient_id)).json()["id"]
     note = await db_client.post(
         "/api/v1/clinical/notes",
-        headers=clinician.headers(purpose="TREATMENT"),
-        json={"encounter_id": encounter_id, "note_type": "PROGRESS", "body_text": "draft body"},
+        headers=note_write_headers(clinician, idempotency_key=new_idempotency_key("immut")),
+        json=create_note_body(patient_id, encounter_id, body_text="draft body"),
     )
     note_id = note.json()["id"]
     assert note.json()["version"] == 1
     updated = await db_client.post(
         f"/api/v1/clinical/notes/{note_id}",
         headers=clinician.headers(purpose="TREATMENT"),
-        json={"body_text": "edited draft"},
+        json=update_note_body(patient_id, 1, "edited draft"),
     )
     assert updated.status_code == 200
     assert updated.json()["version"] == 2
     finalized = await db_client.post(
         f"/api/v1/clinical/notes/{note_id}/finalize",
-        headers=clinician.headers(purpose="TREATMENT"),
+        headers=note_write_headers(clinician, idempotency_key=new_idempotency_key("immut-fin")),
+        json=finalize_note_body(patient_id),
     )
     assert finalized.status_code == 200
     blocked = await db_client.post(
         f"/api/v1/clinical/notes/{note_id}",
         headers=clinician.headers(purpose="TREATMENT"),
-        json={"body_text": "overwrite final"},
+        json=update_note_body(patient_id, 2, "overwrite final"),
     )
     assert blocked.status_code == 409
     async with db_engine.connect() as connection:
@@ -293,15 +301,16 @@ async def test_concurrent_note_finalize_and_status_change(db_client, db_engine) 
     assert started.status_code == 200
     note = await db_client.post(
         "/api/v1/clinical/notes",
-        headers=clinician.headers(purpose="TREATMENT"),
-        json={"encounter_id": encounter_id, "note_type": "PROGRESS", "body_text": "race note"},
+        headers=note_write_headers(clinician, idempotency_key=new_idempotency_key("race")),
+        json=create_note_body(patient_id, encounter_id, body_text="race note"),
     )
     note_id = note.json()["id"]
 
     async def finalize() -> object:
         return await db_client.post(
             f"/api/v1/clinical/notes/{note_id}/finalize",
-            headers=clinician.headers(purpose="TREATMENT"),
+            headers=note_write_headers(clinician, idempotency_key=new_idempotency_key("race-fin")),
+            json=finalize_note_body(patient_id),
         )
 
     first, second = await asyncio.gather(finalize(), finalize())
@@ -361,8 +370,8 @@ async def test_clinical_idor_and_facility_scope(db_client, db_engine) -> None:
     encounter_id = (await _open_encounter(db_client, clinician, patient_id)).json()["id"]
     note = await db_client.post(
         "/api/v1/clinical/notes",
-        headers=clinician.headers(purpose="TREATMENT"),
-        json={"encounter_id": encounter_id, "note_type": "PROGRESS", "body_text": "org a note"},
+        headers=note_write_headers(clinician, idempotency_key=new_idempotency_key("idor")),
+        json=create_note_body(patient_id, encounter_id, body_text="org a note"),
     )
     note_id = note.json()["id"]
     cross_note = await db_client.get(

@@ -27,6 +27,7 @@ export const queryKeys = {
 };
 
 export const PATIENT_LOOKUP_MUTATION_KEY = ["patient-lookup"] as const;
+export const CLINICAL_NOTE_MUTATION_KEY = ["clinical-note-write"] as const;
 
 export const CLINICAL_GC_TIME_MS = 5 * 60_000;
 export const CLINICAL_STALE_TIME_MS = 30_000;
@@ -99,6 +100,16 @@ export function clearPatientLookupMutations(client: QueryClient): void {
   }
 }
 
+export function clearClinicalNoteMutations(client: QueryClient): void {
+  const cache = client.getMutationCache();
+  for (const mutation of cache.getAll()) {
+    const key = mutation.options.mutationKey;
+    if (Array.isArray(key) && key[0] === CLINICAL_NOTE_MUTATION_KEY[0]) {
+      cache.remove(mutation);
+    }
+  }
+}
+
 export function removeTenantScopedQueries(client: QueryClient, organizationId: string): void {
   void client.cancelQueries({ queryKey: queryKeys.context(organizationId) });
   void client.cancelQueries({ queryKey: queryKeys.accessibleFacilities(organizationId) });
@@ -108,5 +119,6 @@ export function removeTenantScopedQueries(client: QueryClient, organizationId: s
     predicate: (query) => query.queryKey.includes(organizationId),
   });
   clearPatientLookupMutations(client);
+  clearClinicalNoteMutations(client);
   clearClinicalQueries(client);
 }

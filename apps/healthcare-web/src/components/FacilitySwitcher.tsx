@@ -29,7 +29,7 @@ export function FacilitySwitcher() {
         id="facility-switcher"
         value={workFacilityId ?? ""}
         onChange={(event) => {
-          selectWorkFacility(event.target.value || null);
+          void selectWorkFacility(event.target.value || null);
         }}
       >
         {facilityScope === "ALL_IN_ORGANIZATION" || !workFacilityId ? (

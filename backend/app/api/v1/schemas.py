@@ -272,13 +272,23 @@ class EncounterResponse(BaseModel):
 
 
 class CreateClinicalNoteRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+    expected_patient_identity_id: UUID
     encounter_id: UUID
     note_type: ClinicalNoteType
     body_text: str = Field(min_length=1, max_length=20000)
 
 
 class UpdateClinicalNoteRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+    expected_patient_identity_id: UUID
+    expected_version: int = Field(ge=1)
     body_text: str = Field(min_length=1, max_length=20000)
+
+
+class FinalizeClinicalNoteRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+    expected_patient_identity_id: UUID
 
 
 class ClinicalNoteResponse(BaseModel):

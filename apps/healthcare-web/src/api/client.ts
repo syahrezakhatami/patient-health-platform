@@ -19,6 +19,7 @@ export interface ApiRequestOptions {
   facilityId?: string | null;
   purpose?: RequestPurpose | null;
   signal?: AbortSignal;
+  idempotencyKey?: string | null;
 }
 
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -62,6 +63,9 @@ export async function apiRequest<T>(options: ApiRequestOptions): Promise<T> {
   }
   if (options.purpose) {
     headers.set("X-Purpose", options.purpose);
+  }
+  if (options.idempotencyKey) {
+    headers.set("Idempotency-Key", options.idempotencyKey);
   }
   if (options.body !== undefined) {
     headers.set("Content-Type", "application/json");

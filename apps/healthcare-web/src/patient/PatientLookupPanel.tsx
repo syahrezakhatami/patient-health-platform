@@ -14,7 +14,7 @@ import { lookupPatients } from "../api/patients";
 import { isAbortError } from "../tenant/generation";
 import { useTenant } from "../tenant/TenantContext";
 import { patientLookupCoordinator } from "./lookupCoordinator";
-import { selectPatientAndWipeChart } from "../chart/wipe";
+import { requestSelectPatientAndWipeChart } from "../chart/wipe";
 import { summaryFromLookupResult } from "./selectionStore";
 
 const LOOKUP_TYPES: PatientLookupType[] = ["MRN", "NIK", "BPJS", "PATIENT_IDENTITY_ID"];
@@ -118,11 +118,15 @@ export function PatientLookupPanel({ purpose }: { purpose: RequestPurpose }) {
     if (!organizationId || !hit.selectable) {
       return;
     }
-    selectPatientAndWipeChart(summaryFromLookupResult(hit, organizationId));
-    setLookupValue("");
-    setResult(null);
-    mutation.reset();
-    setStatusMessage(t("patient.selected"));
+    void requestSelectPatientAndWipeChart(summaryFromLookupResult(hit, organizationId)).then((ok) => {
+      if (!ok) {
+        return;
+      }
+      setLookupValue("");
+      setResult(null);
+      mutation.reset();
+      setStatusMessage(t("patient.selected"));
+    });
   };
 
   const organizationName = selectedOrganization?.name ?? "—";

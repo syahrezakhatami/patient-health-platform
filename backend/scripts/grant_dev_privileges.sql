@@ -13,6 +13,7 @@ REVOKE UPDATE, DELETE, TRUNCATE ON TABLE identity_merge_operations FROM app_dml;
 REVOKE UPDATE, DELETE, TRUNCATE ON TABLE identity_provenances FROM app_dml;
 REVOKE UPDATE, DELETE, TRUNCATE ON TABLE identity_match_probes FROM app_dml;
 REVOKE UPDATE, DELETE, TRUNCATE ON TABLE clinical_provenances FROM app_dml;
+REVOKE UPDATE, DELETE, TRUNCATE ON TABLE clinical_note_write_idempotency FROM app_dml;
 REVOKE DELETE, TRUNCATE ON TABLE encounters FROM app_dml;
 REVOKE DELETE, TRUNCATE ON TABLE clinical_notes FROM app_dml;
 REVOKE DELETE, TRUNCATE ON TABLE encounter_participants FROM app_dml;
@@ -35,6 +36,7 @@ GRANT INSERT, SELECT ON TABLE identity_merge_operations TO app_dml;
 GRANT INSERT, SELECT ON TABLE identity_provenances TO app_dml;
 GRANT INSERT, SELECT ON TABLE identity_match_probes TO app_dml;
 GRANT INSERT, SELECT ON TABLE clinical_provenances TO app_dml;
+GRANT INSERT, SELECT ON TABLE clinical_note_write_idempotency TO app_dml;
 GRANT INSERT, SELECT ON TABLE audit_events TO app_audit_insert;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO readonly;
 

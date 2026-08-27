@@ -22,6 +22,11 @@ from app.shared.enums import AuthorshipKind, InformationSource
 from app.shared.types.ids import new_id
 from sqlalchemy import func, select, text
 from tests.conftest import TEST_SECRET, mint_token
+from tests.integration.clinical_notes import (
+    create_note_body,
+    new_idempotency_key,
+    note_write_headers,
+)
 from tests.integration.conftest import requires_db, seed_actor
 from tests.integration.test_clinical_read_core import _chart, _seed_limited, _staff_headers
 from tests.integration.test_wave1_mpi import (
@@ -457,12 +462,12 @@ async def test_hardening_cluster_tenant_notes_mrn_and_duplicates(db_client, db_e
     encounter = await _open_encounter(db_client, clinician, id_b)
     note = await db_client.post(
         "/api/v1/clinical/notes",
-        headers=clinician.headers(purpose="TREATMENT"),
-        json={
-            "encounter_id": encounter.json()["id"],
-            "note_type": "PROGRESS",
-            "body_text": "Hardening secret narrative",
-        },
+        headers=note_write_headers(clinician, idempotency_key=new_idempotency_key("crc-h-a")),
+        json=create_note_body(
+            id_b,
+            encounter.json()["id"],
+            body_text="Hardening secret narrative",
+        ),
     )
     assert note.status_code in {200, 201}
     async with db_engine.begin() as connection:
@@ -507,12 +512,12 @@ async def test_hardening_cluster_tenant_notes_mrn_and_duplicates(db_client, db_e
     encounter_b = await _open_encounter(db_client, hospital_b, id_b)
     note_b = await db_client.post(
         "/api/v1/clinical/notes",
-        headers=hospital_b.headers(purpose="TREATMENT"),
-        json={
-            "encounter_id": encounter_b.json()["id"],
-            "note_type": "PROGRESS",
-            "body_text": "Hospital B narrative must not leak",
-        },
+        headers=note_write_headers(hospital_b, idempotency_key=new_idempotency_key("crc-h-b")),
+        json=create_note_body(
+            id_b,
+            encounter_b.json()["id"],
+            body_text="Hospital B narrative must not leak",
+        ),
     )
     assert note_b.status_code in {200, 201}
 

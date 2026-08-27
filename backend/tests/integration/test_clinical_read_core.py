@@ -20,6 +20,11 @@ from app.shared.enums import AuthorshipKind, InformationSource
 from app.shared.types.ids import new_id
 from sqlalchemy import func, select, text
 from tests.conftest import mint_token
+from tests.integration.clinical_notes import (
+    create_note_body,
+    new_idempotency_key,
+    note_write_headers,
+)
 from tests.integration.conftest import SeededActor, requires_db, seed_actor
 from tests.integration.test_wave1_mpi import (
     _identity_payload,
@@ -177,12 +182,12 @@ async def test_clinical_read_core_chart_cluster_authz_and_notes(db_client, db_en
     encounter_id = encounter.json()["id"]
     note = await db_client.post(
         "/api/v1/clinical/notes",
-        headers=clinician.headers(purpose="TREATMENT"),
-        json={
-            "encounter_id": encounter_id,
-            "note_type": "PROGRESS",
-            "body_text": "Secret note body must not appear in list DTO",
-        },
+        headers=note_write_headers(clinician, idempotency_key=new_idempotency_key("crc")),
+        json=create_note_body(
+            survivor_id,
+            encounter_id,
+            body_text="Secret note body must not appear in list DTO",
+        ),
     )
     assert note.status_code in {200, 201}
     note_id = note.json()["id"]

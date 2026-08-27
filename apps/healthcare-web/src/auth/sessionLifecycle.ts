@@ -1,10 +1,11 @@
 import type { QueryClient } from "@tanstack/react-query";
 
-import { clearClinicalQueries } from "../api/queryClient";
+import { clearClinicalNoteMutations, clearClinicalQueries } from "../api/queryClient";
 import { RETURN_TO_STORAGE_KEY } from "./returnTo";
 import { clearAccessToken } from "./tokenStore";
 import { clearPatientAndChartFilter } from "../tenant/clinicalBoundary";
 import { clearTabTenantStorage } from "../tenant/tabStorage";
+import { forceDiscardUnsavedWork } from "../tenant/unsavedWork";
 
 export type SessionExpiredReason = "unauthorized" | "expired" | "logout";
 
@@ -86,6 +87,7 @@ export function clearOidcHandshakeStorage(): void {
 }
 
 export function clearSensitiveClientState(): void {
+  forceDiscardUnsavedWork();
   clearAccessToken();
   // Clear selected patient before the query cache so Clinical Chart observers
   // disable PHI queries and cannot recreate them during QueryClient.clear().
@@ -93,6 +95,7 @@ export function clearSensitiveClientState(): void {
   queryClientRef?.clear();
   if (queryClientRef) {
     clearClinicalQueries(queryClientRef);
+    clearClinicalNoteMutations(queryClientRef);
   }
   clearTabTenantStorage();
   clearOidcHandshakeStorage();

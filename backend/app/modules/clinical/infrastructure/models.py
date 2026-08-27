@@ -2,7 +2,17 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String, Text
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -100,6 +110,36 @@ class ClinicalNoteModel(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     authored_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     finalized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     provenance_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), nullable=True)
+
+
+class ClinicalNoteWriteIdempotencyModel(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "clinical_note_write_idempotency"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id",
+            "actor_id",
+            "operation",
+            "idempotency_key",
+            name="uq_clinical_note_write_idempotency_scope",
+        ),
+        Index("ix_clinical_note_write_idempotency_note_id", "note_id"),
+    )
+
+    organization_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    actor_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    operation: Mapped[str] = mapped_column(String(32), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    request_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    note_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("clinical_notes.id", ondelete="RESTRICT", deferrable=True, initially="DEFERRED"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
 class ClinicalProvenanceModel(UUIDPrimaryKeyMixin, Base):

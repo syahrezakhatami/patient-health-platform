@@ -358,6 +358,45 @@ a {
   padding: 0.5rem 0;
 }
 
+.clinical-note-form {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.clinical-note-form textarea {
+  width: 100%;
+  font: inherit;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(28 42 57 / 45%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+  padding: 1rem;
+}
+
+.modal {
+  background: var(--color-surface);
+  color: var(--color-text);
+  max-width: 32rem;
+  width: 100%;
+  padding: 1.25rem;
+  border: 1px solid var(--color-border);
+}
+
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
 @media (max-width: 48rem) {
   .clinical-chart {
     max-width: 100%;

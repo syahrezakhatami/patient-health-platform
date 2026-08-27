@@ -16,6 +16,13 @@ from app.shared.types.ids import new_id
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 from tests.conftest import mint_token
+from tests.integration.clinical_notes import (
+    create_note_body,
+    finalize_note_body,
+    new_idempotency_key,
+    note_write_headers,
+    update_note_body,
+)
 from tests.integration.conftest import requires_db, seed_actor
 from tests.integration.test_product_access_tenancy_foundation import (
     _identity_payload,
@@ -278,12 +285,8 @@ async def test_platform_admin_is_denied_across_frozen_clinical_apis(db_client, d
     encounter_id = (await _open_encounter(db_client, clinician, patient_id)).json()["id"]
     note = await db_client.post(
         "/api/v1/clinical/notes",
-        headers=clinician.headers(purpose="TREATMENT"),
-        json={
-            "encounter_id": encounter_id,
-            "note_type": "PROGRESS",
-            "body_text": "clinician note",
-        },
+        headers=note_write_headers(clinician, idempotency_key=new_idempotency_key("plat")),
+        json=create_note_body(patient_id, encounter_id, body_text="clinician note"),
     )
     condition = await db_client.post(
         "/api/v1/clinical/conditions",
@@ -369,6 +372,7 @@ async def test_platform_admin_is_denied_across_frozen_clinical_apis(db_client, d
         assert item.status_code in {200, 201}, item.text[:300]
 
     headers = platform.headers(purpose="TREATMENT")
+    headers["Idempotency-Key"] = new_idempotency_key("plat-deny")
     ids = {
         "encounter": encounter_id,
         "note": note.json()["id"],
@@ -403,16 +407,20 @@ async def test_platform_admin_is_denied_across_frozen_clinical_apis(db_client, d
             "post",
             "/api/v1/clinical/notes",
             {
-                "json": {
-                    "encounter_id": encounter_id,
-                    "note_type": "PROGRESS",
-                    "body_text": "platform",
-                }
+                "json": create_note_body(patient_id, encounter_id, body_text="platform"),
             },
         ),
         ("get", f"/api/v1/clinical/notes/{ids['note']}", {}),
-        ("post", f"/api/v1/clinical/notes/{ids['note']}", {"json": {"body_text": "edit"}}),
-        ("post", f"/api/v1/clinical/notes/{ids['note']}/finalize", {}),
+        (
+            "post",
+            f"/api/v1/clinical/notes/{ids['note']}",
+            {"json": update_note_body(patient_id, 1, "edit")},
+        ),
+        (
+            "post",
+            f"/api/v1/clinical/notes/{ids['note']}/finalize",
+            {"json": finalize_note_body(patient_id)},
+        ),
         ("post", f"/api/v1/clinical/notes/{ids['note']}/entered-in-error", {}),
         ("post", "/api/v1/clinical/conditions", {"json": _pneumonia(patient_id)}),
         ("get", "/api/v1/clinical/conditions", {"params": {"patient_identity_id": patient_id}}),

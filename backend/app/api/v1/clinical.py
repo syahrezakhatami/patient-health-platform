@@ -10,6 +10,7 @@ from app.api.v1.deps import (
     RequestFacilityId,
     RequestOrganizationId,
     RequestPurpose,
+    RequiredIdempotencyKey,
     require_staff_audience,
 )
 from app.api.v1.schemas import (
@@ -47,6 +48,7 @@ from app.api.v1.schemas import (
     CreateProcedureRequest,
     EncounterResponse,
     FamilyHistoryResponse,
+    FinalizeClinicalNoteRequest,
     ImmunizationResponse,
     LaboratoryOrderResponse,
     LaboratoryResultResponse,
@@ -310,9 +312,11 @@ async def create_note(
     facility_id: RequestFacilityId,
     purpose: RequestPurpose,
     correlation_id: CorrelationId,
+    idempotency_key: RequiredIdempotencyKey,
 ) -> ClinicalNoteResponse:
     view = await _service(session, pdp, audit).create_note(
         principal,
+        expected_patient_identity_id=body.expected_patient_identity_id,
         encounter_id=body.encounter_id,
         organization_id=organization_id,
         facility_id=facility_id,
@@ -320,6 +324,7 @@ async def create_note(
         body_text=body.body_text,
         purpose=purpose,
         correlation_id=correlation_id,
+        idempotency_key=idempotency_key,
     )
     return _note_response(view)
 
@@ -363,6 +368,8 @@ async def update_draft_note(
     view = await _service(session, pdp, audit).update_draft_note(
         principal,
         note_id,
+        expected_patient_identity_id=body.expected_patient_identity_id,
+        expected_version=body.expected_version,
         organization_id=organization_id,
         facility_id=facility_id,
         body_text=body.body_text,
@@ -375,6 +382,7 @@ async def update_draft_note(
 @router.post("/notes/{note_id}/finalize", response_model=ClinicalNoteResponse)
 async def finalize_note(
     note_id: UUID,
+    body: FinalizeClinicalNoteRequest,
     session: DbSession,
     pdp: CurrentPDP,
     audit: CurrentAudit,
@@ -383,14 +391,17 @@ async def finalize_note(
     facility_id: RequestFacilityId,
     purpose: RequestPurpose,
     correlation_id: CorrelationId,
+    idempotency_key: RequiredIdempotencyKey,
 ) -> ClinicalNoteResponse:
     view = await _service(session, pdp, audit).finalize_note(
         principal,
         note_id,
+        expected_patient_identity_id=body.expected_patient_identity_id,
         organization_id=organization_id,
         facility_id=facility_id,
         purpose=purpose,
         correlation_id=correlation_id,
+        idempotency_key=idempotency_key,
     )
     return _note_response(view)
 

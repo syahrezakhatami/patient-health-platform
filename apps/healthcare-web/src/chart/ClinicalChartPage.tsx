@@ -16,6 +16,7 @@ import { APP_PATHS } from "../routing/paths";
 import { isAbortError, mergeAbortSignals } from "../tenant/generation";
 import { canOpenWorkspace } from "../tenant/permissions";
 import { useTenant } from "../tenant/TenantContext";
+import { confirmDiscardUnsavedWork } from "../tenant/unsavedWork";
 import { isChartSection, visibleAuthorizedSections } from "./catalog";
 import { ChartNavigation, type ChartView } from "./ChartNavigation";
 import { clinicalChartCoordinator } from "./clinicalChartCoordinator";
@@ -26,7 +27,7 @@ import { PatientSafetyBanner } from "./PatientSafetyBanner";
 import { clinicalQueryPolicy } from "./queryPolicy";
 import { SectionErrorState, SectionLoadingState, SectionUnavailableState } from "./sectionStates";
 import { TimelineView } from "./TimelineView";
-import { closePatientAndWipeChart } from "./wipe";
+import { closePatientAndWipeChart, requestClosePatientAndWipeChart } from "./wipe";
 
 interface LoadToken {
   generation: number;
@@ -240,8 +241,26 @@ export function ClinicalChartPage() {
   });
 
   const changePatient = () => {
-    closePatientAndWipeChart();
-    void navigate(APP_PATHS.patientSelect);
+    void requestClosePatientAndWipeChart().then((ok) => {
+      if (ok) {
+        void navigate(APP_PATHS.patientSelect);
+      }
+    });
+  };
+
+  const requestViewChange = (next: ChartView) => {
+    if (view === next) {
+      return;
+    }
+    if (view !== "notes" || next === "notes") {
+      setView(next);
+      return;
+    }
+    void confirmDiscardUnsavedWork("chart-view").then((ok) => {
+      if (ok) {
+        setView(next);
+      }
+    });
   };
 
   if (!canClinical) {
@@ -311,7 +330,7 @@ export function ClinicalChartPage() {
         identityUpdated={identityUpdated}
         onChangePatient={changePatient}
       />
-      <ChartNavigation sections={navSections} view={view} onChange={setView} t={t} />
+      <ChartNavigation sections={navSections} view={view} onChange={requestViewChange} t={t} />
       <div ref={contentRef} className="chart-content" tabIndex={-1}>
       {view === "summary" ? (
         summaryQuery.isPending ? (

@@ -8,6 +8,7 @@ from app.modules.clinical.infrastructure.models import (
     AdverseEventModel,
     AllergyModel,
     ClinicalNoteModel,
+    ClinicalNoteWriteIdempotencyModel,
     ClinicalProvenanceModel,
     ConditionModel,
     ConsentModel,
@@ -47,6 +48,31 @@ class ClinicalRepository:
         self._session.add(model)
         await self._session.flush()
         return model
+
+    async def add_note_write_idempotency(
+        self, model: ClinicalNoteWriteIdempotencyModel
+    ) -> ClinicalNoteWriteIdempotencyModel:
+        self._session.add(model)
+        await self._session.flush()
+        return model
+
+    async def get_note_write_idempotency(
+        self,
+        *,
+        organization_id: UUID,
+        actor_id: UUID,
+        operation: str,
+        idempotency_key: str,
+    ) -> ClinicalNoteWriteIdempotencyModel | None:
+        result = await self._session.execute(
+            select(ClinicalNoteWriteIdempotencyModel).where(
+                ClinicalNoteWriteIdempotencyModel.organization_id == organization_id,
+                ClinicalNoteWriteIdempotencyModel.actor_id == actor_id,
+                ClinicalNoteWriteIdempotencyModel.operation == operation,
+                ClinicalNoteWriteIdempotencyModel.idempotency_key == idempotency_key,
+            )
+        )
+        return result.scalar_one_or_none()
 
     async def add_condition(self, model: ConditionModel) -> ConditionModel:
         self._session.add(model)

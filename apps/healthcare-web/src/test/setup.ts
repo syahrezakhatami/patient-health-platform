@@ -7,7 +7,7 @@ import { resetSessionExpiryLock } from "../auth/sessionLifecycle";
 import { clearAccessToken } from "../auth/tokenStore";
 import { clearTabTenantStorage } from "../tenant/tabStorage";
 import { clearPatientAndChartFilter } from "../tenant/clinicalBoundary";
-import { registerUnsavedWorkGuard } from "../tenant/unsavedWork";
+import { registerUnsavedWorkAdapter, registerUnsavedWorkGuard, registerUnsavedWorkPrompt } from "../tenant/unsavedWork";
 
 afterEach(() => {
   cleanup();
@@ -17,6 +17,8 @@ afterEach(() => {
   resetSessionExpiryLock();
   resetUserManagerForTests();
   registerUnsavedWorkGuard(null);
+  registerUnsavedWorkAdapter(null);
+  registerUnsavedWorkPrompt(null);
   sessionStorage.clear();
   localStorage.clear();
 });

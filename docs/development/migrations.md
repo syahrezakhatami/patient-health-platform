@@ -95,3 +95,8 @@ Migration `20260814_0017` adds `family_histories`. It extends `clinical_provenan
 ## Product access and tenancy foundation schema
 
 Migration `20260814_0018` adds `patient_accounts` (1:1 UUID bind to `patient_identities.id`, never NIK/BPJS), seeds `patient.account.read` and `patient.record.read`, and strips `clinical.*` / `mpi.*` (and other non-retained) grants from `PLATFORM_ADMIN`. It does not add tenant, subscription, entitlement, AI, scheduling, notification, pharmacy, or patient-history tables. After upgrade, re-run `scripts/grant_dev_privileges.sql` so `app_dml` can use the new table and so DELETE remains revoked. Do not edit `0001`–`0017`. Do not run destructive downgrade against a populated local database.
+
+## Clinical note write idempotency schema
+
+Migration `20260814_0019` adds `clinical_note_write_idempotency` (unique scope `(organization_id, actor_id, operation, idempotency_key)`, insert-only trigger) and extends the clinical note UPDATE trigger so organization, facility, author, and `note_type` cannot change after create. It does not add a `version` column (`clinical_notes.version` already exists). It does not add Condition, Medication, Allergy, Observation, laboratory, or Procedure write schema. After upgrade, re-run `scripts/grant_dev_privileges.sql` so `app_dml` has INSERT/SELECT only on the new table (UPDATE/DELETE/TRUNCATE revoked). Do not edit `0001`–`0018`. Do not run destructive downgrade against a populated local database.
+

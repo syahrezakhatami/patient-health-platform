@@ -31,6 +31,11 @@ class ClinicalNoteType(StrEnum):
     OTHER = "OTHER"
 
 
+class ClinicalNoteWriteOperation(StrEnum):
+    NOTE_CREATE = "NOTE_CREATE"
+    NOTE_FINALIZE = "NOTE_FINALIZE"
+
+
 class ParticipationType(StrEnum):
     ATTENDING = "ATTENDING"
     ADMITTING = "ADMITTING"

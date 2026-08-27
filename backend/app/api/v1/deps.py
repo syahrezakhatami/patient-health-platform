@@ -9,6 +9,7 @@ from app.core.errors import AppError, ForbiddenError, UnauthorizedError
 from app.modules.audit.application.ports import AuditSink
 from app.modules.audit.infrastructure.sqlalchemy_sink import SqlAlchemyAuditSink
 from app.modules.authorization.domain.purpose import parse_purpose
+from app.modules.clinical.domain.idempotency import parse_idempotency_key
 from app.modules.iam.domain.models import Principal
 from app.modules.iam.infrastructure.repositories import IamRepository
 from app.modules.patient_access.application.services import PatientAccessService
@@ -82,6 +83,12 @@ def request_correlation_id(request: Request) -> str:
     return get_correlation_id(request)
 
 
+def get_required_idempotency_key(
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> str:
+    return parse_idempotency_key(idempotency_key)
+
+
 CurrentPrincipal = Annotated[Principal | None, Depends(get_principal)]
 UnscopedPrincipal = Annotated[Principal | None, Depends(get_unscoped_principal)]
 RequiredPrincipal = Annotated[Principal, Depends(require_principal)]
@@ -91,6 +98,7 @@ RequestOrganizationId = Annotated[UUID, Depends(get_organization_id)]
 OptionalOrganizationId = Annotated[UUID | None, Depends(get_optional_organization_id)]
 RequestFacilityId = Annotated[UUID | None, Depends(get_optional_facility_id)]
 CorrelationId = Annotated[str, Depends(request_correlation_id)]
+RequiredIdempotencyKey = Annotated[str, Depends(get_required_idempotency_key)]
 
 
 def require_staff_audience(auth: CurrentAuth, request: Request) -> None:

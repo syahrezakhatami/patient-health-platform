@@ -2,9 +2,14 @@ import { apiRequest } from "./client";
 import type {
   ChartSection,
   ChartShellResponse,
+  ClinicalNoteResponse,
+  ClinicalNoteType,
   ClinicalSummaryResponse,
+  CreateClinicalNoteRequest,
+  FinalizeClinicalNoteRequest,
   SectionPageResponse,
   TimelinePageResponse,
+  UpdateClinicalNoteRequest,
 } from "./generated/iam-shell";
 
 /** Clinical Chart MVP always uses Clinical workspace purpose. Not lookup purpose. */
@@ -76,5 +81,70 @@ export async function fetchChartSection(
     method: "GET",
     path: `${chartBase(context.patientIdentityId)}/sections/${encodeURIComponent(context.section)}`,
     ...headers(context),
+  });
+}
+
+export const CLINICAL_NOTE_TYPES: ClinicalNoteType[] = [
+  "PROGRESS",
+  "ADMISSION",
+  "ED",
+  "DISCHARGE",
+  "OTHER",
+];
+
+export const CLINICAL_NOTE_BODY_MAX = 20_000;
+
+export interface ClinicalNoteWriteContext {
+  organizationId: string;
+  facilityId?: string | null;
+  signal?: AbortSignal;
+  idempotencyKey?: string | null;
+}
+
+function writeHeaders(context: ClinicalNoteWriteContext) {
+  return {
+    organizationId: context.organizationId,
+    facilityId: context.facilityId,
+    purpose: CLINICAL_CHART_PURPOSE,
+    signal: context.signal,
+    idempotencyKey: context.idempotencyKey,
+  };
+}
+
+export async function createClinicalNote(
+  context: ClinicalNoteWriteContext,
+  body: CreateClinicalNoteRequest,
+): Promise<ClinicalNoteResponse> {
+  return apiRequest<ClinicalNoteResponse>({
+    method: "POST",
+    path: "/api/v1/clinical/notes",
+    body,
+    ...writeHeaders(context),
+  });
+}
+
+export async function updateClinicalNoteDraft(
+  context: ClinicalNoteWriteContext,
+  noteId: string,
+  body: UpdateClinicalNoteRequest,
+): Promise<ClinicalNoteResponse> {
+  return apiRequest<ClinicalNoteResponse>({
+    method: "POST",
+    path: `/api/v1/clinical/notes/${encodeURIComponent(noteId)}`,
+    body,
+    ...writeHeaders(context),
+  });
+}
+
+export async function finalizeClinicalNote(
+  context: ClinicalNoteWriteContext,
+  noteId: string,
+  body: FinalizeClinicalNoteRequest,
+): Promise<ClinicalNoteResponse> {
+  return apiRequest<ClinicalNoteResponse>({
+    method: "POST",
+    path: `/api/v1/clinical/notes/${encodeURIComponent(noteId)}/finalize`,
+    body,
+    ...writeHeaders(context),
   });
 }

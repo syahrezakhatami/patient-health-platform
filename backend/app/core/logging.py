@@ -68,16 +68,31 @@ _REDACT_KEYS = frozenset(
         "family_history_display",
         "family_history_code",
         "family_history_note",
+        "idempotency_key",
+        "idempotency-key",
+        "request_fingerprint",
     }
 )
+
+
+def _redact_mapping(payload: MutableMapping[str, Any]) -> None:
+    for key in list(payload):
+        if key.lower() in _REDACT_KEYS:
+            payload[key] = "[REDACTED]"
+            continue
+        value = payload[key]
+        if isinstance(value, MutableMapping):
+            _redact_mapping(value)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, MutableMapping):
+                    _redact_mapping(item)
 
 
 def _redact_secrets(
     _logger: logging.Logger, _method: str, event_dict: MutableMapping[str, Any]
 ) -> MutableMapping[str, Any]:
-    for key in list(event_dict):
-        if key.lower() in _REDACT_KEYS:
-            event_dict[key] = "[REDACTED]"
+    _redact_mapping(event_dict)
     return event_dict
 
 

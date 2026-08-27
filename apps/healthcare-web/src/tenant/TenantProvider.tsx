@@ -27,7 +27,7 @@ import {
   writeStoredWorkFacilityId,
 } from "./tabStorage";
 import { TenantContext, type TenantContextValue, type TenantPhase } from "./TenantContext";
-import { canReplaceTenantContext } from "./unsavedWork";
+import { confirmDiscardUnsavedWork } from "./unsavedWork";
 
 interface TenantProviderProps {
   children: ReactNode;
@@ -52,7 +52,7 @@ const idleTenant: TenantContextValue = {
   errorMessage: null,
   selectOrganization: async () => undefined,
   switchOrganization: async () => undefined,
-  selectWorkFacility: () => undefined,
+  selectWorkFacility: async () => undefined,
   refreshContext: async () => undefined,
   handleMembershipLoss: async () => undefined,
 };
@@ -85,9 +85,6 @@ function AuthenticatedTenantProvider({ children }: TenantProviderProps) {
 
   const activateOrganization = useCallback(
     async (organizationId: string, previousOrganizationId: string | null) => {
-      if (!canReplaceTenantContext()) {
-        return;
-      }
       if (previousOrganizationId && previousOrganizationId !== organizationId) {
         removeTenantScopedQueries(queryClient, previousOrganizationId);
         writeStoredWorkFacilityId(null);
@@ -230,20 +227,23 @@ function AuthenticatedTenantProvider({ children }: TenantProviderProps) {
       if (organizationId === selectedOrganization?.organization_id) {
         return;
       }
+      if (!(await confirmDiscardUnsavedWork("organization"))) {
+        return;
+      }
       await selectOrganization(organizationId);
     },
     [selectOrganization, selectedOrganization],
   );
 
   const selectWorkFacility = useCallback(
-    (facilityId: string | null) => {
+    async (facilityId: string | null) => {
       if (facilityId === workFacilityId) {
         return;
       }
       if (facilityId && !accessibleFacilities.some((facility) => facility.id === facilityId)) {
         return;
       }
-      if (!canReplaceTenantContext()) {
+      if (!(await confirmDiscardUnsavedWork("facility"))) {
         return;
       }
       clearFacilityDependentCommandState();

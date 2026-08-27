@@ -1,7 +1,7 @@
 import { useMemo, useSyncExternalStore, type ReactNode } from "react";
 
 import { useTenant } from "../tenant/TenantContext";
-import { closePatientAndWipeChart } from "../chart/wipe";
+import { requestClosePatientAndWipeChart } from "../chart/wipe";
 import { PatientSelectionContext } from "./PatientSelectionContext";
 import {
   getSelectedPatient,
@@ -18,7 +18,9 @@ export function PatientSelectionProvider({ children }: { children: ReactNode }) 
   const value = useMemo(
     () => ({
       selectedPatient,
-      clearSelection: closePatientAndWipeChart,
+      clearSelection: () => {
+        void requestClosePatientAndWipeChart();
+      },
     }),
     [selectedPatient],
   );

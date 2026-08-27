@@ -38,7 +38,7 @@ describe("security and privacy posture", () => {
     expect(blob).not.toMatch(/signinResourceOwnerCredentials/);
     expect(blob).not.toMatch(/client_secret\s*:/);
     expect(blob).not.toMatch(/audience:\s*["']php-patient["']/);
-    expect(blob).not.toMatch(/\/api\/v1\/clinical\/notes/);
+    expect(blob).not.toMatch(/method:\s*["']GET["'][\s\S]{0,160}\/api\/v1\/clinical\/notes\//);
     expect(blob).not.toMatch(/indexedDB\.open|window\.indexedDB|caches\.open\(/);
     expect(blob).not.toMatch(/new BroadcastChannel/);
   });

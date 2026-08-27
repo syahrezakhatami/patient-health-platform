@@ -4,6 +4,7 @@ from decimal import Decimal
 from hashlib import sha256
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, NotFoundError
@@ -24,6 +25,7 @@ from app.modules.clinical.domain.enums import (
     AllergyVerificationStatus,
     ClinicalAuditAction,
     ClinicalNoteType,
+    ClinicalNoteWriteOperation,
     ClinicalProvenanceSubjectType,
     ClinicalRecordStatus,
     ConditionCategory,
@@ -61,6 +63,10 @@ from app.modules.clinical.domain.enums import (
     ParticipationType,
     ProcedureCategory,
     ProcedureStatus,
+)
+from app.modules.clinical.domain.idempotency import (
+    create_note_fingerprint,
+    finalize_note_fingerprint,
 )
 from app.modules.clinical.domain.laboratory_values import (
     LaboratoryResultValue,
@@ -111,6 +117,7 @@ from app.modules.clinical.infrastructure.models import (
     AdverseEventModel,
     AllergyModel,
     ClinicalNoteModel,
+    ClinicalNoteWriteIdempotencyModel,
     ClinicalProvenanceModel,
     ConditionModel,
     ConsentModel,
@@ -610,6 +617,7 @@ class ClinicalService:
         self,
         principal: Principal | None,
         *,
+        expected_patient_identity_id: UUID,
         encounter_id: UUID,
         organization_id: UUID,
         facility_id: UUID | None,
@@ -617,6 +625,7 @@ class ClinicalService:
         body_text: str,
         purpose: str,
         correlation_id: str | None,
+        idempotency_key: str,
     ) -> ClinicalNoteView:
         body = _require_note_body(body_text)
         await authorize(
@@ -631,8 +640,19 @@ class ClinicalService:
             purpose=purpose,
             correlation_id=correlation_id,
         )
+        actor_id = _require_actor_id(principal)
+        await self._require_expected_write_identity(
+            principal, expected_patient_identity_id, organization_id
+        )
         encounter = await self._visible_encounter(
             principal, encounter_id, organization_id, for_update=True
+        )
+        await self._assert_same_person_context(
+            principal,
+            expected_patient_identity_id,
+            encounter.patient_identity_id,
+            organization_id,
+            mismatch="encounter",
         )
         if EncounterStatus(encounter.status) in {
             EncounterStatus.CANCELLED,
@@ -643,27 +663,67 @@ class ClinicalService:
                 "A cancelled or erroneous encounter cannot receive notes",
                 status_code=409,
             )
+        note_facility_id = await self._create_note_facility(
+            principal,
+            organization_id=organization_id,
+            header_facility_id=facility_id,
+            encounter_facility_id=encounter.facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+        fingerprint = create_note_fingerprint(
+            expected_patient_identity_id, encounter_id, note_type.value, body
+        )
+        replay = await self._replay_or_conflict_note_write(
+            organization_id=organization_id,
+            actor_id=actor_id,
+            operation=ClinicalNoteWriteOperation.NOTE_CREATE,
+            idempotency_key=idempotency_key,
+            fingerprint=fingerprint,
+            principal=principal,
+            header_facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+            action=Permission.CLINICAL_NOTE_CREATE,
+        )
+        if replay is not None:
+            return replay
         note_id = new_id()
+        claimed = await self._claim_note_write_idempotency(
+            organization_id=organization_id,
+            actor_id=actor_id,
+            operation=ClinicalNoteWriteOperation.NOTE_CREATE,
+            idempotency_key=idempotency_key,
+            fingerprint=fingerprint,
+            note_id=note_id,
+            principal=principal,
+            header_facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+            action=Permission.CLINICAL_NOTE_CREATE,
+        )
+        if claimed is not None:
+            return claimed
         provenance = await self._record_provenance(
             subject_type=ClinicalProvenanceSubjectType.CLINICAL_NOTE,
             subject_id=note_id,
             organization_id=organization_id,
-            facility_id=facility_id or encounter.facility_id,
-            actor_id=None if principal is None else principal.user.id,
+            facility_id=note_facility_id,
+            actor_id=actor_id,
         )
         note = ClinicalNoteModel(
             id=note_id,
             patient_identity_id=encounter.patient_identity_id,
             encounter_id=encounter.id,
             organization_id=organization_id,
-            facility_id=facility_id or encounter.facility_id,
+            facility_id=note_facility_id,
             note_type=note_type.value,
             body_text=body,
             record_status=ClinicalRecordStatus.DRAFT.value,
             version=1,
             supersedes_id=None,
             content_hash=_content_hash(note_type.value, body),
-            author_id=None if principal is None else principal.user.id,
+            author_id=actor_id,
             authored_at=utc_now(),
             finalized_at=None,
             provenance_id=provenance.id,
@@ -712,6 +772,8 @@ class ClinicalService:
         principal: Principal | None,
         note_id: UUID,
         *,
+        expected_patient_identity_id: UUID,
+        expected_version: int,
         organization_id: UUID,
         facility_id: UUID | None,
         body_text: str,
@@ -731,8 +793,33 @@ class ClinicalService:
             purpose=purpose,
             correlation_id=correlation_id,
         )
+        await self._require_expected_write_identity(
+            principal, expected_patient_identity_id, organization_id
+        )
         note = await self._visible_note(principal, note_id, organization_id, for_update=True)
+        await self._assert_same_person_context(
+            principal,
+            expected_patient_identity_id,
+            note.patient_identity_id,
+            organization_id,
+            mismatch="note",
+        )
+        await self._assert_note_facility_context(
+            principal,
+            organization_id=organization_id,
+            header_facility_id=facility_id,
+            note_facility_id=note.facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+            action=Permission.CLINICAL_NOTE_UPDATE_DRAFT,
+        )
         assert_note_is_draft(ClinicalRecordStatus(note.record_status))
+        if note.version != expected_version:
+            raise AppError(
+                "note_version_conflict",
+                "Clinical note was updated by another request",
+                status_code=409,
+            )
         note.body_text = body
         note.content_hash = _content_hash(note.note_type, body)
         note.version = note.version + 1
@@ -754,10 +841,12 @@ class ClinicalService:
         principal: Principal | None,
         note_id: UUID,
         *,
+        expected_patient_identity_id: UUID,
         organization_id: UUID,
         facility_id: UUID | None,
         purpose: str,
         correlation_id: str | None,
+        idempotency_key: str,
     ) -> ClinicalNoteView:
         await authorize(
             self._pdp,
@@ -771,7 +860,57 @@ class ClinicalService:
             purpose=purpose,
             correlation_id=correlation_id,
         )
+        actor_id = _require_actor_id(principal)
+        await self._require_expected_write_identity(
+            principal, expected_patient_identity_id, organization_id
+        )
         note = await self._visible_note(principal, note_id, organization_id, for_update=True)
+        await self._assert_same_person_context(
+            principal,
+            expected_patient_identity_id,
+            note.patient_identity_id,
+            organization_id,
+            mismatch="note",
+        )
+        await self._assert_note_facility_context(
+            principal,
+            organization_id=organization_id,
+            header_facility_id=facility_id,
+            note_facility_id=note.facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+            action=Permission.CLINICAL_NOTE_FINALIZE,
+        )
+        fingerprint = finalize_note_fingerprint(note.id, expected_patient_identity_id)
+        replay = await self._replay_or_conflict_note_write(
+            organization_id=organization_id,
+            actor_id=actor_id,
+            operation=ClinicalNoteWriteOperation.NOTE_FINALIZE,
+            idempotency_key=idempotency_key,
+            fingerprint=fingerprint,
+            principal=principal,
+            header_facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+            action=Permission.CLINICAL_NOTE_FINALIZE,
+        )
+        if replay is not None:
+            return replay
+        claimed = await self._claim_note_write_idempotency(
+            organization_id=organization_id,
+            actor_id=actor_id,
+            operation=ClinicalNoteWriteOperation.NOTE_FINALIZE,
+            idempotency_key=idempotency_key,
+            fingerprint=fingerprint,
+            note_id=note.id,
+            principal=principal,
+            header_facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+            action=Permission.CLINICAL_NOTE_FINALIZE,
+        )
+        if claimed is not None:
+            return claimed
         assert_note_can_finalize(ClinicalRecordStatus(note.record_status))
         note.record_status = ClinicalRecordStatus.FINAL.value
         note.finalized_at = utc_now()
@@ -4433,6 +4572,231 @@ class ClinicalService:
         )
         return _family_history_view(family_history)
 
+    async def _require_expected_write_identity(
+        self,
+        principal: Principal | None,
+        identity_id: UUID,
+        organization_id: UUID,
+    ) -> PatientIdentityModel:
+        return await self._require_visible_identity(principal, identity_id, organization_id)
+
+    async def _assert_same_person_context(
+        self,
+        principal: Principal | None,
+        expected_patient_identity_id: UUID,
+        bound_patient_identity_id: UUID,
+        organization_id: UUID,
+        *,
+        mismatch: str,
+    ) -> None:
+        expected_canonical = await self._mpi.resolve_canonical_identity(
+            expected_patient_identity_id
+        )
+        if expected_canonical is None:
+            raise AppError(
+                "canonical_resolution_failed",
+                "Identity cannot be resolved to a canonical active identity",
+                status_code=409,
+            )
+        bound = await self._mpi.get_identity(bound_patient_identity_id)
+        if bound is None:
+            raise AppError(
+                "identity_not_usable",
+                "A retired identity cannot receive clinical records",
+                status_code=409,
+            )
+        if IdentityLifecycle(bound.lifecycle_status) is IdentityLifecycle.RETIRED:
+            raise AppError(
+                "identity_not_usable",
+                "A retired identity cannot receive clinical records",
+                status_code=409,
+            )
+        bound_canonical = await self._mpi.resolve_canonical_identity(bound_patient_identity_id)
+        if bound_canonical is None:
+            raise AppError(
+                "identity_not_usable",
+                "A retired identity cannot receive clinical records",
+                status_code=409,
+            )
+        cluster = await self._mpi.list_cluster_identity_ids(expected_canonical.id)
+        if bound_patient_identity_id not in cluster or bound_canonical.id != expected_canonical.id:
+            if mismatch == "encounter":
+                raise NotFoundError("Encounter not found")
+            raise NotFoundError("Clinical note not found")
+
+    async def _create_note_facility(
+        self,
+        principal: Principal | None,
+        *,
+        organization_id: UUID,
+        header_facility_id: UUID | None,
+        encounter_facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+    ) -> UUID | None:
+        if encounter_facility_id is not None and header_facility_id is not None:
+            if encounter_facility_id != header_facility_id:
+                raise AppError(
+                    "encounter_facility_mismatch",
+                    "Work facility does not match the encounter facility",
+                    status_code=409,
+                )
+            return encounter_facility_id
+        if encounter_facility_id is not None:
+            await self._authorize_note_facility(
+                principal,
+                organization_id=organization_id,
+                facility_id=encounter_facility_id,
+                purpose=purpose,
+                correlation_id=correlation_id,
+                action=Permission.CLINICAL_NOTE_CREATE,
+            )
+            return encounter_facility_id
+        return header_facility_id
+
+    async def _assert_note_facility_context(
+        self,
+        principal: Principal | None,
+        *,
+        organization_id: UUID,
+        header_facility_id: UUID | None,
+        note_facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+        action: str,
+    ) -> None:
+        if note_facility_id is not None and header_facility_id is not None:
+            if note_facility_id != header_facility_id:
+                raise AppError(
+                    "note_facility_mismatch",
+                    "Work facility does not match the note facility",
+                    status_code=409,
+                )
+            return
+        if note_facility_id is not None and header_facility_id is None:
+            await self._authorize_note_facility(
+                principal,
+                organization_id=organization_id,
+                facility_id=note_facility_id,
+                purpose=purpose,
+                correlation_id=correlation_id,
+                action=action,
+            )
+
+    async def _authorize_note_facility(
+        self,
+        principal: Principal | None,
+        *,
+        organization_id: UUID,
+        facility_id: UUID,
+        purpose: str,
+        correlation_id: str | None,
+        action: str,
+    ) -> None:
+        await authorize(
+            self._pdp,
+            self._audit,
+            session=self._session,
+            principal=principal,
+            action=action,
+            resource_type="ClinicalNote",
+            organization_id=organization_id,
+            facility_id=facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+        )
+
+    async def _replay_or_conflict_note_write(
+        self,
+        *,
+        organization_id: UUID,
+        actor_id: UUID,
+        operation: ClinicalNoteWriteOperation,
+        idempotency_key: str,
+        fingerprint: str,
+        principal: Principal | None,
+        header_facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+        action: str,
+    ) -> ClinicalNoteView | None:
+        existing = await self._clinical.get_note_write_idempotency(
+            organization_id=organization_id,
+            actor_id=actor_id,
+            operation=operation.value,
+            idempotency_key=idempotency_key,
+        )
+        if existing is None:
+            return None
+        if existing.request_fingerprint != fingerprint:
+            raise AppError(
+                "idempotency_key_conflict",
+                "Idempotency-Key was already used for a different request",
+                status_code=409,
+            )
+        note = await self._visible_note(principal, existing.note_id, organization_id)
+        await self._assert_note_facility_context(
+            principal,
+            organization_id=organization_id,
+            header_facility_id=header_facility_id,
+            note_facility_id=note.facility_id,
+            purpose=purpose,
+            correlation_id=correlation_id,
+            action=action,
+        )
+        return _note_view(note)
+
+    async def _claim_note_write_idempotency(
+        self,
+        *,
+        organization_id: UUID,
+        actor_id: UUID,
+        operation: ClinicalNoteWriteOperation,
+        idempotency_key: str,
+        fingerprint: str,
+        note_id: UUID,
+        principal: Principal | None,
+        header_facility_id: UUID | None,
+        purpose: str,
+        correlation_id: str | None,
+        action: str,
+    ) -> ClinicalNoteView | None:
+        try:
+            async with self._session.begin_nested():
+                await self._clinical.add_note_write_idempotency(
+                    ClinicalNoteWriteIdempotencyModel(
+                        id=new_id(),
+                        organization_id=organization_id,
+                        actor_id=actor_id,
+                        operation=operation.value,
+                        idempotency_key=idempotency_key,
+                        request_fingerprint=fingerprint,
+                        note_id=note_id,
+                        created_at=utc_now(),
+                    )
+                )
+        except IntegrityError:
+            replay = await self._replay_or_conflict_note_write(
+                organization_id=organization_id,
+                actor_id=actor_id,
+                operation=operation,
+                idempotency_key=idempotency_key,
+                fingerprint=fingerprint,
+                principal=principal,
+                header_facility_id=header_facility_id,
+                purpose=purpose,
+                correlation_id=correlation_id,
+                action=action,
+            )
+            if replay is None:
+                raise AppError(
+                    "idempotency_key_conflict",
+                    "Idempotency-Key was already used for a different request",
+                    status_code=409,
+                ) from None
+            return replay
+        return None
+
     async def _require_canonical_identity(
         self,
         principal: Principal | None,
@@ -4941,6 +5305,12 @@ class ClinicalService:
                 metadata={**(metadata or {}), "purpose": purpose or ""},
             )
         )
+
+
+def _require_actor_id(principal: Principal | None) -> UUID:
+    if principal is None:
+        raise AppError("forbidden", "Not authorized", status_code=403)
+    return principal.user.id
 
 
 def _require_note_body(body_text: str) -> str:
