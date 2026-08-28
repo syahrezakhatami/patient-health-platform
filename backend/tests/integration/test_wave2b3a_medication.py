@@ -169,7 +169,7 @@ async def test_medication_lifecycle_identity_and_authorization(db_client, db_eng
                     text("UPDATE medications SET dose_numeric = 1000 WHERE id = :id"),
                     {"id": medication_id},
                 )
-        with pytest.raises(Exception, match="cannot be deleted"):
+        with pytest.raises(Exception, match="cannot be deleted|permission denied"):
             async with connection.begin():
                 await connection.execute(
                     text("DELETE FROM medications WHERE id = :id"),

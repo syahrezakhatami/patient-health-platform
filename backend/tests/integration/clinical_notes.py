@@ -1,7 +1,7 @@
 from uuid import uuid4
 
-from sqlalchemy import text
 from tests.integration.conftest import SeededActor
+from tests.integration.db_privileges import restore_clinical_note_idempotency_app_dml_privileges
 
 
 def new_idempotency_key(prefix: str = "note") -> str:
@@ -56,13 +56,4 @@ def finalize_note_body(patient_id: object) -> dict[str, object]:
 
 async def restore_note_write_idempotency_app_dml_privileges(db_engine) -> None:
     """Match scripts/grant_dev_privileges.sql after Alembic recreates the table."""
-    async with db_engine.begin() as connection:
-        await connection.execute(
-            text(
-                "REVOKE UPDATE, DELETE, TRUNCATE ON TABLE "
-                "clinical_note_write_idempotency FROM app_dml"
-            )
-        )
-        await connection.execute(
-            text("GRANT INSERT, SELECT ON TABLE clinical_note_write_idempotency TO app_dml")
-        )
+    await restore_clinical_note_idempotency_app_dml_privileges(db_engine)

@@ -50,8 +50,29 @@ from app.modules.organization.infrastructure.models import (
     OrganizationIdentifierModel,
     OrganizationModel,
 )
+from app.modules.governance.infrastructure.models import (
+    GovernanceAdminIdempotencyModel,
+    GovernanceApprovalEvidenceModel,
+    OrganizationDeploymentGateStateModel,
+    OrganizationFeatureActivationModel,
+    OrganizationGovernanceProfileModel,
+    OrganizationGovernanceProfileVersionModel,
+    ProviderCapabilityModel,
+    ProviderCapabilityRequiredGateModel,
+)
 from app.modules.patient_access.infrastructure.models import PatientAccountModel
 
+assert GovernanceAdminIdempotencyModel.__tablename__ == "governance_admin_idempotency"
+assert GovernanceApprovalEvidenceModel.__tablename__ == "governance_approval_evidence"
+assert OrganizationDeploymentGateStateModel.__tablename__ == "organization_deployment_gate_states"
+assert OrganizationFeatureActivationModel.__tablename__ == "organization_feature_activations"
+assert OrganizationGovernanceProfileModel.__tablename__ == "organization_governance_profiles"
+assert (
+    OrganizationGovernanceProfileVersionModel.__tablename__
+    == "organization_governance_profile_versions"
+)
+assert ProviderCapabilityModel.__tablename__ == "provider_capabilities"
+assert ProviderCapabilityRequiredGateModel.__tablename__ == "provider_capability_required_gates"
 assert AuditEventModel.__tablename__ == "audit_events"
 assert UserModel.__tablename__ == "users"
 assert RoleModel.__tablename__ == "roles"

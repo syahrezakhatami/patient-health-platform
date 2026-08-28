@@ -414,7 +414,7 @@ async def test_immutable_columns_sql_api_and_app_dml(db_client, db_engine) -> No
             with pytest.raises(Exception, match="immutable"):
                 async with connection.begin():
                     await connection.execute(text(statement), {"id": history_id, **extra})
-        with pytest.raises(Exception, match="cannot be deleted"):
+        with pytest.raises(Exception, match="cannot be deleted|permission denied"):
             async with connection.begin():
                 await connection.execute(
                     text("DELETE FROM family_histories WHERE id = :id"),

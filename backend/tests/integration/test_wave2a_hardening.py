@@ -234,7 +234,7 @@ async def test_note_immutability_api_and_database(db_client, db_engine) -> None:
                     text("UPDATE clinical_notes SET record_status = 'DRAFT' WHERE id = :id"),
                     {"id": note_id},
                 )
-        with pytest.raises(Exception, match="cannot be deleted"):
+        with pytest.raises(Exception, match="cannot be deleted|permission denied"):
             async with connection.begin():
                 await connection.execute(
                     text("DELETE FROM clinical_notes WHERE id = :id"), {"id": note_id}
@@ -273,7 +273,7 @@ async def test_encounter_cannot_be_hard_deleted(db_client, db_engine) -> None:
     patient_id = await _active_patient(db_client, registrar)
     encounter_id = (await _open_encounter(db_client, clinician, patient_id)).json()["id"]
     async with db_engine.connect() as connection:
-        with pytest.raises(Exception, match="cannot be deleted"):
+        with pytest.raises(Exception, match="cannot be deleted|permission denied"):
             async with connection.begin():
                 await connection.execute(
                     text("DELETE FROM encounters WHERE id = :id"), {"id": encounter_id}

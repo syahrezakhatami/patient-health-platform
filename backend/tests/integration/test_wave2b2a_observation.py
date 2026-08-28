@@ -160,7 +160,7 @@ async def test_observation_lifecycle_identity_and_authorization(db_client, db_en
                     text("UPDATE observations SET patient_identity_id = :pid WHERE id = :id"),
                     {"id": observation_id, "pid": uuid4()},
                 )
-        with pytest.raises(Exception, match="cannot be deleted"):
+        with pytest.raises(Exception, match="cannot be deleted|permission denied"):
             async with connection.begin():
                 await connection.execute(
                     text("DELETE FROM observations WHERE id = :id"),

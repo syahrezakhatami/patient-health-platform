@@ -120,6 +120,12 @@ def require_staff_or_platform_audience(auth: CurrentAuth, request: Request) -> N
         raise UnauthorizedError("Token audience is invalid")
 
 
+def require_platform_audience(auth: CurrentAuth, request: Request) -> None:
+    settings = request.app.state.settings
+    if auth.audience != settings.auth_platform_audience:
+        raise UnauthorizedError("Token audience is invalid")
+
+
 async def get_patient_principal(
     auth: CurrentAuth,
     session: DbSession,
@@ -141,3 +147,4 @@ RequiredPatientPrincipal = Annotated[PatientPrincipal, Depends(require_patient_p
 StaffAudience = Annotated[None, Depends(require_staff_audience)]
 PatientAudience = Annotated[None, Depends(require_patient_audience)]
 StaffOrPlatformAudience = Annotated[None, Depends(require_staff_or_platform_audience)]
+PlatformAudience = Annotated[None, Depends(require_platform_audience)]

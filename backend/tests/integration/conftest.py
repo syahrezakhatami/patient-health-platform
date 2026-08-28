@@ -28,6 +28,21 @@ requires_db = pytest.mark.skipif(
 )
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _apply_dev_privileges_once() -> None:
+    if not DATABASE_URL:
+        return
+    import asyncio
+
+    if not os.environ.get("DATABASE_MIGRATION_URL"):
+        os.environ["DATABASE_MIGRATION_URL"] = (
+            "postgresql+asyncpg://php_admin:php_admin_dev_only@127.0.0.1:5433/php_dev"
+        )
+    from tests.integration.db_privileges import apply_dev_privileges
+
+    asyncio.run(apply_dev_privileges())
+
+
 @pytest.fixture
 async def db_engine() -> AsyncIterator[AsyncEngine]:
     assert DATABASE_URL is not None
@@ -47,6 +62,7 @@ def db_settings() -> Settings:
         database_url=SecretStr(DATABASE_URL),
         auth_issuer="http://localhost:8080/realms/php-dev",
         auth_audience="php-api",
+        auth_platform_audience="php-platform",
         auth_dev_hs256_secret=SecretStr(TEST_SECRET),
         cors_allowed_origins="http://localhost:3000",
         rate_limit_per_minute=10000,

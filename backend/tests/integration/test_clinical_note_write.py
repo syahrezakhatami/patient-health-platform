@@ -761,7 +761,7 @@ async def test_clinical_note_db_immutability_privileges_and_migration(db_client,
 
     async with db_engine.connect() as connection:
         version = await connection.execute(text("SELECT version_num FROM alembic_version"))
-        assert version.scalar_one() == "20260814_0019"
+        assert version.scalar_one() == "20260814_0020"
         heads = await connection.execute(
             text(
                 """
@@ -800,9 +800,9 @@ async def test_clinical_note_db_immutability_privileges_and_migration(db_client,
         )
         granted = {row[0] for row in privileges}
 
-    async def assert_immutable(sql: str, params: dict) -> None:
+    async def assert_immutable(sql: str, params: dict, *, pattern: str = "immutable") -> None:
         async with db_engine.connect() as connection:
-            with pytest.raises(Exception, match="immutable"):
+            with pytest.raises(Exception, match=pattern):
                 async with connection.begin():
                     await connection.execute(text(sql), params)
 
@@ -837,6 +837,7 @@ async def test_clinical_note_db_immutability_privileges_and_migration(db_client,
         WHERE note_id = :id
         """,
         {"id": note_id},
+        pattern="immutable|permission denied",
     )
 
     if granted:

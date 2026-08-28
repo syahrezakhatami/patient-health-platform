@@ -13,6 +13,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import create_async_engine
 from tests.conftest import mint_token
 from tests.integration.conftest import SeededActor, requires_db, seed_actor
+from tests.integration.db_privileges import PROVENANCE_DELETE_DENIED
 from tests.integration.test_wave2a_hardening import _active_patient, _open_encounter
 from tests.integration.test_wave2b2a_observation import _heart_rate
 from tests.integration.test_wave15_hardening import _headers
@@ -312,7 +313,7 @@ async def test_observation_provenance_fk_and_app_dml_immutability(db_client, db_
                         "bad": uuid4(),
                     },
                 )
-        with pytest.raises(Exception, match="insert-only|foreign key|fk_observations_provenance"):
+        with pytest.raises(Exception, match=PROVENANCE_DELETE_DENIED):
             async with connection.begin():
                 await connection.execute(
                     text("DELETE FROM clinical_provenances WHERE id = :id"),

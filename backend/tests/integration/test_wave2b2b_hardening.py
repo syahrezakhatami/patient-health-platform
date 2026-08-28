@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 from tests.conftest import mint_token
 from tests.integration.conftest import requires_db, seed_actor
+from tests.integration.db_privileges import PROVENANCE_DELETE_DENIED
 from tests.integration.test_wave2a_hardening import _active_patient, _open_encounter
 from tests.integration.test_wave2b2b_laboratory import (
     _collect_specimen,
@@ -413,7 +414,7 @@ async def test_laboratory_order_and_specimen_provenance_fk_and_app_dml(
                     },
                 )
         with pytest.raises(
-            Exception, match="insert-only|foreign key|fk_laboratory_orders_provenance"
+            Exception, match=PROVENANCE_DELETE_DENIED
         ):
             async with connection.begin():
                 await connection.execute(

@@ -93,6 +93,11 @@ class Permission(StrEnum):
     CLINICAL_FAMILY_HISTORY_ENTERED_IN_ERROR = "clinical.family_history.entered_in_error"
     PATIENT_ACCOUNT_READ = "patient.account.read"
     PATIENT_RECORD_READ = "patient.record.read"
+    GOVERNANCE_PROFILE_READ = "governance.profile.read"
+    GOVERNANCE_PROFILE_MANAGE = "governance.profile.manage"
+    GOVERNANCE_APPROVAL_RECORD = "governance.approval.record"
+    GOVERNANCE_FEATURE_ACTIVATE = "governance.feature.activate"
+    GOVERNANCE_PROVIDER_MANAGE = "governance.provider.manage"
 
 
 class RoleCode(StrEnum):
@@ -226,6 +231,13 @@ PLATFORM_ADMIN_PERMISSIONS: frozenset[str] = frozenset(
         Permission.IAM_MEMBERSHIP_MANAGE,
         Permission.ORG_ORGANIZATION_CREATE,
         Permission.ORG_ORGANIZATION_READ,
+        Permission.GOVERNANCE_PROVIDER_MANAGE,
+    }
+)
+GOVERNANCE_ORG_PROFILE_MANAGE_PERMISSIONS: frozenset[str] = frozenset(
+    {
+        Permission.GOVERNANCE_PROFILE_READ,
+        Permission.GOVERNANCE_PROFILE_MANAGE,
     }
 )
 PLATFORM_BOOTSTRAP_ROLES: frozenset[str] = frozenset(
@@ -297,7 +309,8 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
             Permission.CLINICAL_ADVERSE_EVENT_READ,
             Permission.CLINICAL_FAMILY_HISTORY_READ,
         }
-    ),
+    )
+    | GOVERNANCE_ORG_PROFILE_MANAGE_PERMISSIONS,
     RoleCode.REGISTRAR: frozenset(
         {
             Permission.IAM_USER_READ,
@@ -427,6 +440,7 @@ ORG_SCOPED_PERMISSIONS: frozenset[str] = (
             Permission.IAM_USER_READ,
             Permission.IAM_USER_PROVISION,
             Permission.ORG_ORGANIZATION_CREATE,
+            Permission.GOVERNANCE_PROVIDER_MANAGE,
         }
     )
     - PATIENT_PERMISSIONS

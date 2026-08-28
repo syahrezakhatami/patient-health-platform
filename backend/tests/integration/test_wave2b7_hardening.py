@@ -434,7 +434,7 @@ async def test_related_fact_sql_invariant_and_no_target_mutation(db_client, db_e
         assert rules["fk_adverse_events_medical_device_id"] == "RESTRICT"
         assert rules["fk_adverse_events_procedure_id"] == "RESTRICT"
     async with db_engine.connect() as connection:
-        with pytest.raises(Exception, match="cannot be deleted|foreign key"):
+        with pytest.raises(Exception, match="cannot be deleted|foreign key|permission denied"):
             async with connection.begin():
                 await connection.execute(
                     text("DELETE FROM medications WHERE id = :id"),
@@ -529,7 +529,7 @@ async def test_immutable_columns_sql_api_and_app_dml(db_client, db_engine) -> No
             with pytest.raises(Exception, match="immutable"):
                 async with connection.begin():
                     await connection.execute(text(statement), {"id": event_id, **extra})
-        with pytest.raises(Exception, match="cannot be deleted"):
+        with pytest.raises(Exception, match="cannot be deleted|permission denied"):
             async with connection.begin():
                 await connection.execute(
                     text("DELETE FROM adverse_events WHERE id = :id"),

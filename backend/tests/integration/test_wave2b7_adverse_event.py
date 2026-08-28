@@ -16,6 +16,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import create_async_engine
 from tests.conftest import mint_token
 from tests.integration.conftest import SeededActor, requires_db, seed_actor
+from tests.integration.db_privileges import PROVENANCE_DELETE_DENIED
 from tests.integration.test_wave1_mpi import (
     _identity_payload,
     merge_evidence,
@@ -329,7 +330,7 @@ async def test_adverse_event_lifecycle_identity_and_authorization(db_client, db_
                     text("UPDATE adverse_events SET code = 'changed' WHERE id = :id"),
                     {"id": event_id},
                 )
-        with pytest.raises(Exception, match="cannot be deleted"):
+        with pytest.raises(Exception, match="cannot be deleted|permission denied"):
             async with connection.begin():
                 await connection.execute(
                     text("DELETE FROM adverse_events WHERE id = :id"),
@@ -1036,7 +1037,7 @@ async def test_adverse_event_concurrency_facility_and_app_dml(db_client, db_engi
                     ),
                     {"id": event_id, "bad": uuid4()},
                 )
-        with pytest.raises(Exception, match="insert-only|foreign key|fk_adverse_events_provenance"):
+        with pytest.raises(Exception, match=PROVENANCE_DELETE_DENIED):
             async with connection.begin():
                 await connection.execute(
                     text("DELETE FROM clinical_provenances WHERE id = :id"),

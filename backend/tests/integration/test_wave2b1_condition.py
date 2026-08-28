@@ -142,7 +142,7 @@ async def test_condition_lifecycle_identity_and_authorization(db_client, db_engi
                     text("UPDATE conditions SET code = 'A00.0' WHERE id = :id"),
                     {"id": condition_id},
                 )
-        with pytest.raises(Exception, match="cannot be deleted"):
+        with pytest.raises(Exception, match="cannot be deleted|permission denied"):
             async with connection.begin():
                 await connection.execute(
                     text("DELETE FROM conditions WHERE id = :id"), {"id": condition_id}

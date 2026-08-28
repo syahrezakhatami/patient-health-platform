@@ -277,7 +277,7 @@ async def test_entered_in_error_freezes_row_and_merged_encounter_binding(
                         text(statement),
                         {"id": procedure_id, **extra},
                     )
-        with pytest.raises(Exception, match="cannot be deleted"):
+        with pytest.raises(Exception, match="cannot be deleted|permission denied"):
             async with connection.begin():
                 await connection.execute(
                     text("DELETE FROM procedures WHERE id = :id"),

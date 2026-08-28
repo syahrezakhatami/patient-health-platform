@@ -68,10 +68,10 @@ async def test_audit_events_table_is_insert_only() -> None:
         async with engine.begin() as connection:
             await connection.execute(text(insert_sql))
         async with engine.connect() as connection:
-            with pytest.raises(Exception, match="insert-only"):
+            with pytest.raises(Exception, match="insert-only|permission denied"):
                 await connection.execute(text("UPDATE audit_events SET action = 'x'"))
         async with engine.connect() as connection:
-            with pytest.raises(Exception, match="insert-only"):
+            with pytest.raises(Exception, match="insert-only|permission denied"):
                 await connection.execute(text("DELETE FROM audit_events"))
     finally:
         await engine.dispose()

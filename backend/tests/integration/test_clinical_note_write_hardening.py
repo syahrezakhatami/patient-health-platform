@@ -705,11 +705,11 @@ async def test_zz_migration_0019_downgrade_upgrade_roundtrip(db_engine) -> None:
             )
             assert notes.scalar_one() == 1
     finally:
-        upgrade = await asyncio.to_thread(run_alembic, "upgrade", "20260814_0019")
+        upgrade = await asyncio.to_thread(run_alembic, "upgrade", "head")
         assert upgrade.returncode == 0, upgrade.stdout + upgrade.stderr
     async with db_engine.connect() as connection:
         version = await connection.execute(text("SELECT version_num FROM alembic_version"))
-        assert version.scalar_one() == "20260814_0019"
+        assert version.scalar_one() == "20260814_0020"
         tables = await connection.execute(
             text(
                 """
