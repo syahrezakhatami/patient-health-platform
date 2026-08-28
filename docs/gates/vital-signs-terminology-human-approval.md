@@ -1,16 +1,20 @@
 # Vital Signs terminology — human approval gate
 
-**Date:** 2026-08-27
+**Date:** 2026-08-27 (clarified 2026-08-28 post-OGP)
 **Kind:** HUMAN APPROVAL TEMPLATE — ready for real signatures
-**Baseline:** `c55d259180c4864b56ea40e4c24833c9cd438d68` (`clinical-note-write-frozen`)
+**Baseline:** `d449ffed6bd314edac3964f1c6c69bb51955a8db` (`organization-governance-profile-foundation-frozen`)
 **Evidence package:** `docs/architecture/vital-signs-terminology-candidate-catalog.md`
 
 ```
 TERMINOLOGY HUMAN APPROVAL = PENDING
 TERMINOLOGY CANDIDATE CATALOG = READY FOR HUMAN DECISION
-OBSERVATION / VITAL SIGNS WRITE DESIGN = BLOCKED
-VITAL CATALOG VERSION = UNASSIGNED / PENDING FIRST APPROVAL
+SITE-APPROVED TERMINOLOGY ENTRIES = 0
+MANUAL VITAL SIGNS ENGINEERING DESIGN = APPROVED FOR IMPLEMENTATION (Gate A)
+SITE ACTIVATION = PENDING (Gate C)
+PROVIDER VITAL CATALOG VERSION (proposed) = manual-vitals-mvp-v1
 ```
+
+**Post-OGP clarification:** entries below marked PENDING for PRODUCT / CLINICAL fields primarily track **site / clinical activation approval** (Gate C) and **provider release review** (Gate B) where applicable. They do **not** block vendor engineering under Gate A when fail-closed and non-registered. No statuses below were changed from PENDING to APPROVED in this reconciliation.
 
 Engineering / Cursor must **not** mark PRODUCT or CLINICAL fields APPROVED. No fictional reviewers.
 
@@ -35,7 +39,7 @@ Engineering / Cursor must **not** mark PRODUCT or CLINICAL fields APPROVED. No f
 
 **Fully APPROVED entries meeting all threshold fields:** **0**
 
-**Outcome:** No product catalog version assigned. No approved-catalog freeze. Observation Vital Signs write design remains **BLOCKED**. Engineering did not invent approver names, dates, units, or APPROVED statuses.
+**Outcome:** No product catalog version assigned. No site-approved-catalog freeze. Site activation remains **PENDING** (Gate C). Engineering design approved for implementation (Gate A) under post-OGP reconciliation. Engineering did not invent approver names, dates, units, or APPROVED statuses.
 
 To unblock: fill PRODUCT/CLINICAL fields with real names/dates, set exact unit codes where UNIT EVIDENCE is DECISION REQUIRED, then re-run ingestion.
 

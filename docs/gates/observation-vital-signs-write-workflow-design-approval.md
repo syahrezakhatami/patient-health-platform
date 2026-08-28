@@ -1,30 +1,51 @@
 # Observation / Vital Signs write workflow — design approval gate
 
-**Date:** 2026-08-27
-**Kind:** DESIGN APPROVAL — blocked pending terminology human approval
-**Verdict:** OBSERVATION / VITAL SIGNS WRITE DESIGN = **BLOCKED**
-**BLOCKED BY:** **VITAL SIGNS TERMINOLOGY HUMAN APPROVAL** (ingestion 2026-08-27: **0** fully APPROVED entries; encounter/timing product policies still PENDING)
-**Baseline HEAD:** `c55d259180c4864b56ea40e4c24833c9cd438d68` (`clinical-note-write-frozen`)
-**Parent:** `3157ad9947f3f46d084df84982ee3b370f1c1a29` (`clinical-chart-ui-frozen`)
-**Alembic:** `current == heads == 20260814_0019` (exactly one head)
-**Migration `0020`:** REQUIRED (designed; **not created**)
+**Date:** 2026-08-27 (reconciled 2026-08-28 post-OGP)
+**Kind:** DESIGN APPROVAL — multi-gate status after OGP reconciliation
+**Baseline HEAD:** `d449ffed6bd314edac3964f1c6c69bb51955a8db` (`organization-governance-profile-foundation-frozen`)
+**Parent OGP:** `c3590dd142f60a79aed3d4f042ff1c505cb2371c` (`provider-governance-foundation-frozen`)
+**Software capability parent:** `c55d259180c4864b56ea40e4c24833c9cd438d68` (`clinical-note-write-frozen`)
+**Alembic:** `current == heads == 20260814_0020` (exactly one head)
+**Observation migration:** **UNASSIGNED** (planned `20260814_0021`; idempotency **REQUIRED WHEN IMPLEMENTED**)
 
-This gate is not a HIPAA, ISO 27001, or SOC 2 certification. It does not authorize implementing Observation/Vital Signs writes.
+This gate is not a HIPAA, ISO 27001, or SOC 2 certification. It does not authorize production registration, site activation, or implementing Observation/Vital Signs writes in this pass.
+
+---
+
+## Verdict (multi-gate)
+
+```
+OBSERVATION / MANUAL VITAL SIGNS
+PROVIDER-vs-SITE GATE RECONCILIATION = COMPLETE
+
+MANUAL VITAL SIGNS ENGINEERING DESIGN =
+APPROVED FOR IMPLEMENTATION
+
+PROVIDER PRODUCTION REGISTRATION =
+PENDING PROVIDER RELEASE / CLINICAL SAFETY GATE
+
+SITE ACTIVATION =
+PENDING SITE CLINICAL / TERMINOLOGY APPROVAL
+```
+
+Reconciliation record: `docs/gates/observation-vital-signs-provider-site-gate-reconciliation.md`
 
 Sources:
 
 - `docs/architecture/observation-vital-signs-write-workflow-design.md`
 - `docs/architecture/vital-signs-terminology-candidate-catalog.md`
 - `docs/gates/vital-signs-terminology-human-approval.md`
+- `docs/gates/organization-governance-profile-final-freeze.md`
 
 ```
 TERMINOLOGY CANDIDATE CATALOG = READY FOR HUMAN DECISION
-TERMINOLOGY HUMAN APPROVAL = PENDING
+SITE-APPROVED TERMINOLOGY ENTRIES = 0
+PROVIDER CLINICAL SAFETY REVIEW = PENDING
 ```
 
-Candidate LOINC/UCUM research **does not** change this verdict to APPROVED.
+Candidate LOINC/UCUM / SATUSEHAT research **does not** imply site clinical approval or provider production registration.
 
-**Source versions:** LOINC release **2.83** (2026-08-19). LOINC FHIR TS may report **2.82** until updated — do not conflate. HR/RR units: **DECISION REQUIRED** (`{beats}/min` / `{breaths}/min` etc.; not auto `/min`).
+**Source versions:** LOINC release **2.83** (2026-08-19). LOINC FHIR TS may report **2.82** until updated — do not conflate. Provider engineering subset uses SATUSEHAT national-profile units for HR/RR (`/min`).
 
 ---
 
@@ -32,28 +53,48 @@ Candidate LOINC/UCUM research **does not** change this verdict to APPROVED.
 
 | Item | Result |
 |---|---|
-| HEAD | `c55d259180c4864b56ea40e4c24833c9cd438d68` |
-| Tag | `clinical-note-write-frozen` |
+| HEAD | `d449ffed6bd314edac3964f1c6c69bb51955a8db` |
+| Tag | `organization-governance-profile-foundation-frozen` |
 | Branch | `main` == `origin/main` |
-| Migration `0020` | **absent** |
-| Production code | unchanged by design docs |
+| Alembic | `20260814_0020` (OGP); Observation **UNASSIGNED** |
+| Provider registry | **EMPTY** — no `manual_vital_signs_write` |
+| Production code | unchanged by design/reconciliation docs |
 
 ---
 
-## 2. Exact decisions (non-terminology + terminology status)
+## 2. Three independent gates
+
+| Gate | Question | Status |
+|---|---|---|
+| **A. Provider engineering** | May engineering implement/test? | **APPROVED FOR IMPLEMENTATION** |
+| **B. Provider release** | May provider register production capability? | **PENDING** — provider clinical safety review |
+| **C. Site activation** | May Organization X activate/use? | **PENDING** — 0 site-approved entries |
+
+**Frozen principle:** `SITE APPROVAL != PROVIDER SOFTWARE IMPLEMENTATION APPROVAL`
+
+Engineering may proceed under Gate A while Gates B and C remain pending, provided fail-closed OGP path and non-registration constraints are honored.
+
+---
+
+## 3. Exact decisions (technical contract)
 
 | Decision | Value |
 |---|---|
-| VITAL TERMINOLOGY SOURCE | **C — human product/clinical approval still missing** |
-| VITAL CATALOG VERSION | **UNASSIGNED / PENDING FIRST APPROVAL** |
-| VITAL CATALOG | **Zero APPROVED entries**; six CANDIDATEs in evidence package; HR/RR unit **DECISION REQUIRED** |
-| CATALOG ENFORCEMENT | Static application-owned immutable catalog (future); server-enforced; frontend UX only |
-| CODE/UNIT VALIDATION | SERVER ENFORCED (when approved entries exist) |
+| VITAL TERMINOLOGY — national evidence | SATUSEHAT subset PASS — `NATIONAL_INTEROPERABILITY_PROFILE` |
+| VITAL TERMINOLOGY — site activation | **0 SITE_APPROVED entries** |
+| PROVIDER VITAL CATALOG VERSION (proposed) | `manual-vitals-mvp-v1` |
+| PROVIDER CLINICAL SAFETY REVIEW | **PENDING** |
+| CATALOG ENFORCEMENT | Static application-owned immutable catalog; server-enforced; frontend UX only |
+| CODE/UNIT VALIDATION | SERVER ENFORCED |
 | AUTOMATIC UNIT CONVERSION | **NO** |
 | NORMAL-RANGE VALIDATION | **NO** |
-| BLOOD PRESSURE | **DEFERRED** |
-| ENCOUNTER REQUIRED | **YES** (product contract; not falsely claimed as SATUSEHAT statute alone) |
-| ENCOUNTER STATUSES | `IN_PROGRESS` = `VENDOR_SAFETY_DEFAULT` allow; `CANCELLED`/`ENTERED_IN_ERROR` = reject; **`PLANNED`/`FINISHED` = `SITE_CLINICAL_POLICY` (PENDING site/product human sign-off)** — not universally hard-coded allow |
+| BLOOD PRESSURE WRITE | **DEFERRED** (terminology evidence PASS; workflow deferred) |
+| SpO₂ | **DEFERRED** |
+| ENGINEERING SUBSET | HR `8867-4` `/min`; RR `9279-1` `/min`; Temp `8310-5` `Cel`; Weight `29463-7` `kg`; Height `8302-2` `cm` |
+| OGP FEATURE ID | `manual_vital_signs_write` — **not registered** |
+| OGP `governance_required` | `true` when registered |
+| ENCOUNTER REQUIRED | **YES** |
+| ENCOUNTER STATUSES | `IN_PROGRESS` allow; `CANCELLED`/`ENTERED_IN_ERROR` reject; `PLANNED`/`FINISHED` = `SITE_CLINICAL_POLICY` (fail closed by default) |
 | PATIENT CONTEXT PRECONDITION | `expected_patient_identity_id`; encounter binding; same-person; 404 / RETIRED 409 |
 | FACILITY MATRIX | Note-like A/A allow; A/B 409; absent + B-only 403 |
 | VALUE TYPE | NUMERIC |
@@ -62,55 +103,66 @@ Candidate LOINC/UCUM research **does not** change this verdict to APPROVED.
 | COMMAND MODEL | SINGLE |
 | CREATE-ONLY MVP | YES / FINAL |
 | CORRECTION UI | DEFERRED |
-| MEASUREMENT TIME | `effective_at` required = `VENDOR_SAFETY_DEFAULT` (not falsely SATUSEHAT-mandatory); `recorded_at` server; backdating = `SITE_CLINICAL_POLICY`; future skew = site/technical policy — **no invented 5-minute national rule** |
-| IDEMPOTENCY | `clinical_observation_write_idempotency`; replay re-checks auth + catalog |
+| MEASUREMENT TIME | `effective_at` required; `recorded_at` server; backdating = `SITE_CLINICAL_POLICY` |
+| IDEMPOTENCY | `clinical_observation_write_idempotency`; replay re-checks auth + catalog + OGP |
 | NEW BACKEND ROUTES | NONE |
-| MIGRATION 0020 | REQUIRED — idempotency only, **not** terminology |
-| MIGRATION 0020 CONTENT | `clinical_observation_write_idempotency` (+ insert-only / unique scope / deferred FK) |
+| OBSERVATION WRITE MIGRATION | **UNASSIGNED** — planned `20260814_0021` |
 | POST-WRITE INVALIDATION | observations + timeline + summary (`recent_vitals`) |
 
 ---
 
-## 3. Findings
+## 4. Findings
 
 ### Provider foundation severity
 
 | Sev | Finding |
 |---|---|
-| **P0** | None in published baseline |
-| **P1 provider-foundation unresolved** | None — capability blocked by site gate, not global P1 |
+| **P0** | None |
+| **P1** | None — site activation pending is **not** a provider software P1 |
 | **P2** | Inherited DENIED-audit rollback |
-| **P3** | Free-string units; index gaps; grants outside Alembic |
+| **P3** | Free-string units (pre-hardening); index gaps; grants outside Alembic; correction UI deferred; BP/SpO₂ deferred |
 
-### Gate types (capability blockers — not global P1)
+### Gate-classified pending (not global P1)
 
 | Gate | Finding |
 |---|---|
-| **`SITE_APPROVAL_PENDING`** | No human-approved vital catalog (0 APPROVED entries) — **primary blocker** |
-| **`SITE_APPROVAL_PENDING`** | Observation write design blocked pending site/clinical/product sign-off |
-| **Capability design gap** | Observation create same-person / facility / idempotency gaps vs Note Write — addressed in design, not implemented |
+| **`PROVIDER_RELEASE_GATE`** | Provider clinical safety review **PENDING** — blocks production registration |
+| **`SITE_ACTIVATION_GATE`** | 0 site-approved vital entries — blocks organization activation |
+| **Capability design gap** | Observation create same-person / facility / idempotency / OGP gaps vs Note Write — addressed in design, not implemented |
 
 **Not P2:** historical patient_identity_id non-rewrite (frozen MPI invariant).
 
 ---
 
-## 4. Unblock criteria
+## 5. Gate B unblock criteria (provider production registration)
 
-≥1 entry in `vital-signs-terminology-human-approval.md` with:
+Before registering `manual_vital_signs_write` as provider `AVAILABLE`:
 
-PRODUCT MVP INCLUSION = APPROVED
-CLINICAL SEMANTIC APPROVAL = APPROVED
-FINAL ENTRY STATUS = APPROVED
+- provider clinical safety review completed (named qualified reviewer — not invented)
+- provider-supported catalog version frozen (`manual-vitals-mvp-v1` or successor)
+- security hardening + adversarial tests pass
+- explicit provider release acceptance
 
-Then amend this gate with exact approved rows and set:
-
-`OBSERVATION / VITAL SIGNS WRITE DESIGN = APPROVED FOR IMPLEMENTATION`
-(for the approved subset only)
-
-Engineering must not self-unblock.
+Engineering must not self-register production capability.
 
 ---
 
-## 5. Explicit non-actions
+## 6. Gate C unblock criteria (site activation)
 
-No production code. No migration `0020`. No commit / tag / push. No invented APPROVED terminology.
+Per organization, before Manual Vitals runtime activation:
+
+- site clinical approval evidence (OGP approval record — server-resolved)
+- site terminology approval bound to feature + catalog version + subset
+- site encounter/time policies configured where required
+- deployment gates satisfied per capability contract
+- entitlement + `clinical.observation.create`
+
+≥1 **SITE_APPROVED** measurement subset for the organization. Human approval gate history preserved; no invented approver names/dates.
+
+---
+
+## 7. Explicit non-actions
+
+No production code. No Observation write migration. No provider capability registration. No frozen capability tag. No invented APPROVED site terminology.
+
+Historical note: pre-OGP verdict `BLOCKED BY VITAL SIGNS TERMINOLOGY HUMAN APPROVAL` conflated site activation with engineering readiness. Post-OGP reconciliation supersedes that single-blocker model without erasing human-approval gate history.

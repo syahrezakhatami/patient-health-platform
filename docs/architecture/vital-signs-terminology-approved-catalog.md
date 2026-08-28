@@ -1,15 +1,22 @@
 # Vital Signs terminology — approved product catalog
 
-**Date:** 2026-08-27
+**Date:** 2026-08-27 (clarified 2026-08-28 post-OGP)
 **Kind:** PRODUCT CATALOG FREEZE RECORD
-**Baseline:** `c55d259180c4864b56ea40e4c24833c9cd438d68` (`clinical-note-write-frozen`)
+**Baseline:** `d449ffed6bd314edac3964f1c6c69bb51955a8db` (`organization-governance-profile-foundation-frozen`)
 **Source gate:** `docs/gates/vital-signs-terminology-human-approval.md`
 
 ```
-VITAL CATALOG VERSION = UNASSIGNED / PENDING FIRST APPROVAL
-APPROVED ENTRY COUNT = 0
-OBSERVATION / VITAL SIGNS WRITE DESIGN = BLOCKED
+APPROVAL DIMENSION CLARIFICATION
+  PROVIDER_SUPPORTED ≠ SITE_APPROVED ≠ ACTIVE_FOR_ORGANIZATION
+
+VITAL CATALOG VERSION (proposed provider) = manual-vitals-mvp-v1
+SITE-APPROVED ENTRY COUNT = 0
+PROVIDER-SUPPORTED ENGINEERING SUBSET = defined in reconciliation gate (not site-approved)
+MANUAL VITAL SIGNS ENGINEERING DESIGN = APPROVED FOR IMPLEMENTATION
+SITE ACTIVATION = PENDING
 ```
+
+**Filename note:** “approved” refers to the **product catalog freeze record** document type, not site clinical approval. **Zero** site-approved measurement rows exist.
 
 ## Ingestion result
 
