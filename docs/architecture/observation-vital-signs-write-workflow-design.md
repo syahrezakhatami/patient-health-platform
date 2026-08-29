@@ -255,10 +255,10 @@ Authoritative type: **Decimal**, not float.
 
 - Storage scale 4.
 - Frontend must not silently round.
-- Backend: if value has more than 4 decimal places after normalize, **reject 422** (do not silently quantize). Integer and ≤4 fractional digits accepted within precision 14.
-- Fingerprint uses the same accepted Decimal after validate.
+- Backend: if value scale > 4 fractional digits → **reject 422** before any normalization/quantize (do not silently round). Integer and ≤4 fractional digits accepted within precision 14.
+- Example: `1.23456` → **rejected**, not rounded to `1.2346`.
 
-**NUMERIC FINGERPRINT CANONICALIZATION:** after acceptance, canonicalize with `Decimal` normalize suitable for equality with stored scale-4 semantics (e.g. quantize to `Decimal('0.0001')` then normalize, or format fixed scale consistently). `1`, `1.0`, `1.00` → same fingerprint. Never `float` stringification.
+**NUMERIC FINGERPRINT CANONICALIZATION:** after validation passes, use `Decimal.normalize()` to produce plain non-exponent decimal text. `1`, `1.0`, `1.00`, `1.0000` → `"1"`. `1.2300` → `"1.23"`. `0.0000` → `"0"`. Never `float` stringification. **No quantize-before-reject.**
 
 **CLINICAL NORMAL-RANGE VALIDATION = NO.** No invented per-vital technical ranges beyond precision/scale/finiteness.
 

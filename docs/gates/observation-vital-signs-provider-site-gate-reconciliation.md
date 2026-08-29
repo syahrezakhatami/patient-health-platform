@@ -1,13 +1,12 @@
 # Observation / Manual Vital Signs — provider vs site gate reconciliation
 
-**Date:** 2026-08-28  
-**Kind:** GOVERNANCE / DESIGN RECONCILIATION — docs only  
-**Pass:** Post-OGP provider-implementation vs site-activation gate separation  
-**Baseline HEAD:** `d449ffed6bd314edac3964f1c6c69bb51955a8db`  
-**Baseline tag:** `organization-governance-profile-foundation-frozen`  
-**Parent OGP:** `c3590dd142f60a79aed3d4f042ff1c505cb2371c` (`provider-governance-foundation-frozen`)  
+**Date:** 2026-08-28 (final contract appended 2026-08-28)
+**Kind:** GOVERNANCE / DESIGN RECONCILIATION — docs only
+**Pass:** Post-OGP provider-implementation vs site-activation gate separation; final pre-implementation contracts
+**Baseline HEAD:** `60eafc5b8454867722cf8738a0f636bb866d3350`
+**Parent OGP frozen:** `d449ffed6bd314edac3964f1c6c69bb51955a8db` (`organization-governance-profile-foundation-frozen`)
 **Software capability parent:** `c55d259180c4864b56ea40e4c24833c9cd438d68` (`clinical-note-write-frozen`)  
-**Alembic:** `current == heads == 20260814_0020` (exactly one head; Observation migration **UNASSIGNED**)
+**Alembic:** `current == heads == 20260814_0020` (Manual Vitals migration **`20260814_0021` assigned**, not created)
 
 This pass reconciles Observation / Manual Vital Signs governance after the frozen Organization Governance Profile (OGP) foundation. It does **not** authorize implementation, migration creation, provider registration, site activation, or any production code change.
 
@@ -22,12 +21,17 @@ PROVIDER-vs-SITE GATE RECONCILIATION = COMPLETE
 MANUAL VITAL SIGNS ENGINEERING DESIGN =
 APPROVED FOR IMPLEMENTATION
 
+MANUAL VITAL SIGNS =
+READY FOR IMPLEMENTATION
+
 PROVIDER PRODUCTION REGISTRATION =
 PENDING PROVIDER RELEASE / CLINICAL SAFETY GATE
 
 SITE ACTIVATION =
 PENDING SITE CLINICAL / TERMINOLOGY APPROVAL
 ```
+
+Final contracts: `docs/gates/manual-vital-signs-final-preimplementation-contract.md`
 
 **OGP SECURITY ASSURANCE (unchanged):** PASS WITH NO ACTIVE P0 / P1 on frozen OGP foundation.
 
@@ -337,6 +341,8 @@ Potentially:
 - bounded provider-vital catalog DB support **only if** schema actually required
 - site catalog/subset approval support **only if** OGP schema needs capability-specific extension
 
+**APP_DML grants:** update `grant_dev_privileges.sql` during implementation — **not** Alembic migration content.
+
 **Do NOT create:** `vital_signs` table, generic terminology database, BP tables, AI tables, facility override tables.
 
 ---
@@ -422,14 +428,38 @@ HR/RR unit fields remain **DECISION REQUIRED** in the human-approval gate histor
 | Manual Vitals engineering | **APPROVED FOR IMPLEMENTATION** |
 | Manual Vitals provider registration | **PENDING** |
 | Manual Vitals site activation | **PENDING** |
-| Observation migration | **UNASSIGNED** (planned `20260814_0021` when implementation starts) |
+| Observation migration | **`20260814_0021` assigned** (idempotency only; not created); registration seed **`20260814_0022`** at Gate B |
 | AI Clinical | NOT STARTED |
 | Frontend Governance UI | NOT IMPLEMENTED |
 
 ---
 
+## 21. Final pre-implementation contracts (2026-08-28)
+
+Full record: `docs/gates/manual-vital-signs-final-preimplementation-contract.md`
+
+| Contract | Frozen decision |
+|---|---|
+| Provider catalog | static application-owned immutable catalog |
+| Catalog version | `manual-vitals-mvp-v1` |
+| Entry keys | `heart_rate`, `respiratory_rate`, `body_temperature`, `body_weight`, `body_height` |
+| Site subset storage | OGP profile policy schema **v2** (`manual_vital_signs` block) |
+| Approval evidence | reuse `scope` = `<catalog_version>#sha256:<hex>` bound to `governance_profile_version_id`; payload canonical JSON of catalog_version + sorted keys |
+| Migration 0021 | idempotency table DDL only; grants in `grant_dev_privileges.sql` |
+| Registration | deterministic Alembic seed in **`20260814_0022`** only after Gate B |
+| Feature version | `1.0.0` |
+| Deployment gates | `CONTROLLER_PROCESSOR_ASSESSMENT`, `DPA` |
+| Write DTO | `measurement_key` + value + times; server derives LOINC/UCUM |
+| Product routes | GET/POST `/clinical/manual-vitals/measurements` |
+| Migration 0021 | `clinical_observation_write_idempotency` only — no provider seed |
+| Site approval status | **PENDING** (unchanged) |
+| Provider clinical review | **PENDING** (unchanged) |
+
+---
+
 ## Sources
 
+- `docs/gates/manual-vital-signs-final-preimplementation-contract.md`
 - `docs/architecture/observation-vital-signs-write-workflow-design.md`
 - `docs/gates/observation-vital-signs-write-workflow-design-approval.md`
 - `docs/architecture/organization-governance-profile-design.md`
