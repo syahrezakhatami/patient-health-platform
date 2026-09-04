@@ -142,6 +142,36 @@ class ClinicalNoteWriteIdempotencyModel(UUIDPrimaryKeyMixin, Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
+class ClinicalObservationWriteIdempotencyModel(UUIDPrimaryKeyMixin, Base):
+    __tablename__ = "clinical_observation_write_idempotency"
+    __table_args__ = (
+        UniqueConstraint(
+            "organization_id",
+            "actor_id",
+            "operation",
+            "idempotency_key",
+            name="uq_clinical_observation_write_idempotency_scope",
+        ),
+        Index("ix_clinical_observation_write_idempotency_observation_id", "observation_id"),
+    )
+
+    organization_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    actor_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    operation: Mapped[str] = mapped_column(String(32), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    request_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    observation_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("observations.id", ondelete="RESTRICT", deferrable=True, initially="DEFERRED"),
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class ClinicalProvenanceModel(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "clinical_provenances"
     __table_args__ = (Index("ix_clinical_provenances_subject", "subject_type", "subject_id"),)

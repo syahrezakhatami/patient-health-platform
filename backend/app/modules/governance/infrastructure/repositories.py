@@ -17,7 +17,9 @@ from app.modules.governance.domain.models import (
     GovernanceProfileVersion,
     ProviderCapability,
 )
-from app.modules.governance.domain.policy_schema import GovernancePolicyDocumentV1
+from app.modules.governance.domain.policy_schema import (
+    parse_policy_document,
+)
 from app.modules.governance.infrastructure.models import (
     GovernanceAdminIdempotencyModel,
     GovernanceApprovalEvidenceModel,
@@ -423,7 +425,7 @@ def _map_profile_version(
         organization_id=row.organization_id,
         version_number=row.version_number,
         schema_version=row.schema_version,
-        policy_document=GovernancePolicyDocumentV1.model_validate(row.policy_document),
+        policy_document=parse_policy_document(row.policy_document),
         status=ProfileVersionStatus(row.status),
         effective_at=row.effective_at,
         changed_by=row.changed_by,

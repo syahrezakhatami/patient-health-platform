@@ -317,9 +317,7 @@ async def test_permission_separation(db_client, db_engine) -> None:
     denied_by_manager = await db_client.post(
         f"/api/v1/organizations/{profile_manager.organization_id}/governance/approvals",
         json=approval_body,
-        headers=governance_headers(
-            profile_manager, idempotency_key="gov-approval-deny-manager"
-        ),
+        headers=governance_headers(profile_manager, idempotency_key="gov-approval-deny-manager"),
     )
     assert denied_by_manager.status_code == 403
     denied_activate_by_manager = await db_client.post(
@@ -360,9 +358,7 @@ async def test_permission_separation(db_client, db_engine) -> None:
             "effective_at": datetime.now(UTC).isoformat(),
             "reason": "Denied",
         },
-        headers=governance_headers(
-            feature_activator, idempotency_key="gov-profile-deny-activator"
-        ),
+        headers=governance_headers(feature_activator, idempotency_key="gov-profile-deny-activator"),
     )
     assert denied_profile_edit_by_activator.status_code == 403
 

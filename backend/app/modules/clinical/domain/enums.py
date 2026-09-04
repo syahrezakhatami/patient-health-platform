@@ -36,6 +36,10 @@ class ClinicalNoteWriteOperation(StrEnum):
     NOTE_FINALIZE = "NOTE_FINALIZE"
 
 
+class ClinicalObservationWriteOperation(StrEnum):
+    OBSERVATION_CREATE = "OBSERVATION_CREATE"
+
+
 class ParticipationType(StrEnum):
     ATTENDING = "ATTENDING"
     ADMITTING = "ADMITTING"

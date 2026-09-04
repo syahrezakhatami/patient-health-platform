@@ -117,6 +117,33 @@ async def restore_clinical_note_idempotency_app_dml_privileges(db_engine: AsyncE
         await admin_engine.dispose()
 
 
+async def restore_clinical_observation_idempotency_app_dml_privileges(
+    db_engine: AsyncEngine,
+) -> None:
+    """Match scripts/grant_dev_privileges.sql for clinical_observation_write_idempotency."""
+    del db_engine
+    migration_url = migration_database_url()
+    if migration_url is None:
+        return
+    admin_engine = create_async_engine(migration_url, pool_pre_ping=True)
+    try:
+        async with admin_engine.begin() as connection:
+            await connection.execute(
+                text(
+                    "REVOKE UPDATE, DELETE, TRUNCATE ON TABLE "
+                    "clinical_observation_write_idempotency FROM app_dml"
+                )
+            )
+            await connection.execute(
+                text(
+                    "GRANT INSERT, SELECT ON TABLE "
+                    "clinical_observation_write_idempotency TO app_dml"
+                )
+            )
+    finally:
+        await admin_engine.dispose()
+
+
 async def restore_governance_app_dml_privileges(db_engine: AsyncEngine) -> None:
     """Match scripts/grant_dev_privileges.sql for OGP tables."""
     del db_engine
@@ -158,10 +185,7 @@ async def restore_governance_app_dml_privileges(db_engine: AsyncEngine) -> None:
                     "organization_deployment_gate_states TO app_dml"
                 ),
                 "GRANT SELECT, INSERT, UPDATE ON TABLE provider_capabilities TO app_dml",
-                (
-                    "GRANT SELECT, INSERT ON TABLE "
-                    "provider_capability_required_gates TO app_dml"
-                ),
+                ("GRANT SELECT, INSERT ON TABLE provider_capability_required_gates TO app_dml"),
             )
             for statement in statements:
                 await connection.execute(text(statement))

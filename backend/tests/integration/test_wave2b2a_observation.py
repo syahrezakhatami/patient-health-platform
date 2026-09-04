@@ -44,6 +44,27 @@ def _heart_rate(
     return payload
 
 
+def _generic_exam_observation(
+    patient_id: str,
+    encounter_id: str | None = None,
+    *,
+    value: float = 1.0,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "patient_identity_id": patient_id,
+        "category": "EXAM",
+        "code": {"system": LOINC, "code": "32465-7", "display": "Physical findings"},
+        "value_type": "NUMERIC",
+        "value_numeric": value,
+        "unit": "{score}",
+        "reference_range_low": 0,
+        "reference_range_high": 5,
+    }
+    if encounter_id is not None:
+        payload["encounter_id"] = encounter_id
+    return payload
+
+
 @requires_db
 async def test_observation_lifecycle_identity_and_authorization(db_client, db_engine) -> None:
     clinician = await seed_actor(db_engine, role_code=RoleCode.CLINICIAN)
@@ -57,14 +78,14 @@ async def test_observation_lifecycle_identity_and_authorization(db_client, db_en
     invalid = await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json={**_heart_rate(patient_id), "value_text": "72"},
+        json={**_generic_exam_observation(patient_id), "value_text": "1"},
     )
     assert invalid.status_code == 422
 
     created = await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json=_heart_rate(patient_id, encounter_id),
+        json=_generic_exam_observation(patient_id, encounter_id),
     )
     assert created.status_code in {200, 201}
     assert created.json()["status"] == "FINAL"
@@ -74,7 +95,7 @@ async def test_observation_lifecycle_identity_and_authorization(db_client, db_en
     denied = await db_client.post(
         "/api/v1/clinical/observations",
         headers=registrar.headers(purpose="TREATMENT"),
-        json=_heart_rate(patient_id),
+        json=_generic_exam_observation(patient_id),
     )
     assert denied.status_code == 403
 
@@ -92,9 +113,9 @@ async def test_observation_lifecycle_identity_and_authorization(db_client, db_en
         json={
             "value_type": "NUMERIC",
             "value_numeric": 88,
-            "unit": "beats/min",
-            "reference_range_low": 60,
-            "reference_range_high": 100,
+            "unit": "{score}",
+            "reference_range_low": 0,
+            "reference_range_high": 5,
         },
     )
     assert amended.status_code == 200
@@ -107,9 +128,9 @@ async def test_observation_lifecycle_identity_and_authorization(db_client, db_en
         json={
             "value_type": "NUMERIC",
             "value_numeric": 88,
-            "unit": "beats/min",
-            "reference_range_low": 60,
-            "reference_range_high": 100,
+            "unit": "{score}",
+            "reference_range_low": 0,
+            "reference_range_high": 5,
         },
     )
     assert noop.status_code == 409
@@ -123,7 +144,7 @@ async def test_observation_lifecycle_identity_and_authorization(db_client, db_en
     blocked = await db_client.post(
         f"/api/v1/clinical/observations/{observation_id}/amend",
         headers=clinician.headers(purpose="TREATMENT"),
-        json={"value_type": "NUMERIC", "value_numeric": 90, "unit": "beats/min"},
+        json={"value_type": "NUMERIC", "value_numeric": 90, "unit": "{score}"},
     )
     assert blocked.status_code == 409
 
@@ -133,7 +154,7 @@ async def test_observation_lifecycle_identity_and_authorization(db_client, db_en
     )
     assert cross.status_code == 404
     assert "sqlalchemy" not in cross.text.lower()
-    assert "8867-4" not in cross.text
+    assert "32465-7" not in cross.text
     unknown = await db_client.get(
         f"/api/v1/clinical/observations/{uuid4()}",
         headers=clinician.headers(purpose="TREATMENT"),
@@ -175,7 +196,7 @@ async def test_observation_lifecycle_identity_and_authorization(db_client, db_en
         assert "OBSERVATION_CREATED" in actions
         assert "OBSERVATION_AMENDED" in actions
         assert "OBSERVATION_ENTERED_IN_ERROR" in actions
-        assert all("8867-4" not in (row[1] or "") for row in rows)
+        assert all("32465-7" not in (row[1] or "") for row in rows)
         later = await connection.execute(
             text(
                 """
@@ -213,14 +234,14 @@ async def test_anonymous_merged_and_encounter_observation_binding(db_client, db_
     blocked = await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json=_heart_rate(anonymous_id),
+        json=_generic_exam_observation(anonymous_id),
     )
     assert blocked.status_code == 409
     emer = await _open_encounter(db_client, clinician, anonymous_id, "EMER")
     allowed = await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json=_heart_rate(anonymous_id, emer.json()["id"]),
+        json=_generic_exam_observation(anonymous_id, emer.json()["id"]),
     )
     assert allowed.status_code in {200, 201}
 
@@ -230,7 +251,7 @@ async def test_anonymous_merged_and_encounter_observation_binding(db_client, db_
     mismatch = await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json=_heart_rate(
+        json=_generic_exam_observation(
             patient_id, (await _open_encounter(db_client, clinician, other_patient)).json()["id"]
         ),
     )
@@ -239,13 +260,13 @@ async def test_anonymous_merged_and_encounter_observation_binding(db_client, db_
     cross_org = await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json=_heart_rate(patient_id, foreign.json()["id"]),
+        json=_generic_exam_observation(patient_id, foreign.json()["id"]),
     )
     assert cross_org.status_code == 404
     unknown_enc = await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json=_heart_rate(patient_id, str(uuid4())),
+        json=_generic_exam_observation(patient_id, str(uuid4())),
     )
     assert unknown_enc.status_code == 404
 
@@ -273,7 +294,7 @@ async def test_anonymous_merged_and_encounter_observation_binding(db_client, db_
     historical = await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json=_heart_rate(source.json()["id"]),
+        json=_generic_exam_observation(source.json()["id"]),
     )
     assert historical.status_code in {200, 201}
     historical_id = historical.json()["id"]
@@ -296,7 +317,7 @@ async def test_anonymous_merged_and_encounter_observation_binding(db_client, db_
     created = await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json=_heart_rate(source.json()["id"]),
+        json=_generic_exam_observation(source.json()["id"]),
     )
     assert created.json()["patient_identity_id"] == survivor.json()["id"]
     retired = await _active_patient(db_client, registrar)
@@ -308,13 +329,13 @@ async def test_anonymous_merged_and_encounter_observation_binding(db_client, db_
     rejected = await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json=_heart_rate(retired),
+        json=_generic_exam_observation(retired),
     )
     assert rejected.status_code == 409
     missing = await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json=_heart_rate(str(uuid4())),
+        json=_generic_exam_observation(str(uuid4())),
     )
     assert missing.status_code == 404
 
@@ -329,7 +350,7 @@ async def test_observation_concurrency_and_app_dml_delete(db_client, db_engine) 
     created = await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json=_heart_rate(patient_id, value=70),
+        json=_generic_exam_observation(patient_id, value=70),
     )
     observation_id = created.json()["id"]
 
@@ -337,7 +358,7 @@ async def test_observation_concurrency_and_app_dml_delete(db_client, db_engine) 
         return await db_client.post(
             f"/api/v1/clinical/observations/{observation_id}/amend",
             headers=clinician.headers(purpose="TREATMENT"),
-            json={"value_type": "NUMERIC", "value_numeric": 80, "unit": "beats/min"},
+            json={"value_type": "NUMERIC", "value_numeric": 80, "unit": "{score}"},
         )
 
     first, second = await asyncio.gather(amend(), amend())
@@ -357,7 +378,7 @@ async def test_observation_concurrency_and_app_dml_delete(db_client, db_engine) 
     other = await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json=_heart_rate(patient_id, value=65),
+        json=_generic_exam_observation(patient_id, value=65),
     )
     other_id = other.json()["id"]
 
@@ -380,3 +401,20 @@ async def test_observation_concurrency_and_app_dml_delete(db_client, db_engine) 
                     )
     finally:
         await engine.dispose()
+
+
+@requires_db
+async def test_generic_vital_signs_create_requires_governed_route(db_client, db_engine) -> None:
+    clinician = await seed_actor(db_engine, role_code=RoleCode.CLINICIAN)
+    registrar = await seed_actor(
+        db_engine, role_code=RoleCode.REGISTRAR, organization_id=clinician.organization_id
+    )
+    patient_id = await _active_patient(db_client, registrar)
+    encounter_id = (await _open_encounter(db_client, clinician, patient_id)).json()["id"]
+    denied = await db_client.post(
+        "/api/v1/clinical/observations",
+        headers=clinician.headers(purpose="TREATMENT"),
+        json=_heart_rate(patient_id, encounter_id),
+    )
+    assert denied.status_code == 403
+    assert denied.json()["error"]["code"] == "vital_signs_requires_governed_route"

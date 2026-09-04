@@ -709,7 +709,7 @@ async def test_zz_migration_0019_downgrade_upgrade_roundtrip(db_engine) -> None:
         assert upgrade.returncode == 0, upgrade.stdout + upgrade.stderr
     async with db_engine.connect() as connection:
         version = await connection.execute(text("SELECT version_num FROM alembic_version"))
-        assert version.scalar_one() == "20260814_0020"
+        assert version.scalar_one() == "20260814_0021"
         tables = await connection.execute(
             text(
                 """
@@ -720,6 +720,16 @@ async def test_zz_migration_0019_downgrade_upgrade_roundtrip(db_engine) -> None:
             )
         )
         assert tables.scalar_one() == 1
+        observation_tables = await connection.execute(
+            text(
+                """
+                SELECT count(*) FROM information_schema.tables
+                WHERE table_schema = 'public'
+                  AND table_name = 'clinical_observation_write_idempotency'
+                """
+            )
+        )
+        assert observation_tables.scalar_one() == 1
         heads = await connection.execute(text("SELECT count(*) FROM alembic_version"))
         assert heads.scalar_one() == 1
     await restore_note_write_idempotency_app_dml_privileges(db_engine)

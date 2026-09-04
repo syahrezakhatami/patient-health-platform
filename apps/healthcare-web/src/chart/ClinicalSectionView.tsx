@@ -11,6 +11,7 @@ import { SECTION_LABEL_KEY } from "./catalog";
 import { clinicalChartCoordinator } from "./clinicalChartCoordinator";
 import { asFact, factFields, factTitle, isVitalObservation, nestedRecords } from "./facts";
 import { ClinicalNoteForm } from "./notes/ClinicalNoteForm";
+import { ManualVitalForm } from "./vitals/ManualVitalForm";
 import { clinicalQueryPolicy } from "./queryPolicy";
 import {
   SectionEmptyState,
@@ -116,7 +117,7 @@ export function ClinicalSectionView({
     return <SectionErrorState onRetry={() => void query.refetch()} />;
   }
   const items = (query.data?.items ?? []).map(asFact);
-  if (items.length === 0 && section !== "notes") {
+  if (items.length === 0 && section !== "notes" && section !== "observations") {
     return <SectionEmptyState messageKey="chart.sectionEmpty" />;
   }
 
@@ -137,6 +138,15 @@ export function ClinicalSectionView({
       ) : null}
       {section === "notes" ? <p className="muted">{t("chart.notesMetadataOnly")}</p> : null}
       {section === "notes" && items.length === 0 ? <SectionEmptyState messageKey="chart.sectionEmpty" /> : null}
+      {section === "observations" ? (
+        <ManualVitalForm
+          organizationId={organizationId}
+          facilityId={facilityId}
+          patientIdentityId={patientIdentityId}
+          generation={generation}
+          signal={signal}
+        />
+      ) : null}
       {section === "observations" && vitals.length > 0 ? (
         <section>
           <h3>{t("chart.vitals")}</h3>

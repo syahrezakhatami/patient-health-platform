@@ -1,8 +1,11 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from app.modules.governance.domain.enums import ProviderCapabilityState
-from app.modules.governance.infrastructure.models import ProviderCapabilityModel
+from app.modules.governance.domain.enums import DeploymentGateType, ProviderCapabilityState
+from app.modules.governance.infrastructure.models import (
+    ProviderCapabilityModel,
+    ProviderCapabilityRequiredGateModel,
+)
 from app.modules.iam.domain.enums import MembershipStatus, UserStatus
 from app.modules.iam.infrastructure.models import (
     OrganizationMembershipModel,
@@ -30,6 +33,7 @@ async def insert_test_provider_capability(
     governance_required: bool = False,
     provider_state: ProviderCapabilityState = ProviderCapabilityState.AVAILABLE,
     frozen_release_tag: str | None = None,
+    required_gates: frozenset[DeploymentGateType] | None = None,
 ) -> UUID:
     capability_id = new_id()
     async with engine.begin() as connection:
@@ -46,6 +50,15 @@ async def insert_test_provider_capability(
                 updated_at=datetime.now(UTC),
             )
         )
+        if required_gates:
+            for gate_type in required_gates:
+                await connection.execute(
+                    ProviderCapabilityRequiredGateModel.__table__.insert().values(
+                        id=new_id(),
+                        provider_capability_id=capability_id,
+                        gate_type=gate_type.value,
+                    )
+                )
     return capability_id
 
 
@@ -101,10 +114,73 @@ async def seed_governance_actor(
             )
         )
         permission_ids = (
-            await connection.execute(
-                select(PermissionModel.id).where(PermissionModel.code.in_(tuple(permissions)))
+            (
+                await connection.execute(
+                    select(PermissionModel.id).where(PermissionModel.code.in_(tuple(permissions)))
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
+        for permission_id in permission_ids:
+            await connection.execute(
+                text(
+                    """
+                    INSERT INTO role_permissions (id, role_id, permission_id)
+                    VALUES (:id, :role_id, :permission_id)
+                    """
+                ),
+                {"id": new_id(), "role_id": role_id, "permission_id": permission_id},
+            )
+        await connection.execute(
+            UserModel.__table__.insert().values(
+                id=user_id,
+                subject=subject,
+                display_name=subject,
+                status=UserStatus.ACTIVE,
+            )
+        )
+        await connection.execute(
+            OrganizationMembershipModel.__table__.insert().values(
+                id=new_id(),
+                user_id=user_id,
+                organization_id=organization_id,
+                facility_id=None,
+                role_id=role_id,
+                status=MembershipStatus.ACTIVE,
+            )
+        )
+    return SeededActor(user_id, subject, organization_id, mint_token(sub=subject))
+
+
+async def seed_governance_actor_for_organization(
+    engine: AsyncEngine,
+    organization_id: UUID,
+    *,
+    permissions: frozenset[str],
+) -> SeededActor:
+    """Seed a governance-capable member in an existing organization."""
+    role_code = f"GOV_TEST_{new_id().hex[:8].upper()}"
+    subject = f"user-{new_id()}"
+    user_id = new_id()
+    role_id = new_id()
+    async with engine.begin() as connection:
+        await connection.execute(
+            RoleModel.__table__.insert().values(
+                id=role_id,
+                code=role_code,
+                name=f"Governance test role {role_code}",
+            )
+        )
+        permission_ids = (
+            (
+                await connection.execute(
+                    select(PermissionModel.id).where(PermissionModel.code.in_(tuple(permissions)))
+                )
+            )
+            .scalars()
+            .all()
+        )
         for permission_id in permission_ids:
             await connection.execute(
                 text(

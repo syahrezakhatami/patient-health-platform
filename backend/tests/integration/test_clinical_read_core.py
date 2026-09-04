@@ -34,7 +34,7 @@ from tests.integration.test_wave1_mpi import (
 )
 from tests.integration.test_wave2a_hardening import _active_patient, _open_encounter
 from tests.integration.test_wave2b1_condition import _pneumonia
-from tests.integration.test_wave2b2a_observation import _heart_rate
+from tests.integration.test_wave2b2a_observation import _generic_exam_observation
 from tests.integration.test_wave2b3a_medication import _paracetamol
 from tests.integration.test_wave2b3b_allergy import _penicillin
 
@@ -199,7 +199,7 @@ async def test_clinical_read_core_chart_cluster_authz_and_notes(db_client, db_en
     await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json=_heart_rate(survivor_id, encounter_id),
+        json=_generic_exam_observation(survivor_id, encounter_id),
     )
     async with db_engine.begin() as connection:
         await connection.execute(
@@ -382,13 +382,13 @@ async def test_clinical_read_core_chart_cluster_authz_and_notes(db_client, db_en
     )
     assert bad_cursor.status_code == 422
 
-    vitals = await db_client.get(
+    observations_section = await db_client.get(
         _chart(survivor_id, "/sections/observations"),
         headers=_staff_headers(clinician),
-        params={"category": "VITAL_SIGNS"},
+        params={"category": "EXAM"},
     )
-    assert vitals.status_code == 200
-    assert vitals.json()["items"]
+    assert observations_section.status_code == 200
+    assert observations_section.json()["items"]
 
     unknown_section = await db_client.get(
         _chart(survivor_id, "/sections/vitals"),

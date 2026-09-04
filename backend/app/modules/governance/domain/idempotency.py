@@ -3,7 +3,7 @@ from datetime import date, datetime
 from hashlib import sha256
 from uuid import UUID
 
-from app.modules.governance.domain.policy_schema import GovernancePolicyDocumentV1
+from app.modules.governance.domain.policy_schema import GovernancePolicyDocument
 
 
 def canonical_fingerprint(payload: dict[str, str]) -> str:
@@ -15,7 +15,7 @@ def profile_version_create_fingerprint(
     *,
     organization_id: UUID,
     schema_version: int,
-    policy_document: GovernancePolicyDocumentV1,
+    policy_document: GovernancePolicyDocument,
     effective_at: datetime,
     reason: str,
 ) -> str:

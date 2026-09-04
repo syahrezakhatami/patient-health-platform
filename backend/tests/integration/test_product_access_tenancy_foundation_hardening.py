@@ -31,7 +31,7 @@ from tests.integration.test_product_access_tenancy_foundation import (
 from tests.integration.test_wave1_mpi import merge_evidence, unique_mrn, unique_nik
 from tests.integration.test_wave2a_hardening import _active_patient, _open_encounter
 from tests.integration.test_wave2b1_condition import _pneumonia
-from tests.integration.test_wave2b2a_observation import _heart_rate
+from tests.integration.test_wave2b2a_observation import _generic_exam_observation
 from tests.integration.test_wave2b2b_laboratory import _glucose, _lab_order
 from tests.integration.test_wave2b3a_medication import _paracetamol
 from tests.integration.test_wave2b3b_allergy import _amend_body as _allergy_amend
@@ -296,7 +296,7 @@ async def test_platform_admin_is_denied_across_frozen_clinical_apis(db_client, d
     observation = await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json=_heart_rate(patient_id, encounter_id),
+        json=_generic_exam_observation(patient_id, encounter_id),
     )
     order = await db_client.post(
         "/api/v1/clinical/laboratory/orders",
@@ -431,7 +431,7 @@ async def test_platform_admin_is_denied_across_frozen_clinical_apis(db_client, d
             {"json": {"clinical_status": "RESOLVED"}},
         ),
         ("post", f"/api/v1/clinical/conditions/{ids['condition']}/entered-in-error", {}),
-        ("post", "/api/v1/clinical/observations", {"json": _heart_rate(patient_id)}),
+        ("post", "/api/v1/clinical/observations", {"json": _generic_exam_observation(patient_id)}),
         ("get", "/api/v1/clinical/observations", {"params": {"patient_identity_id": patient_id}}),
         ("get", f"/api/v1/clinical/observations/{ids['observation']}", {}),
         (

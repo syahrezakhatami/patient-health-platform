@@ -413,9 +413,7 @@ async def test_laboratory_order_and_specimen_provenance_fk_and_app_dml(
                         "bad": uuid4(),
                     },
                 )
-        with pytest.raises(
-            Exception, match=PROVENANCE_DELETE_DENIED
-        ):
+        with pytest.raises(Exception, match=PROVENANCE_DELETE_DENIED):
             async with connection.begin():
                 await connection.execute(
                     text("DELETE FROM clinical_provenances WHERE id = :id"),

@@ -1292,6 +1292,12 @@ class ClinicalService:
             purpose=purpose,
             correlation_id=correlation_id,
         )
+        if category is ObservationCategory.VITAL_SIGNS:
+            raise AppError(
+                "vital_signs_requires_governed_route",
+                "Vital signs must be recorded through the governed manual vitals workflow",
+                status_code=403,
+            )
         identity = await self._require_canonical_identity(
             principal, patient_identity_id, organization_id
         )

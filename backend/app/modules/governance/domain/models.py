@@ -11,7 +11,9 @@ from app.modules.governance.domain.enums import (
     ProfileVersionStatus,
     ProviderCapabilityState,
 )
-from app.modules.governance.domain.policy_schema import GovernancePolicyDocumentV1
+from app.modules.governance.domain.policy_schema import (
+    GovernancePolicyDocument,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,7 +41,7 @@ class GovernanceProfileVersion:
     organization_id: UUID
     version_number: int
     schema_version: int
-    policy_document: GovernancePolicyDocumentV1
+    policy_document: GovernancePolicyDocument
     status: ProfileVersionStatus
     effective_at: datetime
     changed_by: UUID

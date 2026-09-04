@@ -701,9 +701,7 @@ async def test_laboratory_concurrency_provenance_and_app_dml(db_client, db_engin
                         "bad": uuid4(),
                     },
                 )
-        with pytest.raises(
-            Exception, match=PROVENANCE_DELETE_DENIED
-        ):
+        with pytest.raises(Exception, match=PROVENANCE_DELETE_DENIED):
             async with connection.begin():
                 await connection.execute(
                     text("DELETE FROM clinical_provenances WHERE id = :id"),

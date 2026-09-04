@@ -761,7 +761,7 @@ async def test_clinical_note_db_immutability_privileges_and_migration(db_client,
 
     async with db_engine.connect() as connection:
         version = await connection.execute(text("SELECT version_num FROM alembic_version"))
-        assert version.scalar_one() == "20260814_0020"
+        assert version.scalar_one() == "20260814_0021"
         heads = await connection.execute(
             text(
                 """

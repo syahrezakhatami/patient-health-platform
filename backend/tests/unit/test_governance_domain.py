@@ -1,4 +1,3 @@
-
 from app.modules.governance.domain.enums import (
     FeatureActivationState,
     ProviderCapabilityState,

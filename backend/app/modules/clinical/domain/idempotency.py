@@ -54,3 +54,24 @@ def finalize_note_fingerprint(note_id: UUID, expected_patient_identity_id: UUID)
             "note_id": str(note_id),
         }
     )
+
+
+def manual_vital_create_fingerprint(
+    *,
+    expected_patient_identity_id: UUID,
+    encounter_id: UUID,
+    measurement_key: str,
+    canonical_value: str,
+    effective_at_iso: str,
+    provider_catalog_version: str,
+) -> str:
+    return _canonical_fingerprint(
+        {
+            "effective_at": effective_at_iso,
+            "encounter_id": str(encounter_id),
+            "expected_patient_identity_id": str(expected_patient_identity_id),
+            "measurement_key": measurement_key,
+            "provider_catalog_version": provider_catalog_version,
+            "value": canonical_value,
+        }
+    )

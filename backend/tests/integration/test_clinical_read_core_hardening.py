@@ -37,7 +37,7 @@ from tests.integration.test_wave1_mpi import (
 )
 from tests.integration.test_wave2a_hardening import _active_patient, _open_encounter
 from tests.integration.test_wave2b1_condition import _pneumonia
-from tests.integration.test_wave2b2a_observation import _heart_rate
+from tests.integration.test_wave2b2a_observation import _generic_exam_observation
 from tests.integration.test_wave2b2b_laboratory import _collect_specimen, _glucose, _lab_order
 from tests.integration.test_wave2b3a_medication import _paracetamol
 from tests.integration.test_wave2b3b_allergy import _penicillin
@@ -629,7 +629,7 @@ async def test_hardening_filters_pagination_timeline_audit_provenance(db_client,
     await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json=_heart_rate(patient_id, encounter_a_id),
+        json=_generic_exam_observation(patient_id, encounter_a_id),
     )
     await db_client.post(
         "/api/v1/clinical/medications",

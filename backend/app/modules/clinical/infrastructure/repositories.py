@@ -9,6 +9,7 @@ from app.modules.clinical.infrastructure.models import (
     AllergyModel,
     ClinicalNoteModel,
     ClinicalNoteWriteIdempotencyModel,
+    ClinicalObservationWriteIdempotencyModel,
     ClinicalProvenanceModel,
     ConditionModel,
     ConsentModel,
@@ -70,6 +71,31 @@ class ClinicalRepository:
                 ClinicalNoteWriteIdempotencyModel.actor_id == actor_id,
                 ClinicalNoteWriteIdempotencyModel.operation == operation,
                 ClinicalNoteWriteIdempotencyModel.idempotency_key == idempotency_key,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def add_observation_write_idempotency(
+        self, model: ClinicalObservationWriteIdempotencyModel
+    ) -> ClinicalObservationWriteIdempotencyModel:
+        self._session.add(model)
+        await self._session.flush()
+        return model
+
+    async def get_observation_write_idempotency(
+        self,
+        *,
+        organization_id: UUID,
+        actor_id: UUID,
+        operation: str,
+        idempotency_key: str,
+    ) -> ClinicalObservationWriteIdempotencyModel | None:
+        result = await self._session.execute(
+            select(ClinicalObservationWriteIdempotencyModel).where(
+                ClinicalObservationWriteIdempotencyModel.organization_id == organization_id,
+                ClinicalObservationWriteIdempotencyModel.actor_id == actor_id,
+                ClinicalObservationWriteIdempotencyModel.operation == operation,
+                ClinicalObservationWriteIdempotencyModel.idempotency_key == idempotency_key,
             )
         )
         return result.scalar_one_or_none()

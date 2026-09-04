@@ -37,7 +37,10 @@ from app.modules.governance.domain.models import (
     GovernanceResolution,
     ProviderCapability,
 )
-from app.modules.governance.domain.policy_schema import GovernancePolicyDocumentV1
+from app.modules.governance.domain.policy_schema import (
+    GovernancePolicyDocument,
+    GovernancePolicyDocumentV2,
+)
 from app.modules.governance.domain.resolver import (
     resolve_governance_required_layers,
     resolve_provider_layer,
@@ -165,7 +168,7 @@ class GovernanceService:
         principal: Principal | None,
         organization_id: UUID,
         *,
-        policy_document: GovernancePolicyDocumentV1,
+        policy_document: GovernancePolicyDocument,
         effective_at: datetime,
         reason: str,
         idempotency_key: str,
@@ -777,7 +780,18 @@ class GovernanceService:
         )
 
 
-def _safe_policy_subset(policy: GovernancePolicyDocumentV1) -> dict[str, object]:
+def _safe_policy_subset(policy: GovernancePolicyDocument) -> dict[str, object]:
+    if isinstance(policy, GovernancePolicyDocumentV2):
+        return {
+            "encounter_status": {
+                "planned": policy.encounter_status_policy.planned.value,
+                "finished": policy.encounter_status_policy.finished.value,
+            },
+            "manual_vital_signs": {
+                "catalog_version": policy.manual_vital_signs.catalog_version,
+                "approved_measurements": list(policy.manual_vital_signs.approved_measurements),
+            },
+        }
     return {
         "encounter_status": {
             "planned": policy.encounter_status_policy.planned.value,

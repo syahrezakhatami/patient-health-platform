@@ -910,9 +910,7 @@ async def test_family_history_concurrency_facility_and_app_dml(db_client, db_eng
                     ),
                     {"id": history_id, "bad": uuid4()},
                 )
-        with pytest.raises(
-            Exception, match=PROVENANCE_DELETE_DENIED
-        ):
+        with pytest.raises(Exception, match=PROVENANCE_DELETE_DENIED):
             async with connection.begin():
                 await connection.execute(
                     text("DELETE FROM clinical_provenances WHERE id = :id"),

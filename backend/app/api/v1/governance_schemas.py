@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -8,13 +9,21 @@ from app.modules.governance.domain.enums import (
     FeatureActivationState,
     ProviderCapabilityState,
 )
-from app.modules.governance.domain.policy_schema import GovernancePolicyDocumentV1
+from app.modules.governance.domain.policy_schema import (
+    GovernancePolicyDocumentV1,
+    GovernancePolicyDocumentV2,
+)
+
+PolicyDocumentInput = Annotated[
+    GovernancePolicyDocumentV1 | GovernancePolicyDocumentV2,
+    Field(discriminator="schema_version"),
+]
 
 
 class CreateProfileVersionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    policy_document: GovernancePolicyDocumentV1
+    policy_document: PolicyDocumentInput
     effective_at: datetime
     reason: str = Field(min_length=1, max_length=2000)
 

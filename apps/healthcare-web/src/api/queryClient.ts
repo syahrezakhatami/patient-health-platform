@@ -28,6 +28,7 @@ export const queryKeys = {
 
 export const PATIENT_LOOKUP_MUTATION_KEY = ["patient-lookup"] as const;
 export const CLINICAL_NOTE_MUTATION_KEY = ["clinical-note-write"] as const;
+export const MANUAL_VITAL_MUTATION_KEY = ["manual-vital-write"] as const;
 
 export const CLINICAL_GC_TIME_MS = 5 * 60_000;
 export const CLINICAL_STALE_TIME_MS = 30_000;
@@ -42,6 +43,14 @@ export const clinicalKeys = {
   timeline: (organizationId: string, patientIdentityId: string) =>
     ["clinical-timeline", organizationId, patientIdentityId] as const,
 };
+
+export const manualVitalKeys = {
+  writeContext: (organizationId: string) => ["manual-vitals-write-context", organizationId] as const,
+};
+
+export function clearManualVitalMutations(client: QueryClient): void {
+  client.removeQueries({ queryKey: MANUAL_VITAL_MUTATION_KEY });
+}
 
 export function isClinicalQueryKey(queryKey: readonly unknown[]): boolean {
   const head = queryKey[0];

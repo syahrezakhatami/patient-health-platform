@@ -200,5 +200,25 @@
       "DISCHARGE": "Pulang",
       "OTHER": "Lainnya"
     }
+  },
+  "manualVitals": {
+    "title": "Catat tanda vital manual",
+    "encounter": "Kunjungan",
+    "selectEncounter": "Pilih kunjungan",
+    "measurement": "Pengukuran",
+    "value": "Nilai",
+    "effectiveAt": "Waktu pengukuran",
+    "save": "Simpan pengukuran",
+    "heartRate": "Denyut nadi",
+    "respiratoryRate": "Laju pernapasan",
+    "bodyTemperature": "Suhu tubuh",
+    "bodyWeight": "Berat badan",
+    "bodyHeight": "Tinggi badan",
+    "forbidden": "Tanda vital manual tidak tersedia.",
+    "notFound": "Kunjungan atau pasien tidak tersedia.",
+    "validation": "Pengukuran tidak dapat disimpan dengan nilai saat ini.",
+    "saveFailed": "Pengukuran tidak dapat disimpan.",
+    "idempotencyConflict": "Kunci simpan ini sudah digunakan untuk permintaan berbeda.",
+    "abortNotRollback": "Browser berhenti menunggu. Itu tidak berarti server membatalkan penyimpanan."
   }
 }

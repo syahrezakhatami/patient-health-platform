@@ -15,7 +15,7 @@ from tests.conftest import mint_token
 from tests.integration.conftest import SeededActor, requires_db, seed_actor
 from tests.integration.db_privileges import PROVENANCE_DELETE_DENIED
 from tests.integration.test_wave2a_hardening import _active_patient, _open_encounter
-from tests.integration.test_wave2b2a_observation import _heart_rate
+from tests.integration.test_wave2b2a_observation import _generic_exam_observation
 from tests.integration.test_wave15_hardening import _headers
 
 pytestmark = [pytest.mark.integration]
@@ -36,7 +36,7 @@ async def test_concurrent_amend_versus_entered_in_error(db_client, db_engine) ->
     created = await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json=_heart_rate(patient_id, value=70),
+        json=_generic_exam_observation(patient_id, value=70),
     )
     observation_id = created.json()["id"]
 
@@ -111,7 +111,7 @@ async def test_cancelled_and_entered_in_error_encounters_reject_observations(
     blocked_cancelled = await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json=_heart_rate(patient_id, cancelled.json()["id"]),
+        json=_generic_exam_observation(patient_id, cancelled.json()["id"]),
     )
     assert blocked_cancelled.status_code == 409
 
@@ -125,7 +125,7 @@ async def test_cancelled_and_entered_in_error_encounters_reject_observations(
     blocked_eie = await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json=_heart_rate(patient_id, erroneous.json()["id"]),
+        json=_generic_exam_observation(patient_id, erroneous.json()["id"]),
     )
     assert blocked_eie.status_code == 409
     async with db_engine.connect() as connection:
@@ -148,13 +148,13 @@ async def test_observation_authz_purpose_idor_and_facility_scope(db_client, db_e
     created = await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json=_heart_rate(patient_id),
+        json=_generic_exam_observation(patient_id),
     )
     observation_id = created.json()["id"]
     sibling = await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json=_heart_rate(other_patient, value=64),
+        json=_generic_exam_observation(other_patient, value=64),
     )
     assert sibling.status_code in {200, 201}
 
@@ -259,7 +259,7 @@ async def test_observation_provenance_fk_and_app_dml_immutability(db_client, db_
     created = await db_client.post(
         "/api/v1/clinical/observations",
         headers=clinician.headers(purpose="TREATMENT"),
-        json=_heart_rate(patient_id),
+        json=_generic_exam_observation(patient_id),
     )
     observation_id = created.json()["id"]
     organization_id = clinician.organization_id
@@ -332,7 +332,7 @@ async def test_observation_provenance_fk_and_app_dml_immutability(db_client, db_
             with pytest.raises(Exception, match="immutable"):
                 async with connection.begin():
                     await connection.execute(
-                        text("UPDATE observations SET category = 'EXAM' WHERE id = :id"),
+                        text("UPDATE observations SET category = 'OTHER' WHERE id = :id"),
                         {"id": observation_id},
                     )
             with pytest.raises(Exception, match="permission denied|cannot be deleted"):

@@ -200,5 +200,25 @@
       "DISCHARGE": "Discharge",
       "OTHER": "Other"
     }
+  },
+  "manualVitals": {
+    "title": "Record manual vital sign",
+    "encounter": "Encounter",
+    "selectEncounter": "Select an encounter",
+    "measurement": "Measurement",
+    "value": "Value",
+    "effectiveAt": "Measurement time",
+    "save": "Save measurement",
+    "heartRate": "Heart rate",
+    "respiratoryRate": "Respiratory rate",
+    "bodyTemperature": "Body temperature",
+    "bodyWeight": "Body weight",
+    "bodyHeight": "Body height",
+    "forbidden": "Manual vital signs are not available.",
+    "notFound": "The encounter or patient is not available.",
+    "validation": "The measurement could not be saved with the current values.",
+    "saveFailed": "The measurement could not be saved.",
+    "idempotencyConflict": "This save key was already used for a different request.",
+    "abortNotRollback": "The browser stopped waiting. That does not mean the server cancelled the save."
   }
 }
