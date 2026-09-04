@@ -206,6 +206,7 @@
     "encounter": "Kunjungan",
     "selectEncounter": "Pilih kunjungan",
     "measurement": "Pengukuran",
+    "selectMeasurement": "Pilih pengukuran",
     "value": "Nilai",
     "effectiveAt": "Waktu pengukuran",
     "save": "Simpan pengukuran",

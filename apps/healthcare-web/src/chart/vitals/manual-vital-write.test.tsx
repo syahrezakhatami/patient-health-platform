@@ -7,17 +7,57 @@ import { getRegisteredQueryClient } from "../../auth/sessionLifecycle";
 import { clinicianCatalog } from "../../test/catalogPermissions";
 import {
   contextResponse,
+  FAC_1,
+  FAC_2,
   facilitiesResponse,
   org,
   ORG_A,
+  ORG_B,
   organizationsResponse,
 } from "../../test/fixtures";
+import { manualVitalKeys } from "../../api/queryClient";
 import { authenticateStaff, renderApp } from "../../test/render";
 import { selectPatientAndWipeChart } from "../wipe";
 
 const PATIENT_A = "33333333-3333-4333-8333-333333333333";
 const NAME_A = "Ada Lovelace";
 const ENCOUNTER_A = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1";
+
+const CATALOG_UNITS: Record<string, string> = {
+  heart_rate: "beats/min",
+  respiratory_rate: "breaths/min",
+  body_temperature: "Cel",
+  body_weight: "kg",
+  body_height: "cm",
+};
+
+const FULL_CATALOG = [
+  {
+    measurement_key: "heart_rate",
+    display_unit: "beats/min",
+    canonical_concept: "Heart rate",
+  },
+  {
+    measurement_key: "respiratory_rate",
+    display_unit: "breaths/min",
+    canonical_concept: "Respiratory rate",
+  },
+  {
+    measurement_key: "body_temperature",
+    display_unit: "Cel",
+    canonical_concept: "Body temperature",
+  },
+  {
+    measurement_key: "body_weight",
+    display_unit: "kg",
+    canonical_concept: "Body weight",
+  },
+  {
+    measurement_key: "body_height",
+    display_unit: "cm",
+    canonical_concept: "Body height",
+  },
+];
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -42,7 +82,7 @@ function selectPatient() {
 }
 
 function installFetch(options?: {
-  writeContext?: Record<string, unknown>;
+  writeContext?: Record<string, unknown> | (() => Record<string, unknown>);
   onPost?: (url: string, init?: RequestInit) => Response | null;
 }): { posts: Array<{ url: string; body: unknown; idempotency: string | null }> } {
   const posts: Array<{ url: string; body: unknown; idempotency: string | null }> = [];
@@ -59,8 +99,12 @@ function installFetch(options?: {
       return jsonResponse(facilitiesResponse(ORG_A));
     }
     if (url.includes("/manual-vitals/measurements") && String(init?.method ?? "GET") === "GET") {
+      const context =
+        typeof options?.writeContext === "function"
+          ? options.writeContext()
+          : options?.writeContext;
       return jsonResponse(
-        options?.writeContext ?? {
+        context ?? {
           available: false,
           catalog_version: null,
           feature_version: null,
@@ -347,7 +391,11 @@ describe("manual vital write form", () => {
     const view = renderApp(APP_PATHS.clinicalChart);
     await user.click(await screen.findByRole("button", { name: /observations|observasi/i }));
     expect(await screen.findByText(/record manual vital sign/i)).toBeInTheDocument();
-    expect(await screen.findByText("beats/min")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^measurement$/i)).toHaveValue("heart_rate");
+    });
+    expect(screen.getByText("beats/min")).toBeInTheDocument();
+    expect(screen.queryByText("Cel")).not.toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByLabelText(/encounter/i).querySelectorAll("option").length).toBeGreaterThan(1);
     });
@@ -477,5 +525,125 @@ describe("manual vital write form", () => {
       expect(screen.queryByDisplayValue("77")).not.toBeInTheDocument();
     });
     view.unmount();
+  });
+
+  it("binds first-paint measurement selection to that entry's unit", async () => {
+    installFetch({
+      writeContext: {
+        available: true,
+        catalog_version: "manual-vitals-mvp-v1",
+        feature_version: "1.0.0",
+        measurements: FULL_CATALOG,
+      },
+    });
+    authenticateStaff();
+    selectPatient();
+    const user = userEvent.setup();
+    const view = renderApp(APP_PATHS.clinicalChart);
+    await user.click(await screen.findByRole("button", { name: /observations|observasi/i }));
+    expect(await screen.findByText(/record manual vital sign/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^measurement$/i)).toHaveValue("heart_rate");
+    });
+    const selectedKey = (screen.getByLabelText(/^measurement$/i) as HTMLSelectElement).value;
+    const catalogEntry = FULL_CATALOG.find((item) => item.measurement_key === selectedKey);
+    expect(catalogEntry).toEqual(FULL_CATALOG[0]);
+    expect(catalogEntry?.display_unit).toBe(CATALOG_UNITS.heart_rate);
+    expect(screen.getByText(catalogEntry!.display_unit)).toBeInTheDocument();
+    for (const other of FULL_CATALOG) {
+      if (other.measurement_key !== selectedKey) {
+        expect(screen.queryByText(other.display_unit)).not.toBeInTheDocument();
+      }
+    }
+    view.unmount();
+  });
+
+  it("updates the displayed unit from the same catalog entry when selection changes", async () => {
+    installFetch({
+      writeContext: {
+        available: true,
+        catalog_version: "manual-vitals-mvp-v1",
+        feature_version: "1.0.0",
+        measurements: FULL_CATALOG,
+      },
+    });
+    authenticateStaff();
+    selectPatient();
+    const user = userEvent.setup();
+    const view = renderApp(APP_PATHS.clinicalChart);
+    await user.click(await screen.findByRole("button", { name: /observations|observasi/i }));
+    const measurementSelect = await screen.findByLabelText(/^measurement$/i);
+    await waitFor(() => {
+      expect(measurementSelect).toHaveValue("heart_rate");
+    });
+    for (const entry of FULL_CATALOG) {
+      await user.selectOptions(measurementSelect, entry.measurement_key);
+      expect(measurementSelect).toHaveValue(entry.measurement_key);
+      expect(screen.getByText(entry.display_unit)).toBeInTheDocument();
+      for (const other of FULL_CATALOG) {
+        if (other.measurement_key !== entry.measurement_key) {
+          expect(screen.queryByText(other.display_unit)).not.toBeInTheDocument();
+        }
+      }
+    }
+    await user.selectOptions(measurementSelect, "heart_rate");
+    await user.selectOptions(measurementSelect, "body_temperature");
+    expect(measurementSelect).toHaveValue("body_temperature");
+    expect(screen.getByText("Cel")).toBeInTheDocument();
+    expect(screen.queryByText("beats/min")).not.toBeInTheDocument();
+    view.unmount();
+  });
+
+  it("drops a previous measurement and unit when the site subset no longer includes it", async () => {
+    let writeContext: Record<string, unknown> = {
+      available: true,
+      catalog_version: "manual-vitals-mvp-v1",
+      feature_version: "1.0.0",
+      measurements: [
+        FULL_CATALOG[0],
+        FULL_CATALOG[2],
+      ],
+    };
+    installFetch({
+      writeContext: () => writeContext,
+    });
+    authenticateStaff();
+    selectPatient();
+    const user = userEvent.setup();
+    const view = renderApp(APP_PATHS.clinicalChart);
+    await user.click(await screen.findByRole("button", { name: /observations|observasi/i }));
+    const measurementSelect = await screen.findByLabelText(/^measurement$/i);
+    await waitFor(() => {
+      expect(measurementSelect).toHaveValue("heart_rate");
+    });
+    await user.selectOptions(measurementSelect, "heart_rate");
+    expect(screen.getByText("beats/min")).toBeInTheDocument();
+    writeContext = {
+      available: true,
+      catalog_version: "manual-vitals-mvp-v1",
+      feature_version: "1.0.0",
+      measurements: [FULL_CATALOG[2]],
+    };
+    const queryClient = getRegisteredQueryClient();
+    await queryClient!.invalidateQueries({ queryKey: ["manual-vitals-write-context"] });
+    await waitFor(() => {
+      const select = screen.getByLabelText(/^measurement$/i);
+      expect(select).toHaveValue("body_temperature");
+      expect(screen.queryByText("beats/min")).not.toBeInTheDocument();
+      expect(screen.getByText("Cel")).toBeInTheDocument();
+      expect(
+        Array.from(select.querySelectorAll("option")).map((option) => option.getAttribute("value")),
+      ).not.toContain("heart_rate");
+    });
+    view.unmount();
+  });
+
+  it("isolates write-context cache by organization and facility", () => {
+    expect(manualVitalKeys.writeContext(ORG_A, FAC_1)).not.toEqual(
+      manualVitalKeys.writeContext(ORG_A, FAC_2),
+    );
+    expect(manualVitalKeys.writeContext(ORG_A, null)).not.toEqual(
+      manualVitalKeys.writeContext(ORG_B, null),
+    );
   });
 });

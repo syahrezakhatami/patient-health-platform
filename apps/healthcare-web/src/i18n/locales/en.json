@@ -206,6 +206,7 @@
     "encounter": "Encounter",
     "selectEncounter": "Select an encounter",
     "measurement": "Measurement",
+    "selectMeasurement": "Select a measurement",
     "value": "Value",
     "effectiveAt": "Measurement time",
     "save": "Save measurement",

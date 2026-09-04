@@ -22,6 +22,7 @@ import { hasPermission } from "../../tenant/permissions";
 import { useTenant } from "../../tenant/TenantContext";
 import { clinicalChartCoordinator } from "../clinicalChartCoordinator";
 import { clinicalQueryPolicy } from "../queryPolicy";
+import { boundMeasurement } from "./boundMeasurement";
 
 export interface EncounterOption {
   id: string;
@@ -110,7 +111,7 @@ export function ManualVitalForm({
 
   const canCreate = hasPermission(effectivePermissions, "clinical.observation.create");
   const writeContextQuery = useQuery({
-    queryKey: manualVitalKeys.writeContext(organizationId),
+    queryKey: manualVitalKeys.writeContext(organizationId, facilityId),
     queryFn: ({ signal: querySignal }) => {
       if (!clinicalChartCoordinator.isCurrent(generation)) {
         throw new DOMException("Aborted", "AbortError");
@@ -182,10 +183,7 @@ export function ManualVitalForm({
     }
   }, [measurementKey, measurements]);
 
-  const selectedMeasurement =
-    measurements.find((item) => item.measurement_key === measurementKey) ??
-    measurements[0] ??
-    null;
+  const selectedMeasurement = boundMeasurement(measurements, measurementKey);
 
   const invalidateReads = (orgId: string, patientId: string) => {
     void queryClient.invalidateQueries({
@@ -288,7 +286,7 @@ export function ManualVitalForm({
   }
 
   const submit = () => {
-    if (!encounterId || !measurementKey || !value.trim()) {
+    if (!encounterId || !selectedMeasurement || !value.trim()) {
       setErrorKey("manualVitals.validation");
       return;
     }
@@ -305,7 +303,7 @@ export function ManualVitalForm({
       organizationId,
       patientIdentityId,
       encounterId,
-      measurementKey,
+      measurementKey: selectedMeasurement.measurement_key,
       value: value.trim(),
       effectiveAt: effectiveAtIso,
       idempotencyKey: idempotencyRef.current,
@@ -329,6 +327,9 @@ export function ManualVitalForm({
       <label>
         {t("manualVitals.measurement")}
         <select value={measurementKey} onChange={(event) => setMeasurementKey(event.target.value)}>
+          {selectedMeasurement ? null : (
+            <option value="">{t("manualVitals.selectMeasurement")}</option>
+          )}
           {measurements.map((option) => (
             <option key={option.measurement_key} value={option.measurement_key}>
               {measurementLabel(option, t)}

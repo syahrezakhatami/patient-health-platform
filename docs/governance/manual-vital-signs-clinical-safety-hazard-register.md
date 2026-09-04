@@ -35,6 +35,7 @@ Human clinical-risk acceptance is **not** recorded in this document. Disposition
 | MV-H-019 | Temperature site/method misrepresentation | Wrong clinical interpretation of temperature | Generic LOINC 8310-5 without site | MVP uses generic 8310-5 + Cel only; **no** oral/axillary/tympanic/rectal capture; UI must not imply site/method | Pre-implementation contract §3.3; UI uses generic label only | **Semantic/usability limitation** — site SOP must define entry convention | **PENDING HUMAN REVIEW** |
 | MV-H-020 | Erroneous value not corrected in UI | Persistent wrong vital in chart | Correction UI deferred | Backend Observation amend/EIE exists for Wave 2B.2a; Healthcare Web exposes **create-only** Manual Vitals form | Wave 2B.2a observation amend tests (backend); no Manual Vitals correction UI | **Operational correction dependency** — site must use existing backend correction paths or SOP | **PENDING HUMAN REVIEW** |
 | MV-H-021 | BP / SpO2 attempted via product | Unsupported paired/pulse-ox semantics | Scope creep | BP and SpO2 **explicitly excluded** from provider catalog and UI | Catalog source (five entries only); design deferral docs | N/A if exclusions honored | **PENDING HUMAN REVIEW** |
+| MV-H-022 | Displayed unit does not match selected measurement | Operator enters a value using the wrong canonical unit | UI inferred unit from first catalog entry while `measurementKey` was empty or unmatched | Exact key lookup (`boundMeasurement`); no unit unless selected key matches a catalog object; POST still server-derives LOINC/UCUM | `boundMeasurement.test.ts`; first-paint / five-entry / subset UI tests | Residual: operator must still match the displayed unit once selected | **PENDING HUMAN REVIEW** |
 
 ---
 
@@ -48,6 +49,7 @@ Human clinical-risk acceptance is **not** recorded in this document. Disposition
 | MV-REG-002 | **Test defect** | Idempotency replay policy re-check — fixed in regression closure |
 | MV-REG-003 | **Test harness** | Wave 2B tests using generic `VITAL_SIGNS` after security correction — updated |
 | MV-REG-004 | **P3 test reliability** | `test_iam_shell_context_hardening::test_success_reads_do_not_audit_or_write_provenance` — one flaky full-suite occurrence; passes isolated; four subsequent full suites green |
+| MV-UI-001 | **UI semantic defect on candidate v1 → RESOLVED in v2** | Displayed unit fell back to `measurements[0]` while `measurementKey` was not authoritative. v1 tag frozen/not eligible for approval. |
 
 ---
 

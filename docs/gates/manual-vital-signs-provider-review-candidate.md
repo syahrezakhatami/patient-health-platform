@@ -4,7 +4,13 @@
 **Date:** 2026-09-04  
 **Canonical candidate tag:** `manual-vital-signs-provider-review-candidate-v1`
 
-This record identifies an **immutable engineering review candidate** for human provider clinical-safety review. It is **not** provider registration, production release, site activation, clinical approval, or a final capability freeze.
+> **SUPERSEDED FOR HUMAN REVIEW.**  
+> This tag remains immutable historical evidence at `cabfea6a63e3f27825df5f0a104a3278e1665f2b`.  
+> It must **not** receive provider clinical-safety approval.  
+> Human review must use `manual-vital-signs-provider-review-candidate-v2`.  
+> Reason: UI unit-binding defect — displayed unit could fall back to the first catalog entry while `measurementKey` was empty or unmatched.
+
+This record identifies an **immutable engineering review candidate** that was published and then found unsafe for clinical-safety sign-off. It is **not** provider registration, production release, site activation, clinical approval, or a final capability freeze.
 
 The candidate remains **production-dark**.
 

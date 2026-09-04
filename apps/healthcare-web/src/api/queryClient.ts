@@ -45,7 +45,8 @@ export const clinicalKeys = {
 };
 
 export const manualVitalKeys = {
-  writeContext: (organizationId: string) => ["manual-vitals-write-context", organizationId] as const,
+  writeContext: (organizationId: string, facilityId: string | null = null) =>
+    ["manual-vitals-write-context", organizationId, facilityId] as const,
 };
 
 export function clearManualVitalMutations(client: QueryClient): void {

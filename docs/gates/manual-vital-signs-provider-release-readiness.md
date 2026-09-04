@@ -297,7 +297,8 @@ Until human evidence records **APPROVED** or release-acceptable equivalent:
 
 | Document | Purpose |
 |----------|---------|
-| `docs/gates/manual-vital-signs-provider-review-candidate.md` | Engineering review candidate identity (`manual-vital-signs-provider-review-candidate-v1`) |
+| `docs/gates/manual-vital-signs-provider-review-candidate-v2.md` | Current engineering review candidate (`manual-vital-signs-provider-review-candidate-v2`) |
+| `docs/gates/manual-vital-signs-provider-review-candidate.md` | Historical v1 candidate — **not eligible for human approval** |
 | `docs/gates/manual-vital-signs-final-preimplementation-contract.md` | Frozen implementation contracts |
 | `docs/gates/manual-vital-signs-implementation-gate.md` | Implementation evidence |
 | `docs/gates/manual-vital-signs-implementation-regression-closure.md` | Regression closure |

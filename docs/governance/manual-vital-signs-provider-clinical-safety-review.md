@@ -4,7 +4,8 @@
 **Kind:** PROVIDER RELEASE GATE — human decision record template  
 **Feature:** `manual_vital_signs_write` @ `1.0.0`  
 **Provider catalog:** `manual-vitals-mvp-v1`  
-**Engineering review candidate tag:** `manual-vital-signs-provider-review-candidate-v1`  
+**Engineering review candidate tag:** `manual-vital-signs-provider-review-candidate-v2`  
+**Superseded candidate (not for approval):** `manual-vital-signs-provider-review-candidate-v1` @ `cabfea6a63e3f27825df5f0a104a3278e1665f2b`  
 **Implementation baseline:** `39909b44a1bad737839b9267a068d8bb0fa0b389`  
 **Alembic:** `20260814_0021`
 
@@ -84,10 +85,13 @@ Gate classification (frozen): Manual Vitals provider clinical review = **`PROVID
 | Security hardening | `docs/gates/manual-vital-signs-security-clinical-safety-hardening.md` |
 | Pre-implementation contract | `docs/gates/manual-vital-signs-final-preimplementation-contract.md` |
 
-**Targeted Manual Vitals suites (this pass):** 81 passed  
+**Targeted Manual Vitals suites (implementation pass):** 81 passed  
 **Full backend (`app_dml`):** 633 passed, 0 failed, 0 errors, 1 skipped  
-**Frontend:** 192 passed  
+**Frontend (candidate v1):** 192 passed  
+**Frontend (unit-binding v2):** 200 passed; typecheck/build PASS  
 **Quality gates:** ruff, mypy, OpenAPI, typecheck, build — PASS
+
+v1 is **not** eligible for human approval. Human review uses `manual-vital-signs-provider-review-candidate-v2` after publication.
 
 ### A.7 Resolved security findings
 
@@ -95,6 +99,7 @@ Gate classification (frozen): Manual Vitals provider clinical review = **`PROVID
 |----|---------|-------|
 | GENERIC-OBS-001 | P1 — same actor bypass via generic Observation | **RESOLVED** — 403 at `ClinicalService.create_observation()` |
 | MV-TOCTOU-001 | P1 risk — stale governance commit | **RESOLVED** — row-lock recheck |
+| MV-UI-001 | UI semantic — unit from catalog `[0]` while `measurementKey` empty | **RESOLVED in v2** — exact key lookup; v1 not eligible for approval |
 
 SECURITY COMPATIBILITY CORRECTION: public generic Observation `VITAL_SIGNS` write changed from Wave 2B.2a baseline. Historical read/amend/EIE unchanged.
 
@@ -132,7 +137,7 @@ SECURITY COMPATIBILITY CORRECTION: public generic Observation `VITAL_SIGNS` writ
 | Reviewer role / function | **PENDING** |
 | Reviewer qualification / authority evidence (org-supplied; not cryptographically verified by software) | **PENDING** |
 | Review date | **PENDING** |
-| Reviewed candidate tag | `manual-vital-signs-provider-review-candidate-v1` — **PENDING human attestation of tag used** |
+| Reviewed candidate tag | `manual-vital-signs-provider-review-candidate-v2` — **PENDING human attestation of tag used** |
 | Resolved candidate SHA | **PENDING** — reviewer records the commit the candidate tag peels to |
 | Reviewed feature ID | `manual_vital_signs_write` |
 | Reviewed feature version | `1.0.0` |
