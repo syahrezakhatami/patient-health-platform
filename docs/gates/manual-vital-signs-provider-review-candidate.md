@@ -1,13 +1,13 @@
 # Manual Vital Signs — Provider Review Candidate
 
-**Kind:** ENGINEERING REVIEW CANDIDATE RECORD  
-**Date:** 2026-09-04  
+**Kind:** ENGINEERING REVIEW CANDIDATE RECORD
+**Date:** 2026-09-04
 **Canonical candidate tag:** `manual-vital-signs-provider-review-candidate-v1`
 
-> **SUPERSEDED FOR HUMAN REVIEW.**  
-> This tag remains immutable historical evidence at `cabfea6a63e3f27825df5f0a104a3278e1665f2b`.  
-> It must **not** receive provider clinical-safety approval.  
-> Human review must use `manual-vital-signs-provider-review-candidate-v2`.  
+> **SUPERSEDED FOR HUMAN REVIEW.**
+> This tag remains immutable historical evidence at `cabfea6a63e3f27825df5f0a104a3278e1665f2b`.
+> It must **not** receive provider clinical-safety approval.
+> Human review must use `manual-vital-signs-provider-review-candidate-v2`.
 > Reason: UI unit-binding defect — displayed unit could fall back to the first catalog entry while `measurementKey` was empty or unmatched.
 
 This record identifies an **immutable engineering review candidate** that was published and then found unsafe for clinical-safety sign-off. It is **not** provider registration, production release, site activation, clinical approval, or a final capability freeze.
@@ -174,21 +174,32 @@ Key residual risks:
 | Document | Role |
 |----------|------|
 | `docs/governance/manual-vital-signs-provider-clinical-safety-review.md` | Human decision template — **PENDING** |
+| `docs/governance/manual-vital-signs-provider-clinical-review-handoff-v2.md` | Current human-review entry point (Candidate v2) |
 | `docs/governance/manual-vital-signs-clinical-safety-hazard-register.md` | Hazard / control / evidence register |
 | `docs/gates/manual-vital-signs-provider-release-readiness.md` | Technical release evidence package |
 
-The reviewer must record the candidate tag `manual-vital-signs-provider-review-candidate-v1` and the resolved candidate SHA from that tag. Engineering must **not** fill human identity, credentials, dates, or approval outcome.
+This v1 record is **historical only**. A current human reviewer must **not** record or approve this tag.
+
+Human review must use:
+
+- candidate tag: `manual-vital-signs-provider-review-candidate-v2`
+- candidate SHA: `0d1882d287df3108a797fe6957fb21761ce80cdd`
+- entry point: `docs/governance/manual-vital-signs-provider-clinical-review-handoff-v2.md`
+
+Engineering must **not** fill human identity, credentials, dates, or approval outcome.
 
 ---
 
 ## Distinct verdicts (do not collapse)
 
 ```
-ENGINEERING REVIEW CANDIDATE = PUBLISHED
+ENGINEERING REVIEW CANDIDATE V1 = SUPERSEDED / NOT ELIGIBLE FOR HUMAN APPROVAL
+
+ENGINEERING REVIEW CANDIDATE V2 = PUBLISHED / VALID FOR HUMAN REVIEW
 
 PROVIDER CLINICAL SAFETY REVIEW = PENDING HUMAN SIGN-OFF
 
 PROVIDER PRODUCTION REGISTRATION = BLOCKED
 ```
 
-Do **not** call this candidate production-ready, clinically approved, provider-approved, site-approved, or a final frozen release.
+Do **not** call v1 production-ready, clinically approved, provider-approved, site-approved, or a final frozen release.

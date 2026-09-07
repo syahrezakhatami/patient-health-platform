@@ -1,9 +1,11 @@
 # Manual Vital Signs — Provider Clinical-Safety Hazard Register
 
-**Date:** 2026-08-30  
-**Kind:** PROVIDER CLINICAL-SAFETY HAZARD REGISTER — engineering evidence  
-**Implementation baseline:** `39909b44a1bad737839b9267a068d8bb0fa0b389` (uncommitted working tree)  
-**Provider catalog:** `manual-vitals-mvp-v1`  
+**Date:** 2026-08-30
+**Kind:** PROVIDER CLINICAL-SAFETY HAZARD REGISTER — engineering evidence
+**Implementation baseline:** `39909b44a1bad737839b9267a068d8bb0fa0b389` (uncommitted working tree at original register creation)
+**Current human-review candidate:** `manual-vital-signs-provider-review-candidate-v2` @ `0d1882d287df3108a797fe6957fb21761ce80cdd`
+**Superseded candidate (not for approval):** `manual-vital-signs-provider-review-candidate-v1` @ `cabfea6a63e3f27825df5f0a104a3278e1665f2b`
+**Provider catalog:** `manual-vitals-mvp-v1`
 **Planned capability:** `manual_vital_signs_write` @ `1.0.0` (not registered)
 
 Human clinical-risk acceptance is **not** recorded in this document. Disposition column values are engineering verification status only unless a separate signed human review record exists.

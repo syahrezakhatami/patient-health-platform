@@ -1,7 +1,7 @@
 # Manual Vital Signs — Provider Review Candidate v2
 
-**Kind:** ENGINEERING REVIEW CANDIDATE RECORD  
-**Date:** 2026-09-04  
+**Kind:** ENGINEERING REVIEW CANDIDATE RECORD
+**Date:** 2026-09-04
 **Canonical candidate tag:** `manual-vital-signs-provider-review-candidate-v2`
 
 This candidate supersedes `manual-vital-signs-provider-review-candidate-v1` (`cabfea6a63e3f27825df5f0a104a3278e1665f2b`) for human provider clinical-safety review.
@@ -10,7 +10,9 @@ v1 remains an immutable historical tag. It must **not** receive provider clinica
 
 This is **not** provider registration, production release, site activation, or clinical approval. The candidate remains **production-dark**.
 
-Resolved candidate SHA is the commit this tag peels to after publication.
+Resolved candidate SHA (engineering-locked after publication): `0d1882d287df3108a797fe6957fb21761ce80cdd`.
+
+Later documentation-only commits on `main` must **not** move this tag and are **not** part of the reviewed candidate tree. Human review of code/behavior uses this SHA.
 
 ---
 
@@ -52,7 +54,7 @@ v2 binds unit only by exact key lookup. No selected key → no unit. Submit uses
 | Parent / source baseline | `39909b44a1bad737839b9267a068d8bb0fa0b389` |
 | Superseded candidate | `manual-vital-signs-provider-review-candidate-v1` @ `cabfea6a63e3f27825df5f0a104a3278e1665f2b` |
 | Candidate tag | `manual-vital-signs-provider-review-candidate-v2` |
-| Resolved candidate SHA | **from tag after publication** |
+| Resolved candidate SHA | `0d1882d287df3108a797fe6957fb21761ce80cdd` |
 | Alembic | `20260814_0021` (no 0022) |
 | Planned feature ID | `manual_vital_signs_write` |
 | Planned feature version | `1.0.0` |
@@ -67,14 +69,18 @@ v2 binds unit only by exact key lookup. No selected key → no unit. Submit uses
 Reviewer must record:
 
 - candidate tag: `manual-vital-signs-provider-review-candidate-v2`
-- resolved SHA from that tag
+- candidate SHA: `0d1882d287df3108a797fe6957fb21761ce80cdd`
 - feature: `manual_vital_signs_write` @ `1.0.0`
 - catalog: `manual-vitals-mvp-v1`
 - Alembic: `20260814_0021`
 
 Human decision fields remain **PENDING**. Do not invent approval.
 
-See:
+Human-review entry point:
+
+- `docs/governance/manual-vital-signs-provider-clinical-review-handoff-v2.md`
+
+Also see:
 
 - `docs/governance/manual-vital-signs-provider-clinical-safety-review.md`
 - `docs/governance/manual-vital-signs-clinical-safety-hazard-register.md`
@@ -87,7 +93,7 @@ See:
 ```
 ENGINEERING REVIEW CANDIDATE V1 = HISTORICAL / NOT ELIGIBLE FOR HUMAN APPROVAL
 
-ENGINEERING REVIEW CANDIDATE V2 = PUBLISHED
+ENGINEERING REVIEW CANDIDATE V2 = PUBLISHED / VALID FOR HUMAN REVIEW
 
 PROVIDER CLINICAL SAFETY REVIEW = PENDING HUMAN SIGN-OFF
 

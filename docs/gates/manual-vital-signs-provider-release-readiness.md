@@ -1,10 +1,12 @@
 # Manual Vital Signs — Provider Release Readiness
 
-**Date:** 2026-08-30  
-**Kind:** PROVIDER RELEASE EVIDENCE PACKAGE  
-**Implementation baseline:** `39909b44a1bad737839b9267a068d8bb0fa0b389` (uncommitted working tree)  
-**Alembic:** `current == heads == 20260814_0021` (down `20260814_0020`, exactly one head)  
+**Date:** 2026-08-30
+**Kind:** PROVIDER RELEASE EVIDENCE PACKAGE
+**Implementation baseline:** `39909b44a1bad737839b9267a068d8bb0fa0b389` (uncommitted working tree at original evidence package)
+**Alembic:** `current == heads == 20260814_0021` (down `20260814_0020`, exactly one head)
 **Migration 0022:** NOT CREATED
+**Human-review candidate:** `manual-vital-signs-provider-review-candidate-v2` @ `0d1882d287df3108a797fe6957fb21761ce80cdd`
+**Human-review entry point:** `docs/governance/manual-vital-signs-provider-clinical-review-handoff-v2.md`
 
 ---
 
@@ -40,6 +42,8 @@ No genuine human clinical-safety approval evidence exists in the repository. Eng
 |-------|-------|
 | Capability (planned) | `manual_vital_signs_write` |
 | Feature version (planned) | `1.0.0` |
+| Human-review candidate tag | `manual-vital-signs-provider-review-candidate-v2` |
+| Human-review candidate SHA | `0d1882d287df3108a797fe6957fb21761ce80cdd` |
 | `governance_required` | `true` |
 | Provider catalog version | `manual-vitals-mvp-v1` |
 | Production registry | **EMPTY** |
@@ -269,8 +273,10 @@ Prior note: one flaky `test_iam_shell_context_hardening::test_success_reads_do_n
 
 ## 16. Human review requirement
 
-Minimum sign-off fields defined in:  
-`docs/governance/manual-vital-signs-provider-clinical-safety-review.md` Part B.
+Minimum sign-off fields and reviewer questions are defined in:
+
+- `docs/governance/manual-vital-signs-provider-clinical-review-handoff-v2.md`
+- `docs/governance/manual-vital-signs-provider-clinical-safety-review.md` Part B.
 
 Until human evidence records **APPROVED** or release-acceptable equivalent:
 
@@ -297,6 +303,7 @@ Until human evidence records **APPROVED** or release-acceptable equivalent:
 
 | Document | Purpose |
 |----------|---------|
+| `docs/governance/manual-vital-signs-provider-clinical-review-handoff-v2.md` | **Current human-review entry point** (Candidate v2) |
 | `docs/gates/manual-vital-signs-provider-review-candidate-v2.md` | Current engineering review candidate (`manual-vital-signs-provider-review-candidate-v2`) |
 | `docs/gates/manual-vital-signs-provider-review-candidate.md` | Historical v1 candidate — **not eligible for human approval** |
 | `docs/gates/manual-vital-signs-final-preimplementation-contract.md` | Frozen implementation contracts |

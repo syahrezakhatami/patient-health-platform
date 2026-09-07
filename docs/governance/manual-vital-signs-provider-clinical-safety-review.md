@@ -1,13 +1,15 @@
 # Manual Vital Signs — Provider Clinical Safety Review
 
-**Date:** 2026-08-30 (candidate binding 2026-09-04)  
-**Kind:** PROVIDER RELEASE GATE — human decision record template  
-**Feature:** `manual_vital_signs_write` @ `1.0.0`  
-**Provider catalog:** `manual-vitals-mvp-v1`  
-**Engineering review candidate tag:** `manual-vital-signs-provider-review-candidate-v2`  
-**Superseded candidate (not for approval):** `manual-vital-signs-provider-review-candidate-v1` @ `cabfea6a63e3f27825df5f0a104a3278e1665f2b`  
-**Implementation baseline:** `39909b44a1bad737839b9267a068d8bb0fa0b389`  
+**Date:** 2026-08-30 (candidate binding 2026-09-04; handoff lock 2026-09-08)
+**Kind:** PROVIDER RELEASE GATE — human decision record template
+**Feature:** `manual_vital_signs_write` @ `1.0.0`
+**Provider catalog:** `manual-vitals-mvp-v1`
+**Engineering review candidate tag:** `manual-vital-signs-provider-review-candidate-v2`
+**Engineering-locked candidate SHA:** `0d1882d287df3108a797fe6957fb21761ce80cdd`
+**Superseded candidate (not for approval):** `manual-vital-signs-provider-review-candidate-v1` @ `cabfea6a63e3f27825df5f0a104a3278e1665f2b`
+**Implementation baseline:** `39909b44a1bad737839b9267a068d8bb0fa0b389`
 **Alembic:** `20260814_0021`
+**Human-review entry point:** `docs/governance/manual-vital-signs-provider-clinical-review-handoff-v2.md`
 
 This document separates **engineering evidence** (prepared by implementation/review pass) from **human clinical review decision** (requires genuine attributable sign-off).
 
@@ -85,13 +87,13 @@ Gate classification (frozen): Manual Vitals provider clinical review = **`PROVID
 | Security hardening | `docs/gates/manual-vital-signs-security-clinical-safety-hardening.md` |
 | Pre-implementation contract | `docs/gates/manual-vital-signs-final-preimplementation-contract.md` |
 
-**Targeted Manual Vitals suites (implementation pass):** 81 passed  
-**Full backend (`app_dml`):** 633 passed, 0 failed, 0 errors, 1 skipped  
-**Frontend (candidate v1):** 192 passed  
-**Frontend (unit-binding v2):** 200 passed; typecheck/build PASS  
+**Targeted Manual Vitals suites (implementation pass):** 81 passed
+**Full backend (`app_dml`):** 633 passed, 0 failed, 0 errors, 1 skipped
+**Frontend (candidate v1):** 192 passed
+**Frontend (unit-binding v2):** 200 passed; typecheck/build PASS
 **Quality gates:** ruff, mypy, OpenAPI, typecheck, build — PASS
 
-v1 is **not** eligible for human approval. Human review uses `manual-vital-signs-provider-review-candidate-v2` after publication.
+v1 is **not** eligible for human approval. Human review uses `manual-vital-signs-provider-review-candidate-v2` @ `0d1882d287df3108a797fe6957fb21761ce80cdd`. Entry point: `docs/governance/manual-vital-signs-provider-clinical-review-handoff-v2.md`.
 
 ### A.7 Resolved security findings
 
@@ -125,8 +127,21 @@ SECURITY COMPATIBILITY CORRECTION: public generic Observation `VITAL_SIGNS` writ
 
 ## Part B — Human clinical review decision (PENDING)
 
-> **Do not complete this section without genuine human evidence.**  
+> **Do not complete this section without genuine human evidence.**
 > Cursor / engineering pass must not invent reviewer identity, credentials, dates, or approval.
+
+### B.0 Questions the reviewer must evaluate (do not pre-answer)
+
+**A.** Is the intended-use statement clinically acceptable?
+**B.** Are the exact five measurements acceptable for this provider release?
+**C.** Are the canonical units appropriate for intended manual entry?
+**D.** Is generic `body_temperature` without measurement site/method acceptable for this MVP?
+**E.** Is the absence of normal-range interpretation acceptable given the product is recording-only?
+**F.** Is deferred Healthcare Web correction UI acceptable for provider release, or must a correction workflow be a pre-registration condition?
+**G.** Are the patient / Encounter / facility safety controls acceptable?
+**H.** Are the provider / site governance gates acceptable?
+**I.** Are the documented residual risks acceptable?
+**J.** Are any additional pre-registration conditions required?
 
 ### B.1 Minimum evidence fields (required at sign-off)
 
@@ -138,7 +153,7 @@ SECURITY COMPATIBILITY CORRECTION: public generic Observation `VITAL_SIGNS` writ
 | Reviewer qualification / authority evidence (org-supplied; not cryptographically verified by software) | **PENDING** |
 | Review date | **PENDING** |
 | Reviewed candidate tag | `manual-vital-signs-provider-review-candidate-v2` — **PENDING human attestation of tag used** |
-| Resolved candidate SHA | **PENDING** — reviewer records the commit the candidate tag peels to |
+| Resolved candidate SHA | Engineering lock: `0d1882d287df3108a797fe6957fb21761ce80cdd` — **PENDING human attestation that this SHA was reviewed** |
 | Reviewed feature ID | `manual_vital_signs_write` |
 | Reviewed feature version | `1.0.0` |
 | Reviewed provider catalog version | `manual-vitals-mvp-v1` |
